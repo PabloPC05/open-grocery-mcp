@@ -7,6 +7,10 @@ import os
 from typing import Any
 
 
+def _env_enabled(name: str) -> bool:
+    return os.getenv(name, "").casefold() in {"1", "true", "yes", "on"}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="open-grocery-mcp",
@@ -29,11 +33,28 @@ def build_parser() -> argparse.ArgumentParser:
         default=int(os.getenv("OPEN_GROCERY_PORT", "8000")),
         help="HTTP port (default: 8000)",
     )
+    parser.add_argument(
+        "--allow-retailer-writes",
+        action="store_true",
+        default=_env_enabled("OPEN_GROCERY_ENABLE_RETAILER_WRITES"),
+        help="allow confirmation-gated changes to authenticated retailer state",
+    )
+    parser.add_argument(
+        "--allow-order-submission",
+        action="store_true",
+        default=_env_enabled("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION"),
+        help="allow the final confirmation-gated order submission endpoint",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.allow_retailer_writes:
+        os.environ["OPEN_GROCERY_ENABLE_RETAILER_WRITES"] = "1"
+    if args.allow_order_submission:
+        os.environ["OPEN_GROCERY_ENABLE_ORDER_SUBMISSION"] = "1"
+
     from open_grocery_mcp.server import mcp
 
     if args.transport == "stdio":

@@ -11,7 +11,7 @@ from open_grocery_mcp.providers import (
     FroizProvider,
     GadisProvider,
     GroceryProvider,
-    MercadonaProvider,
+    MercadonaFullProvider,
 )
 
 ProviderFactory = Callable[[], GroceryProvider]
@@ -24,7 +24,7 @@ class ProviderRegistry:
         self._factories = factories if factories is not None else {
             "froiz": FroizProvider,
             "gadis": GadisProvider,
-            "mercadona": MercadonaProvider,
+            "mercadona": MercadonaFullProvider,
         }
         self._instances: dict[str, GroceryProvider] = {}
         self._lock = threading.Lock()

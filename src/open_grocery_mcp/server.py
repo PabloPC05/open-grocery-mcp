@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 try:  # Current official SDK.
@@ -10,17 +11,23 @@ except ImportError:  # Compatibility with stable 1.x releases.
     from mcp.server.fastmcp import FastMCP as MCPServer
 
 from open_grocery_mcp import __version__
+from open_grocery_mcp.authenticated_tools import register_authenticated_tools
 from open_grocery_mcp.comparison import compare_baskets, parse_basket, price_basket
+from open_grocery_mcp.confirmations import ConfirmationStore
 from open_grocery_mcp.drafts import DraftCartStore
 from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.registry import default_registry
+from open_grocery_mcp.workflows import RetailerWorkflowService
 
 _INSTRUCTIONS = """
-Open Grocery provides read-only supermarket catalogue search, normalized price
-comparison and local cart drafts. It does not log in, mutate a retailer cart,
-submit checkout, place an order or authorize a payment. Treat product matching
-as approximate: show low-confidence matches and remind the user that shipping,
-minimum-order rules and account-specific promotions are excluded.
+Open Grocery provides supermarket catalogue search, normalized price comparison,
+local cart drafts and optional authenticated retailer operations. Every retailer
+write is two-phase: call a prepare tool, show its complete summary to the user,
+and call the corresponding commit tool only after the user explicitly provides
+the exact confirmation phrase. Never infer confirmation. Order submission is
+disabled by default and must remain a separate final action. Product matching is
+approximate; surface low-confidence matches and excluded delivery/promotional
+costs before asking for approval.
 """.strip()
 
 
@@ -29,29 +36,50 @@ def _new_server() -> Any:
         return MCPServer(
             name="open-grocery-mcp",
             title="Open Grocery MCP",
-            description="Compare supermarket catalogues and prepare reviewable cart drafts.",
+            description="Compare supermarkets and safely prepare or execute grocery carts.",
             instructions=_INSTRUCTIONS,
             version=__version__,
         )
     except TypeError:
-        # Older FastMCP constructors accept only a subset of this metadata.
         return MCPServer("Open Grocery MCP", instructions=_INSTRUCTIONS)
 
 
 mcp = _new_server()
 _registry = default_registry()
 _drafts = DraftCartStore()
+_confirmations = ConfirmationStore(ttl_seconds=300)
+_workflows = RetailerWorkflowService(_registry, _drafts, _confirmations)
+
+
+def _enabled(name: str) -> bool:
+    return os.getenv(name, "").casefold() in {"1", "true", "yes", "on"}
+
+
+def _retailer_writes_enabled() -> bool:
+    return _enabled("OPEN_GROCERY_ENABLE_RETAILER_WRITES")
+
+
+def _order_submission_enabled() -> bool:
+    return _enabled("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION")
 
 
 @mcp.tool()
 def health() -> dict[str, Any]:
-    """Return server version, safety mode and the currently registered stores."""
+    """Return server version, safety mode and registered stores."""
 
+    order_enabled = _order_submission_enabled()
+    writes_enabled = _retailer_writes_enabled()
     return {
         "name": "open-grocery-mcp",
         "version": __version__,
-        "mode": "read_only_catalogue_and_local_drafts",
-        "can_place_orders": False,
+        "mode": "catalogue_comparison_and_two_phase_retailer_actions",
+        "retailer_writes_enabled": writes_enabled,
+        "order_submission_enabled": order_enabled,
+        "can_place_orders": writes_enabled and order_enabled,
+        "order_approval_code_configured": len(
+            os.getenv("OPEN_GROCERY_ORDER_APPROVAL_CODE", "")
+        ) >= 6,
+        "confirmation_ttl_seconds": 300,
         "stores": list(_registry.keys()),
     }
 
@@ -71,11 +99,7 @@ def search_products(
     postal_code: str | None = None,
     eco: bool = False,
 ) -> dict[str, Any]:
-    """Search one supermarket catalogue.
-
-    ``postal_code`` is required for stores whose assortment and prices depend on
-    delivery location, notably Mercadona. This tool never adds products to a cart.
-    """
+    """Search one supermarket catalogue without changing a cart."""
 
     if not query.strip():
         raise InvalidRequest("query cannot be empty")
@@ -103,7 +127,7 @@ def get_product(
     product_id: str,
     postal_code: str | None = None,
 ) -> dict[str, Any]:
-    """Get normalized product detail by the retailer's product identifier."""
+    """Get normalized product detail by retailer product identifier."""
 
     if not product_id.strip():
         raise InvalidRequest("product_id cannot be empty")
@@ -117,7 +141,7 @@ def list_categories(
     depth: int = 1,
     postal_code: str | None = None,
 ) -> dict[str, Any]:
-    """Return a supermarket's category tree to the requested depth."""
+    """Return a supermarket category tree."""
 
     if depth < 1 or depth > 5:
         raise InvalidRequest("depth must be between 1 and 5")
@@ -139,13 +163,7 @@ def compare_basket(
     search_limit: int = 10,
     eco: bool = False,
 ) -> dict[str, Any]:
-    """Compare the same shopping list across stores.
-
-    Each item can be a string or an object such as
-    ``{"query": "leche entera 1 L", "quantity": 2}``. Results are normalized
-    matches, not guaranteed identical SKUs. Shipping and personalized discounts
-    are excluded.
-    """
+    """Compare one shopping list across stores using normalized product matches."""
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
@@ -167,11 +185,7 @@ def prepare_cart(
     search_limit: int = 10,
     eco: bool = False,
 ) -> dict[str, Any]:
-    """Prepare a local, reviewable cart draft for one store.
-
-    This resolves product IDs and estimates the subtotal. It does **not** modify
-    the retailer's website, submit checkout or place an order.
-    """
+    """Create a local cart draft; this does not touch the retailer."""
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
@@ -201,3 +215,5 @@ def delete_cart_draft(draft_id: str) -> dict[str, Any]:
     """Delete a local cart draft. No retailer cart is affected."""
 
     return _drafts.delete(draft_id)
+
+register_authenticated_tools(mcp, _workflows)

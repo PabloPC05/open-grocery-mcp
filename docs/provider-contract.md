@@ -1,8 +1,10 @@
 # Provider contract
 
-`GroceryProvider` is intentionally a read-only catalogue interface.
+The provider model separates public catalogue reads from authenticated writes.
 
-## Required
+## Catalogue contract
+
+Every store implements `GroceryProvider.search`:
 
 ```python
 def search(
@@ -15,32 +17,55 @@ def search(
     ...
 ```
 
-A provider must return normalized `Product` objects and must not silently use a
-location that could materially change prices. Raise `LocationRequired` when a
-postal code or explicit store/warehouse is necessary.
+`product()` and `categories()` are optional. A provider must:
 
-## Optional
+1. Return normalized `Product` objects.
+2. Keep money as `Decimal` internally.
+3. Resolve location before claiming location-dependent prices.
+4. Declare only capabilities that are implemented.
+5. Accept an injected HTTP client so tests can avoid live calls.
+6. Raise domain errors for failed retailer requests.
+7. Avoid returning credentials or unredacted personal data.
 
-- `product(product_id, postal_code=...)`
-- `categories(depth=..., postal_code=...)`
+## Optional authenticated contracts
 
-The base implementation raises `UnsupportedOperation`, so callers can distinguish
-"not implemented" from an empty catalogue.
+A store may separately implement:
 
-## Capability separation
+### `AuthenticatedCartProvider`
 
-Future interfaces will be independent:
+- account status;
+- browser-session import/login;
+- real-cart read;
+- cart-update preview;
+- confirmed cart commit.
 
-- `CartProvider`: login/session and cart mutation.
-- `DeliveryProvider`: addresses, slots and substitution preferences.
-- `CheckoutPreviewProvider`: final totals before confirmation.
-- `OrderProvider`: explicit order submission, disabled by default.
+### `DeliveryProvider`
 
-A catalogue provider must never be treated as an order provider through duck
-typing. Each capability must be deliberately registered and tested.
+- redacted saved addresses;
+- current delivery slots.
 
-## Testing
+### `CheckoutProvider`
 
-Use `httpx.MockTransport` or recorded responses stripped of personal data. Tests
-must cover HTTP errors, malformed JSON, missing location and product-unit
-normalization. Live tests should be optional and must never submit an order.
+- checkout preview;
+- checkout creation;
+- checkout read;
+- delivery selection;
+- gated order submission.
+
+The MCP checks these protocols at runtime. Unsupported stores fail explicitly.
+
+## Write requirements
+
+A provider commit must not accept raw search terms. It receives a reviewed plan
+containing exact retailer product IDs and quantities. It must:
+
+- enforce a hard total cap;
+- detect concurrent cart changes where possible;
+- verify the remote result after a write;
+- fail closed when the total cannot be verified;
+- never combine checkout creation and order submission;
+- never automate bank authentication;
+- include fixture-based tests for all request/response shapes.
+
+Authenticated endpoints must first be observed in the user's own legitimate web
+session. Never commit captured tokens, cookies, addresses or payment traffic.

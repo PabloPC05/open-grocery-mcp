@@ -1,36 +1,147 @@
 # Open Grocery MCP
 
-Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para consultar supermercados mediante una interfaz común, comparar una misma cesta y preparar borradores revisables antes de tocar una tienda real.
+Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y, cuando existe una integración autenticada verificada, preparar el carrito, la entrega y el checkout con límites de gasto y confirmaciones explícitas.
 
-> **Estado: alpha (`0.1.0`).** La versión inicial es deliberadamente de solo lectura frente a los supermercados. No inicia sesión, no modifica carritos reales, no confirma pedidos y no procesa pagos.
+> **Alpha `0.2.0`.** Gadis y Froiz ofrecen catálogo/comparación. Mercadona añade sesión local, carrito real, direcciones, franjas y checkout. El envío definitivo del pedido está implementado como función experimental, apagada por defecto, y todavía no se ha validado realizando una compra real desde este repositorio.
 
-## Qué funciona ahora
+## Estado actual
 
-- Catálogo de **Gadis**: búsqueda, detalle y categorías.
-- Catálogo de **Froiz**: búsqueda mediante el índice de su tienda online.
-- Catálogo de **Mercadona**: búsqueda, detalle y categorías con almacén resuelto desde el código postal.
-- Comparación de una cesta entre supermercados con precios normalizados.
-- Coincidencia explicable entre la petición y los productos encontrados.
-- Cantidades, límites máximos por unidad y artículos opcionales.
-- Borradores de carrito locales con caducidad y confirmación humana obligatoria.
-- Transporte MCP local por `stdio` y remoto por Streamable HTTP.
-- Arquitectura de proveedores extensible para añadir nuevas cadenas sin cambiar las herramientas MCP.
+| Supermercado | Catálogo | Comparar | Carrito real | Entrega/checkout | Pedido final |
+|---|---:|---:|---:|---:|---:|
+| Gadis | Sí | Sí | Pendiente | Pendiente | No |
+| Froiz | Sí | Sí | Pendiente | Pendiente | No |
+| Mercadona | Sí | Sí | Sí | Sí | Experimental |
 
-## Herramientas MCP
+No se anuncian capacidades autenticadas de Gadis o Froiz hasta observar y probar sus peticiones con una sesión legítima del usuario. No basta con adivinar rutas a partir de la interfaz.
 
-| Herramienta | Función | Escribe en la tienda |
-|---|---|---:|
-| `health` | Estado, versión y modo de seguridad | No |
-| `stores` | Tiendas, idiomas, capacidades y requisitos de ubicación | No |
-| `search_products` | Busca productos en una tienda | No |
-| `get_product` | Obtiene el detalle de un producto | No |
-| `list_categories` | Devuelve el árbol de categorías | No |
-| `compare_basket` | Compara una cesta entre varias tiendas | No |
-| `prepare_cart` | Crea un borrador local con IDs y subtotal | No |
-| `get_cart_draft` | Recupera un borrador local | No |
-| `delete_cart_draft` | Elimina un borrador local | No |
+## Herramientas
 
-Ejemplo de cesta:
+Catálogo y comparación:
+
+- `health`, `stores`
+- `search_products`, `get_product`, `list_categories`
+- `compare_basket`
+- `prepare_cart`, `get_cart_draft`, `delete_cart_draft`
+
+Mercadona autenticado:
+
+- `account_status`, `login_with_browser`, `import_browser_session`
+- `get_real_cart`
+- `prepare_real_cart_update`, `prepare_clear_real_cart`, `commit_real_cart_update`
+- `list_delivery_addresses`, `get_delivery_slots`
+- `prepare_checkout_creation`, `commit_checkout_creation`, `get_checkout`
+- `prepare_delivery_selection`, `commit_delivery_selection`
+- `prepare_order_submission`, `submit_order`
+
+Las herramientas `prepare_*` no escriben en la tienda. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige esa frase, consume el identificador una sola vez y vuelve a verificar el estado remoto.
+
+## Protecciones de compra
+
+- Los cambios autenticados están deshabilitados salvo que se active `OPEN_GROCERY_ENABLE_RETAILER_WRITES=1`.
+- El carrito usa la versión revisada para detectar cambios concurrentes.
+- Tras escribir, se espera hasta que las líneas remotas coincidan con el plan aprobado.
+- El total se vuelve a leer. Si supera el máximo, se intenta restaurar el carrito anterior.
+- Direcciones, franjas y total se revisan de nuevo antes del pedido.
+- El envío final requiere además `OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1` y un código local independiente de al menos seis caracteres.
+- No se aceptan contraseñas, cookies o tokens como parámetros MCP.
+- No se automatiza una autenticación bancaria o desafío de la tienda.
+
+Ejemplo de frase para cambiar el carrito:
+
+```text
+CONFIRMAR CARRITO 52.38 EUR
+```
+
+Ejemplo de frase irreversible:
+
+```text
+COMPRAR 52.38 EUR
+```
+
+## Instalación
+
+Requiere Python 3.11 o posterior.
+
+```bash
+git clone https://github.com/PabloPC05/open-grocery-mcp.git
+cd open-grocery-mcp
+git switch feat/initial-mcp
+python -m venv .venv
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+python -m pip install -e ".[dev,browser]"
+pytest
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev,browser]"
+pytest
+```
+
+El extra `browser` instala Playwright para abrir una ventana visible de Chrome. El usuario escribe sus credenciales directamente en Mercadona; el MCP solo conserva el `storage_state.json` resultante en:
+
+```text
+~/.open-grocery-mcp/mercadona/storage_state.json
+```
+
+Ese archivo contiene una sesión sensible. No debe subirse a Git ni compartirse.
+
+## Ejecución
+
+Solo catálogo y borradores locales:
+
+```bash
+open-grocery-mcp
+```
+
+Permitir cambios confirmados de carrito/checkout:
+
+```bash
+open-grocery-mcp --allow-retailer-writes
+```
+
+Permitir también el endpoint final, únicamente en la máquina del propietario:
+
+```bash
+export OPEN_GROCERY_ORDER_APPROVAL_CODE='un-codigo-local-largo'
+open-grocery-mcp --allow-retailer-writes --allow-order-submission
+```
+
+Configuración genérica de cliente MCP:
+
+```json
+{
+  "mcpServers": {
+    "open-grocery": {
+      "command": "/ruta/al/entorno/bin/open-grocery-mcp",
+      "env": {
+        "OPEN_GROCERY_ENABLE_RETAILER_WRITES": "1"
+      }
+    }
+  }
+}
+```
+
+## Flujo recomendado
+
+1. `compare_basket` compara la lista entre las tiendas disponibles.
+2. `prepare_cart` guarda un borrador local del supermercado elegido.
+3. `login_with_browser` abre Chrome para iniciar sesión.
+4. `get_real_cart` obtiene la versión y el total actuales.
+5. `prepare_real_cart_update` genera el plan y la frase; el usuario lo revisa.
+6. `commit_real_cart_update` aplica exactamente ese plan.
+7. Se consultan direcciones y franjas.
+8. Checkout y entrega siguen el mismo patrón preparar → confirmar → aplicar.
+9. El pedido final se prepara por separado y permanece desactivado salvo triple aprobación.
+
+## Comparación de cesta
 
 ```json
 {
@@ -44,136 +155,30 @@ Ejemplo de cesta:
 }
 ```
 
-La comparación excluye, hasta que cada proveedor lo implemente de forma verificable, gastos de envío, pedido mínimo, cupones personales, descuentos de fidelización y sustituciones del checkout.
+La comparación normaliza precio por kg, litro o unidad cuando la tienda lo facilita. Los resultados pueden no ser SKU idénticos y deben revisarse. Gastos de envío, pedido mínimo, cupones personales y sustituciones solo se incluyen cuando el proveedor los expone de forma verificable.
 
-## Instalación para desarrollo
-
-Requiere Python 3.11 o posterior.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-python -m pip install -e ".[dev]"
-pytest
-```
-
-Con `uv`:
-
-```bash
-uv sync --extra dev
-uv run pytest
-uv run open-grocery-mcp
-```
-
-## Uso local por `stdio`
-
-El comando predeterminado ejecuta el servidor por entrada/salida estándar:
-
-```bash
-open-grocery-mcp
-```
-
-Configuración genérica de un cliente MCP:
-
-```json
-{
-  "mcpServers": {
-    "open-grocery": {
-      "command": "/ruta/al/entorno/bin/open-grocery-mcp"
-    }
-  }
-}
-```
-
-También puede ejecutarse desde el código fuente:
-
-```json
-{
-  "mcpServers": {
-    "open-grocery": {
-      "command": "python",
-      "args": ["-m", "open_grocery_mcp"]
-    }
-  }
-}
-```
-
-## Uso por HTTP
+## Transporte HTTP
 
 ```bash
 open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-El endpoint MCP se publica en `/mcp`. El valor predeterminado escucha únicamente en `127.0.0.1`.
+El endpoint es `/mcp`. No lo expongas directamente a Internet: esta alpha no incorpora identidad multiusuario ni aislamiento de sesiones. Usa un proceso por usuario, una red privada o un proxy autenticado con TLS y límites de uso.
 
-**No expongas la modalidad HTTP directamente a Internet.** Esta primera versión no incorpora autenticación de servidor. Para acceso remoto utiliza una red privada como Tailscale o un proxy inverso con TLS, autenticación, límites de uso y registro de auditoría.
-
-## Configuración por variables de entorno
-
-| Variable | Uso |
-|---|---|
-| `OPEN_GROCERY_TRANSPORT` | `stdio` o `streamable-http` |
-| `OPEN_GROCERY_HOST` | Host HTTP; por defecto `127.0.0.1` |
-| `OPEN_GROCERY_PORT` | Puerto HTTP; por defecto `8000` |
-| `OPEN_GROCERY_GADIS_STORE` | Fuerza el identificador de surtido de Gadis |
-| `OPEN_GROCERY_FROIZ_INSTANCE` | Sobrescribe la instancia pública de búsqueda de Froiz |
-| `OPEN_GROCERY_MERCADONA_WAREHOUSE` | Fuerza un almacén de Mercadona cuando no se pasa código postal |
-| `OPEN_GROCERY_MERCADONA_ALGOLIA_APP` | Sobrescribe la aplicación pública de búsqueda |
-| `OPEN_GROCERY_MERCADONA_ALGOLIA_KEY` | Sobrescribe la clave pública de búsqueda |
-
-Para Mercadona se recomienda pasar siempre `postal_code`. El servidor consulta el mismo cambio de código postal usado por la tienda y obtiene el almacén que sirve esa zona. Esto evita comparar un surtido de Madrid con precios de otro almacén.
-
-Gadis publica un surtido predeterminado. La resolución automática de un surtido concreto desde el código postal todavía no está implementada; el resultado indica el `store_id` utilizado y puede fijarse mediante variable de entorno.
-
-Froiz utiliza un índice público de búsqueda de su tienda online. El adaptador inicial permite buscar y comparar, pero todavía no resuelve el surtido o la cobertura según código postal ni ofrece detalle de producto o categorías.
-
-## Modelo de seguridad
-
-La arquitectura separa expresamente tres niveles:
-
-1. **Catálogo:** búsqueda y lectura pública.
-2. **Borrador:** selección local de productos, cantidades y subtotal.
-3. **Compra:** autenticación, carrito remoto, entrega, checkout y pago.
-
-La versión `0.1.0` implementa únicamente los dos primeros niveles. Un futuro proveedor de carrito deberá ser una capacidad opcional, mantener sesiones por usuario, exigir una confirmación explícita y no podrá reutilizar automáticamente una herramienta de catálogo para colocar pedidos.
-
-## Añadir un supermercado
-
-Cada adaptador hereda de `GroceryProvider` e implementa como mínimo:
-
-```python
-class ExampleProvider(GroceryProvider):
-    info = StoreInfo(...)
-
-    def search(self, query, *, limit=10, postal_code=None, eco=False):
-        ...
-```
-
-`product()` y `categories()` son opcionales. Las capacidades reales se declaran en `StoreInfo`; no se anuncian herramientas que el proveedor no pueda verificar. Consulta [`docs/provider-contract.md`](docs/provider-contract.md).
-
-## Hoja de ruta
-
-1. Validación en vivo de Gadis, Froiz y Mercadona en varias ubicaciones.
-2. Resolución de cobertura y surtido de Froiz y Gadis por código postal.
-3. Eroski/Familia, Carrefour, DIA y Alcampo.
-4. Gastos de entrega, pedido mínimo y promociones no personalizadas.
-5. Proveedores opcionales de carrito con sesiones locales cifradas.
-6. Vista previa de checkout y selección de franja.
-7. Confirmación de pedido separada, desactivada por defecto y siempre humana.
-
-No se automatizará el pago bancario ni la autenticación reforzada.
-
-## Pruebas
-
-Las pruebas de proveedores usan transportes HTTP simulados: no generan pedidos ni dependen de una cuenta real.
+## Desarrollo y pruebas
 
 ```bash
 pytest
-python -m compileall -q src
+python -m compileall -q src tests
+ruff check .
 ```
 
-## Procedencia y licencia
+Las pruebas usan respuestas HTTP simuladas y cubren sesión, refresh, carrito, límite de gasto, rollback, control de versión, confirmaciones de un uso, checkout y bloqueo del pedido. No realizan compras reales.
 
-Open Grocery MCP se publica bajo licencia MIT. La arquitectura y parte del conocimiento de los endpoints se inspiran en los proyectos MIT [`jgalea/grocery-cli`](https://github.com/jgalea/grocery-cli) y [`xabierlameiro/price-tracker`](https://github.com/xabierlameiro/price-tracker); se conservan las atribuciones en [`NOTICE`](NOTICE).
+La única forma de afirmar que el último POST funciona de extremo a extremo es ejecutar deliberadamente un pedido real de bajo importe que el propietario quiera comprar. Hasta entonces, el endpoint se etiqueta como experimental aunque el flujo y sus contratos estén implementados.
 
-Las integraciones son no oficiales. Las marcas pertenecen a sus titulares. Revisa las condiciones de cada tienda antes de habilitar automatizaciones autenticadas.
+Consulta [la arquitectura autenticada](docs/authenticated-workflows.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
+
+## Licencia y procedencia
+
+MIT. Algunas integraciones se apoyan en conocimiento y código de proyectos MIT anteriores; los avisos completos están en [`NOTICE`](NOTICE). Las integraciones no son oficiales y las marcas pertenecen a sus titulares.

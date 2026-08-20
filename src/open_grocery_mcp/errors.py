@@ -29,3 +29,31 @@ class LocationRequired(OpenGroceryError):
 
 class CoverageError(OpenGroceryError):
     """The retailer does not serve the requested location."""
+
+
+class AuthenticationRequired(OpenGroceryError):
+    """An authenticated retailer session is missing or unusable."""
+
+
+class BudgetExceeded(OpenGroceryError):
+    """A proposed cart or checkout exceeds the caller's hard spending cap."""
+
+
+class ConcurrentCartChange(OpenGroceryError):
+    """The remote cart changed after the user reviewed it."""
+
+
+class ConfirmationRequired(OpenGroceryError):
+    """A state-changing action is missing its short-lived confirmation."""
+
+
+class RetailerWritesDisabled(OpenGroceryError):
+    """Authenticated retailer mutations are disabled by server policy."""
+
+
+class OrderSubmissionDisabled(OpenGroceryError):
+    """Irreversible order submission is disabled by server policy."""
+
+
+class OrderApprovalRequired(OpenGroceryError):
+    """The local human approval code is missing or incorrect."""

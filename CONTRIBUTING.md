@@ -2,29 +2,38 @@
 
 ## Provider rules
 
-A new provider must:
+A new catalogue provider must implement the contract in
+[`docs/provider-contract.md`](docs/provider-contract.md), accept an injected HTTP
+client and include fixture-based tests.
 
-1. Implement `GroceryProvider.search` and declare only verified capabilities.
-2. Accept an injected `httpx.Client` so tests never require live retailer calls.
-3. Normalize prices with `Decimal`, currencies and units (`kg`, `L`, `u`).
-4. Resolve location before returning location-dependent prices.
-5. Raise domain errors rather than returning silent empty data after HTTP failures.
-6. Include fixture-based tests for successful and failed responses.
-7. Keep catalogue reads separate from authentication and cart writes.
+Authenticated support must be proposed as a separate capability. A contribution
+must document whether each endpoint was verified against:
 
-Authenticated cart support must be proposed separately. It may not place an
-order or initiate payment without an explicit, narrowly scoped confirmation
-mechanism and a security review.
+- public unauthenticated traffic;
+- a simulated fixture;
+- an authenticated browser session;
+- or an intentional live transaction.
+
+Do not describe an endpoint as end-to-end verified unless the corresponding
+operation actually completed. Final order tests must use a deliberate purchase
+owned and approved by the tester; they must never run in CI.
+
+Never commit:
+
+- passwords;
+- bearer or refresh tokens;
+- cookies or browser storage state;
+- full addresses;
+- checkout/order identifiers tied to a person;
+- payment-card or bank-authentication data.
 
 ## Development
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,browser]"
 pytest
 python -m compileall -q src tests
 ruff check .
 ```
 
-Open a focused pull request and document whether a provider was tested against a
-live storefront, fixtures, or both. Never commit cookies, tokens, addresses,
-passwords or captured payment traffic.
+Keep pull requests focused and preserve attribution for incorporated MIT code.

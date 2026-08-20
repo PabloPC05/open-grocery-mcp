@@ -13,3 +13,5 @@ build/
 .DS_Store
 .idea/
 .vscode/
+.open-grocery-mcp/
+storage_state*.json

@@ -4,5 +4,12 @@ from open_grocery_mcp.providers.base import GroceryProvider
 from open_grocery_mcp.providers.froiz import FroizProvider
 from open_grocery_mcp.providers.gadis import GadisProvider
 from open_grocery_mcp.providers.mercadona import MercadonaProvider
+from open_grocery_mcp.providers.mercadona_full import MercadonaFullProvider
 
-__all__ = ["GroceryProvider", "FroizProvider", "GadisProvider", "MercadonaProvider"]
+__all__ = [
+    "GroceryProvider",
+    "FroizProvider",
+    "GadisProvider",
+    "MercadonaProvider",
+    "MercadonaFullProvider",
+]
