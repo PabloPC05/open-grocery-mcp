@@ -7,13 +7,14 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para consult
 ## Qué funciona ahora
 
 - Catálogo de **Gadis**: búsqueda, detalle y categorías.
+- Catálogo de **Froiz**: búsqueda mediante el índice de su tienda online.
 - Catálogo de **Mercadona**: búsqueda, detalle y categorías con almacén resuelto desde el código postal.
 - Comparación de una cesta entre supermercados con precios normalizados.
 - Coincidencia explicable entre la petición y los productos encontrados.
 - Cantidades, límites máximos por unidad y artículos opcionales.
 - Borradores de carrito locales con caducidad y confirmación humana obligatoria.
 - Transporte MCP local por `stdio` y remoto por Streamable HTTP.
-- Arquitectura de proveedores extensible; Froiz es el siguiente adaptador previsto.
+- Arquitectura de proveedores extensible para añadir nuevas cadenas sin cambiar las herramientas MCP.
 
 ## Herramientas MCP
 
@@ -34,7 +35,7 @@ Ejemplo de cesta:
 ```json
 {
   "postal_code": "28050",
-  "stores": ["gadis", "mercadona"],
+  "stores": ["gadis", "froiz", "mercadona"],
   "items": [
     {"query": "leche entera 1 L", "quantity": 2},
     {"query": "huevos camperos 12 unidades", "quantity": 1},
@@ -115,6 +116,7 @@ El endpoint MCP se publica en `/mcp`. El valor predeterminado escucha únicament
 | `OPEN_GROCERY_HOST` | Host HTTP; por defecto `127.0.0.1` |
 | `OPEN_GROCERY_PORT` | Puerto HTTP; por defecto `8000` |
 | `OPEN_GROCERY_GADIS_STORE` | Fuerza el identificador de surtido de Gadis |
+| `OPEN_GROCERY_FROIZ_INSTANCE` | Sobrescribe la instancia pública de búsqueda de Froiz |
 | `OPEN_GROCERY_MERCADONA_WAREHOUSE` | Fuerza un almacén de Mercadona cuando no se pasa código postal |
 | `OPEN_GROCERY_MERCADONA_ALGOLIA_APP` | Sobrescribe la aplicación pública de búsqueda |
 | `OPEN_GROCERY_MERCADONA_ALGOLIA_KEY` | Sobrescribe la clave pública de búsqueda |
@@ -122,6 +124,8 @@ El endpoint MCP se publica en `/mcp`. El valor predeterminado escucha únicament
 Para Mercadona se recomienda pasar siempre `postal_code`. El servidor consulta el mismo cambio de código postal usado por la tienda y obtiene el almacén que sirve esa zona. Esto evita comparar un surtido de Madrid con precios de otro almacén.
 
 Gadis publica un surtido predeterminado. La resolución automática de un surtido concreto desde el código postal todavía no está implementada; el resultado indica el `store_id` utilizado y puede fijarse mediante variable de entorno.
+
+Froiz utiliza un índice público de búsqueda de su tienda online. El adaptador inicial permite buscar y comparar, pero todavía no resuelve el surtido o la cobertura según código postal ni ofrece detalle de producto o categorías.
 
 ## Modelo de seguridad
 
@@ -149,8 +153,8 @@ class ExampleProvider(GroceryProvider):
 
 ## Hoja de ruta
 
-1. Validación en vivo de Gadis y Mercadona en varios códigos postales.
-2. Adaptador de **Froiz** para catálogo y comparación.
+1. Validación en vivo de Gadis, Froiz y Mercadona en varias ubicaciones.
+2. Resolución de cobertura y surtido de Froiz y Gadis por código postal.
 3. Eroski/Familia, Carrefour, DIA y Alcampo.
 4. Gastos de entrega, pedido mínimo y promociones no personalizadas.
 5. Proveedores opcionales de carrito con sesiones locales cifradas.
@@ -170,6 +174,6 @@ python -m compileall -q src
 
 ## Procedencia y licencia
 
-Open Grocery MCP se publica bajo licencia MIT. La arquitectura y parte del conocimiento de los endpoints se inspiran en el proyecto MIT [`jgalea/grocery-cli`](https://github.com/jgalea/grocery-cli); se conserva la atribución en [`NOTICE`](NOTICE).
+Open Grocery MCP se publica bajo licencia MIT. La arquitectura y parte del conocimiento de los endpoints se inspiran en los proyectos MIT [`jgalea/grocery-cli`](https://github.com/jgalea/grocery-cli) y [`xabierlameiro/price-tracker`](https://github.com/xabierlameiro/price-tracker); se conservan las atribuciones en [`NOTICE`](NOTICE).
 
 Las integraciones son no oficiales. Las marcas pertenecen a sus titulares. Revisa las condiciones de cada tienda antes de habilitar automatizaciones autenticadas.
