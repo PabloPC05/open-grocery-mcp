@@ -1,0 +1,14 @@
+Open Grocery MCP
+Copyright (c) 2026 Pablo Pardo
+
+This project contains original code informed by the architecture and publicly
+documented retailer integrations of grocery-cli:
+
+  grocery-cli
+  Copyright (c) 2026 Jean Galea
+  https://github.com/jgalea/grocery-cli
+  Licensed under the MIT License.
+
+The grocery-cli MIT copyright and permission notice are preserved here in
+accordance with its license. Open Grocery MCP is not endorsed by grocery-cli's
+author or by any retailer.
