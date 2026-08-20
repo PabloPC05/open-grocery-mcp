@@ -1,8 +1,10 @@
 # Authenticated workflows
 
-Authenticated operations are optional capabilities, not part of the catalogue
-interface. A provider may implement search without gaining any method that can
-mutate a retailer account.
+Authenticated operations are optional capabilities, separate from catalogue reads. All three built-in stores implement the same MCP workflow, but the execution backend differs:
+
+- Mercadona: authenticated HTTP API.
+- Gadis: local Playwright session and visible Gadisline controls.
+- Froiz: local Playwright session and visible Froiz controls.
 
 ## State machine
 
@@ -11,61 +13,55 @@ catalogue
    ↓
 local draft
    ↓
-prepare cart plan ── no remote write
+prepare cart plan ── no retailer write
    ↓ exact one-use confirmation
 commit cart ──────── remote cart write
    ↓
-prepare checkout ─── no remote write
+prepare checkout ─── no checkout creation
    ↓ exact one-use confirmation
 create checkout
    ↓
-prepare delivery ─── no remote write
+prepare delivery ─── validate address + live slot
    ↓ exact one-use confirmation
 set delivery
    ↓
-prepare order ────── authoritative total + live slot check
-   ↓ phrase + local approval code + two environment opt-ins
+prepare order ────── current total + delivery recheck
+   ↓ phrase + local approval code + environment opt-ins
 submit order ─────── irreversible
 ```
 
+A browser storefront may need to navigate through intermediate pages to reveal addresses or slots. That navigation never authorizes the final order. Checkout creation, delivery selection and order submission remain distinct confirmed operations.
+
 ## Confirmation properties
 
-A pending confirmation contains the full private plan in process memory and
-returns only a reviewable summary. It is:
+A pending confirmation contains the private plan in process memory and exposes only a reviewable summary. It is random-ID addressed, action-bound, phrase-bound, valid for five minutes, consumed once and invalid after process restart.
 
-- random-ID addressed;
-- bound to one action;
-- bound to one exact phrase;
-- valid for five minutes;
-- consumed once;
-- invalid after process restart.
-
-A client must present the summary to the user. It must not call a commit tool
-merely because the prepare response contains the expected phrase.
+A client must show the summary to the user. It must not call a commit tool merely because the prepare response contains the expected phrase.
 
 ## Cart concurrency and budget
 
-Mercadona carts include a version. The provider checks that the version reviewed
-by the user still matches immediately before the PUT. After writing it polls the
-cart until the remote line set equals the approved line set. It then reads the
-authoritative total. If that total exceeds the cap, it attempts to restore the
-previous lines and reports failure rather than proceeding.
+Mercadona uses the retailer cart version. Browser-driven providers create a deterministic fingerprint from product identity, quantity, price and total. Before committing, the provider re-reads the cart and rejects a changed fingerprint.
 
-The cap is checked again when creating checkout, selecting delivery and sending
-the order. This matters because promotions, weighted products and delivery fees
-can make the retailer total differ from the catalogue estimate.
+After a write, every provider reads the cart again and checks the exact reviewed line set. A positive authoritative total is required for a non-empty cart. If the total exceeds the cap or cannot be verified, the browser provider attempts to restore the previous lines and reports failure.
 
 ## Browser login
 
-`login_with_browser` opens a visible Chrome session using Playwright. The user
-enters credentials directly into the retailer page and completes any challenge.
-The MCP observes successful authenticated traffic and stores Playwright's
-`storage_state.json`. The password is never returned to or accepted by an MCP
-tool.
+`login_with_browser` opens a visible Chromium/Chrome window. The user enters credentials directly on the retailer site and completes any challenge. For Gadis/Froiz the page injects a black **Open Grocery: guardar sesión** button; clicking it saves Playwright storage state locally. No password is accepted by an MCP tool.
+
+The browser backend:
+
+1. loads the stored session;
+2. opens the retailer cart or checkout through accessible labels and link fallbacks;
+3. captures relevant JSON responses when present;
+4. otherwise normalizes rendered product rows, totals, addresses and slots;
+5. performs changes only through visible controls;
+6. verifies the resulting page/cart state.
+
+It refuses product URLs outside the configured retailer domain and never exposes query tokens from private checkout URLs.
 
 ## Final order
 
-`submit_order` is intentionally difficult to enable. The operator must set:
+All providers require:
 
 ```text
 OPEN_GROCERY_ENABLE_RETAILER_WRITES=1
@@ -73,9 +69,20 @@ OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1
 OPEN_GROCERY_ORDER_APPROVAL_CODE=<local secret>
 ```
 
-The caller then supplies the one-use confirmation ID, the exact total-bound
-phrase and the separate local approval code. The provider re-reads checkout and
-delivery state immediately before submitting.
+Gadis and Froiz additionally require:
 
-Payment or strong customer authentication may still occur outside this MCP. The
-project does not attempt to bypass it.
+```text
+OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION=1
+```
+
+The caller then supplies the one-use confirmation ID, exact total-bound phrase and local approval code. The checkout, address, slot and total are re-read immediately before submission.
+
+Payment or strong customer authentication may still occur in the retailer or bank interface. Open Grocery reports `requires_user_action` rather than attempting to bypass it.
+
+
+## Browser-provider retry policy
+
+Gadis and Froiz record a local submission-attempt marker immediately before the
+final click. If the resulting page cannot prove success or failure, the checkout
+is left in an unverified state and the MCP refuses automatic retry. The user must
+inspect retailer order history first.

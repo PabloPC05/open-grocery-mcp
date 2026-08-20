@@ -1,15 +1,45 @@
-"""Built-in supermarket providers."""
+"""Built-in supermarket providers with lazy imports."""
+
+from __future__ import annotations
+
+from typing import Any
 
 from open_grocery_mcp.providers.base import GroceryProvider
-from open_grocery_mcp.providers.froiz import FroizProvider
-from open_grocery_mcp.providers.gadis import GadisProvider
-from open_grocery_mcp.providers.mercadona import MercadonaProvider
-from open_grocery_mcp.providers.mercadona_full import MercadonaFullProvider
 
 __all__ = [
     "GroceryProvider",
     "FroizProvider",
+    "FroizFullProvider",
     "GadisProvider",
+    "GadisFullProvider",
     "MercadonaProvider",
     "MercadonaFullProvider",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name == "FroizProvider":
+        from open_grocery_mcp.providers.froiz import FroizProvider
+
+        return FroizProvider
+    if name == "FroizFullProvider":
+        from open_grocery_mcp.providers.froiz_full import FroizFullProvider
+
+        return FroizFullProvider
+    if name == "GadisProvider":
+        from open_grocery_mcp.providers.gadis import GadisProvider
+
+        return GadisProvider
+    if name == "GadisFullProvider":
+        from open_grocery_mcp.providers.gadis_full import GadisFullProvider
+
+        return GadisFullProvider
+    if name == "MercadonaProvider":
+        from open_grocery_mcp.providers.mercadona import MercadonaProvider
+
+        return MercadonaProvider
+    if name == "MercadonaFullProvider":
+        from open_grocery_mcp.providers.mercadona_full import MercadonaFullProvider
+
+        return MercadonaFullProvider
+    raise AttributeError(name)

@@ -45,6 +45,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=_env_enabled("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION"),
         help="allow the final confirmation-gated order submission endpoint",
     )
+    parser.add_argument(
+        "--allow-browser-order-submission",
+        action="store_true",
+        default=_env_enabled("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION"),
+        help=(
+            "allow the final visible-browser submit control for browser-driven "
+            "providers (Gadis/Froiz)"
+        ),
+    )
     return parser
 
 
@@ -54,6 +63,8 @@ def main(argv: list[str] | None = None) -> None:
         os.environ["OPEN_GROCERY_ENABLE_RETAILER_WRITES"] = "1"
     if args.allow_order_submission:
         os.environ["OPEN_GROCERY_ENABLE_ORDER_SUBMISSION"] = "1"
+    if args.allow_browser_order_submission:
+        os.environ["OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION"] = "1"
 
     from open_grocery_mcp.server import mcp
 
@@ -70,8 +81,6 @@ def main(argv: list[str] | None = None) -> None:
     try:
         mcp.run(transport="streamable-http", **kwargs)
     except TypeError:
-        # Compatibility path for older FastMCP versions. Keep localhost/port in
-        # the server settings where that SDK expects them.
         settings = getattr(mcp, "settings", None)
         if settings is not None:
             if hasattr(settings, "host"):

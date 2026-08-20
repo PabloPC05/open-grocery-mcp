@@ -1,20 +1,20 @@
 # Open Grocery MCP
 
-Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y, cuando existe una integración autenticada verificada, preparar el carrito, la entrega y el checkout con límites de gasto y confirmaciones explícitas.
+Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una misma cesta entre supermercados y gestionar, con confirmaciones explícitas, el carrito y el checkout de la cuenta del usuario.
 
-> **Alpha `0.2.0`.** Gadis y Froiz ofrecen catálogo/comparación. Mercadona añade sesión local, carrito real, direcciones, franjas y checkout. El envío definitivo del pedido está implementado como función experimental, apagada por defecto, y todavía no se ha validado realizando una compra real desde este repositorio.
+> **Alpha `0.3.0`.** Gadis, Froiz y Mercadona ofrecen catálogo/comparación y un flujo autenticado de carrito, entrega y checkout. Mercadona usa su API autenticada; Gadis y Froiz usan la interfaz web real mediante Playwright para no depender de rutas privadas inventadas. El envío definitivo permanece apagado por defecto y ninguna integración se presenta como transacción real validada hasta hacer deliberadamente una compra de prueba.
 
 ## Estado actual
 
 | Supermercado | Catálogo | Comparar | Carrito real | Entrega/checkout | Pedido final |
 |---|---:|---:|---:|---:|---:|
-| Gadis | Sí | Sí | Pendiente | Pendiente | No |
-| Froiz | Sí | Sí | Pendiente | Pendiente | No |
-| Mercadona | Sí | Sí | Sí | Sí | Experimental |
+| Gadis | Sí | Sí | Sí, navegador | Sí, navegador | Experimental y apagado |
+| Froiz | Sí | Sí | Sí, navegador | Sí, navegador | Experimental y apagado |
+| Mercadona | Sí | Sí | Sí, API | Sí, API | Experimental y apagado |
 
-No se anuncian capacidades autenticadas de Gadis o Froiz hasta observar y probar sus peticiones con una sesión legítima del usuario. No basta con adivinar rutas a partir de la interfaz.
+La automatización de Gadis y Froiz opera sobre botones, campos y opciones visibles en una sesión local del usuario. También escucha respuestas JSON para leer mejor el carrito cuando la web las expone, pero no codifica endpoints privados de escritura.
 
-## Herramientas
+## Herramientas MCP
 
 Catálogo y comparación:
 
@@ -23,7 +23,7 @@ Catálogo y comparación:
 - `compare_basket`
 - `prepare_cart`, `get_cart_draft`, `delete_cart_draft`
 
-Mercadona autenticado:
+Cuenta y compra, disponibles en las tres cadenas:
 
 - `account_status`, `login_with_browser`, `import_browser_session`
 - `get_real_cart`
@@ -33,28 +33,38 @@ Mercadona autenticado:
 - `prepare_delivery_selection`, `commit_delivery_selection`
 - `prepare_order_submission`, `submit_order`
 
-Las herramientas `prepare_*` no escriben en la tienda. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige esa frase, consume el identificador una sola vez y vuelve a verificar el estado remoto.
+Las herramientas `prepare_*` no ejecutan la operación descrita. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige la frase exacta y consume el identificador una sola vez.
 
 ## Protecciones de compra
 
-- Los cambios autenticados están deshabilitados salvo que se active `OPEN_GROCERY_ENABLE_RETAILER_WRITES=1`.
-- El carrito usa la versión revisada para detectar cambios concurrentes.
-- Tras escribir, se espera hasta que las líneas remotas coincidan con el plan aprobado.
-- El total se vuelve a leer. Si supera el máximo, se intenta restaurar el carrito anterior.
-- Direcciones, franjas y total se revisan de nuevo antes del pedido.
-- El envío final requiere además `OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1` y un código local independiente de al menos seis caracteres.
-- No se aceptan contraseñas, cookies o tokens como parámetros MCP.
-- No se automatiza una autenticación bancaria o desafío de la tienda.
+- Las escrituras están deshabilitadas salvo `OPEN_GROCERY_ENABLE_RETAILER_WRITES=1`.
+- Cada cambio usa un plan revisado, límite máximo de gasto y comprobación del carrito inmediatamente anterior.
+- Tras escribir se vuelve a leer el carrito y se comprueban productos y cantidades.
+- Si el total no puede verificarse, se falla de forma cerrada y se intenta restaurar la cesta anterior.
+- Las direcciones se devuelven redactadas; tokens, cookies y contraseñas nunca son parámetros MCP.
+- Productos de alcohol, tabaco, vapeo o nicotina no se añaden automáticamente.
+- Checkout y pedido son acciones separadas.
+- Un intento de pedido se registra antes del clic final y nunca se reintenta automáticamente; si el resultado es ambiguo, hay que revisar el historial de pedidos de la tienda.
+- No se automatizan PSD2, 3-D Secure, códigos SMS, biometría ni confirmaciones bancarias.
 
-Ejemplo de frase para cambiar el carrito:
+El pedido final requiere simultáneamente:
+
+```text
+OPEN_GROCERY_ENABLE_RETAILER_WRITES=1
+OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1
+OPEN_GROCERY_ORDER_APPROVAL_CODE=<secreto local de al menos 6 caracteres>
+```
+
+Gadis y Froiz requieren además:
+
+```text
+OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION=1
+```
+
+Ejemplos de frases de un solo uso:
 
 ```text
 CONFIRMAR CARRITO 52.38 EUR
-```
-
-Ejemplo de frase irreversible:
-
-```text
 COMPRAR 52.38 EUR
 ```
 
@@ -74,6 +84,7 @@ macOS/Linux:
 ```bash
 source .venv/bin/activate
 python -m pip install -e ".[dev,browser]"
+playwright install chromium
 pytest
 ```
 
@@ -82,16 +93,35 @@ Windows PowerShell:
 ```powershell
 .venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev,browser]"
+playwright install chromium
 pytest
 ```
 
-El extra `browser` instala Playwright para abrir una ventana visible de Chrome. El usuario escribe sus credenciales directamente en Mercadona; el MCP solo conserva el `storage_state.json` resultante en:
+También puede utilizarse Google Chrome instalado:
 
 ```text
+OPEN_GROCERY_BROWSER_CHANNEL=chrome
+```
+
+O indicar un ejecutable:
+
+```text
+OPEN_GROCERY_BROWSER_EXECUTABLE=/ruta/a/chrome
+```
+
+## Sesiones locales
+
+`login_with_browser(store="gadis")`, `login_with_browser(store="froiz")` o `login_with_browser(store="mercadona")` abre un navegador visible. El usuario inicia sesión directamente en la web y completa cualquier verificación. Para Gadis/Froiz pulsa después el botón negro **Open Grocery: guardar sesión**.
+
+Por defecto, las sesiones de navegador se guardan en:
+
+```text
+~/.open-grocery-mcp/gadis/storage_state.json
+~/.open-grocery-mcp/froiz/storage_state.json
 ~/.open-grocery-mcp/mercadona/storage_state.json
 ```
 
-Ese archivo contiene una sesión sensible. No debe subirse a Git ni compartirse.
+Puede cambiarse la raíz de Gadis/Froiz mediante `OPEN_GROCERY_STATE_DIR`. Estos archivos equivalen a una sesión iniciada: no deben compartirse ni subirse a Git.
 
 ## Ejecución
 
@@ -101,17 +131,27 @@ Solo catálogo y borradores locales:
 open-grocery-mcp
 ```
 
-Permitir cambios confirmados de carrito/checkout:
+Permitir modificaciones confirmadas de carrito y checkout:
 
 ```bash
 open-grocery-mcp --allow-retailer-writes
 ```
 
-Permitir también el endpoint final, únicamente en la máquina del propietario:
+Permitir el endpoint final de Mercadona:
 
 ```bash
 export OPEN_GROCERY_ORDER_APPROVAL_CODE='un-codigo-local-largo'
 open-grocery-mcp --allow-retailer-writes --allow-order-submission
+```
+
+Permitir también el botón final de Gadis/Froiz:
+
+```bash
+export OPEN_GROCERY_ORDER_APPROVAL_CODE='un-codigo-local-largo'
+open-grocery-mcp \
+  --allow-retailer-writes \
+  --allow-order-submission \
+  --allow-browser-order-submission
 ```
 
 Configuración genérica de cliente MCP:
@@ -122,7 +162,8 @@ Configuración genérica de cliente MCP:
     "open-grocery": {
       "command": "/ruta/al/entorno/bin/open-grocery-mcp",
       "env": {
-        "OPEN_GROCERY_ENABLE_RETAILER_WRITES": "1"
+        "OPEN_GROCERY_ENABLE_RETAILER_WRITES": "1",
+        "OPEN_GROCERY_BROWSER_CHANNEL": "chrome"
       }
     }
   }
@@ -131,15 +172,16 @@ Configuración genérica de cliente MCP:
 
 ## Flujo recomendado
 
-1. `compare_basket` compara la lista entre las tiendas disponibles.
-2. `prepare_cart` guarda un borrador local del supermercado elegido.
-3. `login_with_browser` abre Chrome para iniciar sesión.
-4. `get_real_cart` obtiene la versión y el total actuales.
-5. `prepare_real_cart_update` genera el plan y la frase; el usuario lo revisa.
+1. `compare_basket` compara la lista.
+2. `prepare_cart` crea un borrador local de la tienda elegida.
+3. `login_with_browser` guarda una sesión local.
+4. `get_real_cart` devuelve versión y total.
+5. `prepare_real_cart_update` produce un plan y una frase de confirmación.
 6. `commit_real_cart_update` aplica exactamente ese plan.
-7. Se consultan direcciones y franjas.
-8. Checkout y entrega siguen el mismo patrón preparar → confirmar → aplicar.
-9. El pedido final se prepara por separado y permanece desactivado salvo triple aprobación.
+7. `prepare_checkout_creation` y `commit_checkout_creation` abren un checkout revisado.
+8. Se consultan direcciones y franjas; en los proveedores de navegador, las franjas se vinculan a ese checkout confirmado.
+9. La entrega sigue preparar → confirmar → aplicar.
+10. El pedido final se prepara y confirma por separado.
 
 ## Comparación de cesta
 
@@ -155,7 +197,7 @@ Configuración genérica de cliente MCP:
 }
 ```
 
-La comparación normaliza precio por kg, litro o unidad cuando la tienda lo facilita. Los resultados pueden no ser SKU idénticos y deben revisarse. Gastos de envío, pedido mínimo, cupones personales y sustituciones solo se incluyen cuando el proveedor los expone de forma verificable.
+Los resultados pueden no ser SKU idénticos. Deben revisarse las coincidencias de baja confianza. En Gadis/Froiz el surtido efectivo de compra es el seleccionado por la sesión del navegador; el índice público de catálogo puede no coincidir exactamente con una zona concreta.
 
 ## Transporte HTTP
 
@@ -163,9 +205,9 @@ La comparación normaliza precio por kg, litro o unidad cuando la tienda lo faci
 open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-El endpoint es `/mcp`. No lo expongas directamente a Internet: esta alpha no incorpora identidad multiusuario ni aislamiento de sesiones. Usa un proceso por usuario, una red privada o un proxy autenticado con TLS y límites de uso.
+No expongas esta alpha directamente a Internet. No incorpora identidad multiusuario ni aislamiento de sesiones. Los flujos con navegador están pensados principalmente para `stdio` en la máquina del propietario.
 
-## Desarrollo y pruebas
+## Desarrollo y verificación
 
 ```bash
 pytest
@@ -173,11 +215,11 @@ python -m compileall -q src tests
 ruff check .
 ```
 
-Las pruebas usan respuestas HTTP simuladas y cubren sesión, refresh, carrito, límite de gasto, rollback, control de versión, confirmaciones de un uso, checkout y bloqueo del pedido. No realizan compras reales.
+Las pruebas automatizadas usan transportes y navegadores simulados. Cubren normalización del DOM, aislamiento de sesión, límites de gasto, control de versión, rollback, URLs privadas de checkout, confirmaciones de un uso y bloqueo del pedido. No realizan compras reales.
 
-La única forma de afirmar que el último POST funciona de extremo a extremo es ejecutar deliberadamente un pedido real de bajo importe que el propietario quiera comprar. Hasta entonces, el endpoint se etiqueta como experimental aunque el flujo y sus contratos estén implementados.
+La implementación de Gadis/Froiz está completa como backend de navegador, pero sus selectores adaptativos deben validarse la primera vez contra una sesión real porque la interfaz de una tienda puede cambiar sin aviso. Un fallo de selector detiene la operación; no se interpreta como éxito.
 
-Consulta [la arquitectura autenticada](docs/authenticated-workflows.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
+Consulta [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
 
 ## Licencia y procedencia
 

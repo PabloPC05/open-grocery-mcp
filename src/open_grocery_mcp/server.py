@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 from typing import Any
 
-try:  # Current official SDK.
+try:
     from mcp.server.mcpserver import MCPServer
-except ImportError:  # Compatibility with stable 1.x releases.
+except ImportError:
     from mcp.server.fastmcp import FastMCP as MCPServer
 
 from open_grocery_mcp import __version__
@@ -55,30 +55,26 @@ def _enabled(name: str) -> bool:
     return os.getenv(name, "").casefold() in {"1", "true", "yes", "on"}
 
 
-def _retailer_writes_enabled() -> bool:
-    return _enabled("OPEN_GROCERY_ENABLE_RETAILER_WRITES")
-
-
-def _order_submission_enabled() -> bool:
-    return _enabled("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION")
-
-
 @mcp.tool()
 def health() -> dict[str, Any]:
     """Return server version, safety mode and registered stores."""
 
-    order_enabled = _order_submission_enabled()
-    writes_enabled = _retailer_writes_enabled()
+    writes_enabled = _enabled("OPEN_GROCERY_ENABLE_RETAILER_WRITES")
+    order_enabled = _enabled("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION")
+    browser_order_enabled = _enabled("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION")
+    approval_configured = len(os.getenv("OPEN_GROCERY_ORDER_APPROVAL_CODE", "")) >= 6
     return {
         "name": "open-grocery-mcp",
         "version": __version__,
         "mode": "catalogue_comparison_and_two_phase_retailer_actions",
         "retailer_writes_enabled": writes_enabled,
         "order_submission_enabled": order_enabled,
-        "can_place_orders": writes_enabled and order_enabled,
-        "order_approval_code_configured": len(
-            os.getenv("OPEN_GROCERY_ORDER_APPROVAL_CODE", "")
-        ) >= 6,
+        "browser_order_submission_enabled": browser_order_enabled,
+        "can_place_api_orders": writes_enabled and order_enabled and approval_configured,
+        "can_place_browser_orders": (
+            writes_enabled and order_enabled and browser_order_enabled and approval_configured
+        ),
+        "order_approval_code_configured": approval_configured,
         "confirmation_ttl_seconds": 300,
         "stores": list(_registry.keys()),
     }
@@ -106,12 +102,7 @@ def search_products(
     if limit < 1 or limit > 100:
         raise InvalidRequest("limit must be between 1 and 100")
     provider = _registry.get(store)
-    products = provider.search(
-        query,
-        limit=limit,
-        postal_code=postal_code,
-        eco=eco,
-    )
+    products = provider.search(query, limit=limit, postal_code=postal_code, eco=eco)
     return {
         "store": provider.info.key,
         "query": query,
@@ -215,5 +206,6 @@ def delete_cart_draft(draft_id: str) -> dict[str, Any]:
     """Delete a local cart draft. No retailer cart is affected."""
 
     return _drafts.delete(draft_id)
+
 
 register_authenticated_tools(mcp, _workflows)

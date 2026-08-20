@@ -4,32 +4,9 @@ The provider model separates public catalogue reads from authenticated writes.
 
 ## Catalogue contract
 
-Every store implements `GroceryProvider.search`:
-
-```python
-def search(
-    query: str,
-    *,
-    limit: int = 10,
-    postal_code: str | None = None,
-    eco: bool = False,
-) -> list[Product]:
-    ...
-```
-
-`product()` and `categories()` are optional. A provider must:
-
-1. Return normalized `Product` objects.
-2. Keep money as `Decimal` internally.
-3. Resolve location before claiming location-dependent prices.
-4. Declare only capabilities that are implemented.
-5. Accept an injected HTTP client so tests can avoid live calls.
-6. Raise domain errors for failed retailer requests.
-7. Avoid returning credentials or unredacted personal data.
+Every store implements `GroceryProvider.search`; `product()` and `categories()` are optional. A provider must return normalized products, keep money as `Decimal`, resolve location before claiming location-dependent prices, declare only implemented capabilities, raise domain errors and avoid returning secrets or unredacted personal data.
 
 ## Optional authenticated contracts
-
-A store may separately implement:
 
 ### `AuthenticatedCartProvider`
 
@@ -46,26 +23,35 @@ A store may separately implement:
 
 ### `CheckoutProvider`
 
-- checkout preview;
-- checkout creation;
+- checkout preview and creation;
 - checkout read;
 - delivery selection;
-- gated order submission.
-
-The MCP checks these protocols at runtime. Unsupported stores fail explicitly.
+- separately gated order submission.
 
 ## Write requirements
 
-A provider commit must not accept raw search terms. It receives a reviewed plan
-containing exact retailer product IDs and quantities. It must:
+A commit receives a reviewed plan with exact retailer product identities and quantities. It must:
 
 - enforce a hard total cap;
 - detect concurrent cart changes where possible;
 - verify the remote result after a write;
-- fail closed when the total cannot be verified;
-- never combine checkout creation and order submission;
+- fail closed when a non-empty total cannot be verified;
+- attempt rollback after a failed/over-budget cart mutation;
+- keep checkout creation and order submission separate;
 - never automate bank authentication;
-- include fixture-based tests for all request/response shapes.
+- never accept credentials or cookies as ordinary tool parameters;
+- include fixture-based tests for normalization and safety policies.
 
-Authenticated endpoints must first be observed in the user's own legitimate web
-session. Never commit captured tokens, cookies, addresses or payment traffic.
+## Browser-driven providers
+
+A browser provider may use rendered controls when authenticated write endpoints are private or unstable. It must additionally:
+
+- use a visible browser for login;
+- store the Playwright session locally with owner-only permissions;
+- restrict product navigation to the retailer domain;
+- distinguish add/continue controls from the final submit control;
+- keep private checkout URL tokens out of MCP responses;
+- stop on ambiguous or missing controls;
+- require a second browser-specific opt-in for the irreversible submit click.
+
+Selectors should be based on accessible names, roles and resilient structural fallbacks, not a single minified CSS class. A provider is implementation-complete when these contracts exist and are tested with fixtures; live compatibility and real-transaction verification must be reported separately.

@@ -2,52 +2,75 @@
 
 ## Current boundary
 
-Open Grocery MCP `0.2.x` can access an authenticated Mercadona account when the
-owner imports a local browser session. The default process remains read-only:
-retailer mutations and order submission require separate local opt-ins.
+Open Grocery MCP `0.3.x` can use authenticated accounts for Mercadona, Gadis and Froiz. The default process remains read-only: retailer writes and order submission require separate local opt-ins.
+
+Mercadona uses authenticated HTTP calls. Gadis and Froiz use a local Playwright browser and visible storefront controls. Browser automation does not weaken the confirmation or spending-limit requirements.
 
 ## Sensitive files
 
-The Mercadona `storage_state.json` can contain access tokens, refresh tokens and
-cookies. Treat it like a password.
+Every `storage_state.json` can contain cookies, access tokens or local storage equivalent to a signed-in account. Treat it like a password.
 
-- Keep it outside the repository.
-- Restrict it to the operating-system user.
-- Do not paste tokens, cookies, passwords, addresses or card data into MCP tools.
-- Revoke the session from the retailer account if the file is exposed.
-
-The default path is:
+Default locations include:
 
 ```text
+~/.open-grocery-mcp/gadis/storage_state.json
+~/.open-grocery-mcp/froiz/storage_state.json
 ~/.open-grocery-mcp/mercadona/storage_state.json
 ```
 
+- Keep sessions outside the repository.
+- Restrict them to the operating-system user.
+- Do not paste tokens, cookies, passwords, addresses or card data into MCP tools.
+- Revoke the retailer session if a file is exposed.
+- Do not run one process/session for multiple unrelated users.
+
+Checkout records may contain a private URL with a short-lived token. It is stored locally with owner-only permissions and never returned by an MCP tool.
+
 ## Write protections
 
-Authenticated writes require `OPEN_GROCERY_ENABLE_RETAILER_WRITES=1`. Every
-write is split into prepare and commit calls, with a short-lived one-use ID,
-exact phrase, version check and hard spending limit.
+Every state-changing operation is split into prepare and commit calls with:
+
+- a random one-use confirmation ID;
+- an exact phrase;
+- a five-minute expiry;
+- a reviewed cart version or fingerprint;
+- a hard spending cap;
+- verification after the write;
+- attempted rollback on a failed or over-budget cart update.
 
 Final order submission additionally requires:
 
-- `OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1`;
-- `OPEN_GROCERY_ORDER_APPROVAL_CODE` with at least six characters;
-- a checkout with an address and still-available delivery slot;
-- a fresh authoritative total below the approved cap.
+```text
+OPEN_GROCERY_ENABLE_RETAILER_WRITES=1
+OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1
+OPEN_GROCERY_ORDER_APPROVAL_CODE=<local secret>
+```
 
-The final endpoint is experimental and has not been validated by placing a real
-order from this repository. Do not enable it until you have reviewed the code and
-intend to make a deliberate purchase.
+Browser-driven final submission additionally requires:
 
-## Remote deployment
+```text
+OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION=1
+```
 
-Do not expose Streamable HTTP directly to the public Internet. Version `0.2.x`
-has no application-level identity, tenant isolation or persistent distributed
-confirmation store. Bind to localhost or place it behind a private network and
-an authenticated TLS proxy. Run a single process per user/session.
+No provider automates bank authentication, PSD2, 3-D Secure, SMS codes or biometrics. Age-restricted products are rejected from automated cart plans.
+
+## Browser-specific boundary
+
+Gadis/Froiz selectors are adaptive but cannot be proved stable against every future storefront release. When the page cannot be read, a control is ambiguous or the resulting total cannot be verified, the provider fails closed. It must never convert a missing selector into a successful purchase.
+
+The browser workflow is intended for a local `stdio` MCP process. A remotely hosted browser would place account sessions on that server and should be avoided unless the operator has deliberately secured and isolated it.
+
+## Transaction verification
+
+Code and fixture tests are not the same as a real purchase. Do not describe final order placement as live-verified until the owner deliberately completes a low-value order and records only redacted results. Never run order submission in CI.
+
+## Ambiguous submission results
+
+Before a browser provider clicks the irreversible final control, it records a
+local submission-attempt marker. A crash or ambiguous response therefore blocks
+automatic retries. The operator must inspect the retailer order history before
+any further action, preventing duplicate orders.
 
 ## Reporting
 
-Do not open a public issue containing credentials, cookies, personal addresses,
-checkout identifiers or exploitable retailer details. Contact the repository
-owner privately through GitHub before publishing a proof of concept.
+Do not open a public issue containing credentials, cookies, personal addresses, checkout identifiers, private checkout URLs or exploitable retailer details. Contact the repository owner privately before publishing a proof of concept.
