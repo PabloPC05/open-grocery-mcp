@@ -21,7 +21,7 @@ class ProviderRegistry:
     """Lazily constructs adapters and exposes only their common contract."""
 
     def __init__(self, factories: dict[str, ProviderFactory] | None = None) -> None:
-        self._factories = factories or {
+        self._factories = factories if factories is not None else {
             "froiz": FroizProvider,
             "gadis": GadisProvider,
             "mercadona": MercadonaProvider,

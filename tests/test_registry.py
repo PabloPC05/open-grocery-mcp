@@ -16,3 +16,8 @@ def test_unknown_store_error_lists_valid_keys() -> None:
     registry = ProviderRegistry()
     with pytest.raises(StoreNotFound, match="gadis"):
         registry.get("carrefour")
+
+
+def test_empty_registry_stays_empty() -> None:
+    registry = ProviderRegistry(factories={})
+    assert registry.keys() == ()
