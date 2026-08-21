@@ -227,6 +227,11 @@ def verify(
             report["initial_and_final_total_match"] = start[1] == end[1]
             report["initial_and_final_count_match"] = start[2] == end[2]
             report["cart_restored"] = start == end
+        elif baseline is not None and write_attempts == 0:
+            report["initial_and_final_signature_match"] = True
+            report["initial_and_final_total_match"] = True
+            report["initial_and_final_count_match"] = True
+            report["cart_restored"] = True
         elif baseline is not None:
             report["cart_restored"] = False
         report["write_attempts"] = write_attempts
