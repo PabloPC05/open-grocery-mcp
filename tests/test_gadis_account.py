@@ -7,7 +7,11 @@ from typing import Any
 
 import pytest
 
-from open_grocery_mcp.errors import BudgetExceeded, ProviderError
+from open_grocery_mcp.errors import (
+    BudgetExceeded,
+    ConcurrentCartChange,
+    ProviderError,
+)
 from open_grocery_mcp.providers.gadis_account import GadisAccountClient
 from open_grocery_mcp.providers.gadis_http import GadisHTTPClient
 
@@ -124,6 +128,9 @@ class FakeHTTP:
         }
 
     def read_cart(self) -> dict[str, Any]:
+        # The retailer bumps last_modified_date on every cart fetch, so the
+        # raw timestamp must never be usable as an optimistic-lock version.
+        self.raw["last_modified_date"] += 2312
         return deepcopy(self.raw)
 
     def update_product(
@@ -187,7 +194,7 @@ def test_gadis_account_uses_http_for_reviewed_cart_update(tmp_path: Path) -> Non
             }
         ],
         mode="merge",
-        expected_version=10,
+        expected_version=account.cart()["version"],
         max_total=Decimal("6"),
     )
     assert plan["plan_backend"] == "gadis_http"
@@ -218,7 +225,7 @@ def test_gadis_replace_removes_before_adding(tmp_path: Path) -> None:
             }
         ],
         mode="replace",
-        expected_version=10,
+        expected_version=account.cart()["version"],
         max_total=Decimal("3"),
     )
     account.commit_cart_update(plan)
@@ -261,7 +268,7 @@ def test_gadis_http_cart_rolls_back_when_actual_total_exceeds_cap(
             }
         ],
         mode="merge",
-        expected_version=10,
+        expected_version=account.cart()["version"],
         max_total=Decimal("4"),
     )
     http.actual_prices["p-new"] = 9.0
@@ -289,7 +296,7 @@ def test_ambiguous_write_response_is_accepted_only_after_safe_read(
             }
         ],
         mode="merge",
-        expected_version=10,
+        expected_version=account.cart()["version"],
         max_total=Decimal("5"),
     )
     http.raise_after_apply = True
@@ -298,6 +305,33 @@ def test_ambiguous_write_response_is_accepted_only_after_safe_read(
 
     assert result["write_response_ambiguous_but_state_verified"] is True
     assert http.update_calls == [("p-new", 1)]
+
+
+def test_concurrent_content_change_between_review_and_commit_is_rejected(
+    tmp_path: Path,
+) -> None:
+    account, http, _ = _account(tmp_path)
+    plan = account.preview_cart_update(
+        [
+            {
+                "product_id": "p-new",
+                "name": "Leche",
+                "quantity": 1,
+                "unit_price": 1.5,
+            }
+        ],
+        mode="merge",
+        expected_version=account.cart()["version"],
+        max_total=Decimal("5"),
+    )
+    # A concurrent edit changes the reviewed cart content before the commit.
+    http.raw["products"][0]["amount"] = 4
+    http._recalculate()
+
+    with pytest.raises(ConcurrentCartChange, match="changed from version"):
+        account.commit_cart_update(plan)
+
+    assert http.update_calls == []
 
 
 def test_gadis_delivery_and_checkout_remain_browser_backed(tmp_path: Path) -> None:

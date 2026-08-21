@@ -303,7 +303,32 @@ def test_gadis_http_reads_and_mutates_cart(tmp_path: Path) -> None:
 def test_gadis_http_normalize_cart_is_value_free() -> None:
     normalized = GadisHTTPClient.normalize_cart(_cart_payload())
     assert normalized["cart_id"] == "cart-1"
-    assert normalized["version"] == 1710000000000
     assert normalized["lines"][1]["quantity"] == 2.0
     assert normalized["lines"][1]["line_price"] == 1.06
+
+
+def test_gadis_http_version_is_stable_across_reads_with_volatile_timestamp() -> None:
+    first = GadisHTTPClient.normalize_cart(_cart_payload())
+    refetched = _cart_payload()
+    # The retailer bumps last_modified_date on every cart fetch.
+    refetched["last_modified_date"] = refetched["last_modified_date"] + 2312
+    second = GadisHTTPClient.normalize_cart(refetched)
+    assert second["version"] == first["version"]
+    assert second["version"] != 1710000000000
+
+
+def test_gadis_http_version_tracks_cart_content() -> None:
+    baseline = GadisHTTPClient.normalize_cart(_cart_payload())["version"]
+
+    quantity_changed = _cart_payload()
+    quantity_changed["products"][1]["amount"] = 3
+    quantity_changed["total_products"] = 3
+    quantity_changed["total_cart_price"] = 11.43
+    assert (
+        GadisHTTPClient.normalize_cart(quantity_changed)["version"] != baseline
+    )
+
+    total_changed = _cart_payload()
+    total_changed["total_cart_price"] = 9.32
+    assert GadisHTTPClient.normalize_cart(total_changed)["version"] != baseline
 

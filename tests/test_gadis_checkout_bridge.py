@@ -33,6 +33,8 @@ class CheckoutHTTP:
         }
 
     def read_cart(self) -> dict[str, Any]:
+        # The retailer bumps last_modified_date on every cart fetch.
+        self.raw["last_modified_date"] += 2312
         return deepcopy(self.raw)
 
     def status(self) -> dict[str, Any]:
@@ -98,18 +100,19 @@ def test_checkout_translates_http_version_after_cross_backend_verification(
     tmp_path: Path,
 ) -> None:
     account, _, browser = _account(tmp_path)
+    reviewed_version = account.cart()["version"]
 
     plan = account.preview_checkout(
-        expected_version=10,
+        expected_version=reviewed_version,
         max_total=Decimal("5"),
     )
 
-    assert plan["expected_cart_version"] == 10
+    assert plan["expected_cart_version"] == reviewed_version
     assert plan["reviewed_cart_backend"] == "gadis_http"
     result = account.create_checkout(plan)
 
     assert browser.received_plan is not None
-    assert browser.received_plan["reviewed_http_cart_version"] == 10
+    assert browser.received_plan["reviewed_http_cart_version"] == reviewed_version
     assert result["checkout_backend"] == "browser"
     assert result["reviewed_cart_backend"] == "gadis_http"
     assert result["order_placed"] is False
@@ -120,7 +123,7 @@ def test_checkout_refuses_browser_cart_that_differs_from_reviewed_http_cart(
 ) -> None:
     account, _, browser = _account(tmp_path)
     plan = account.preview_checkout(
-        expected_version=10,
+        expected_version=account.cart()["version"],
         max_total=Decimal("5"),
     )
     browser.cart_payload["lines"][0]["quantity"] = 2.0
@@ -133,7 +136,7 @@ def test_checkout_refuses_browser_cart_that_differs_from_reviewed_http_cart(
 def test_checkout_refuses_same_lines_with_different_total(tmp_path: Path) -> None:
     account, _, browser = _account(tmp_path)
     plan = account.preview_checkout(
-        expected_version=10,
+        expected_version=account.cart()["version"],
         max_total=Decimal("5"),
     )
     browser.cart_payload["total"] = 2.5

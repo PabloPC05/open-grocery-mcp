@@ -13,6 +13,8 @@ order submission stay disabled and behind the browser provider.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import threading
@@ -249,6 +251,37 @@ class GadisHTTPClient:
         return dict(cart)
 
     @staticmethod
+    def _stable_version(cart: Mapping[str, Any]) -> int:
+        """Derive an optimistic-locking token from cart content only.
+
+        The retailer bumps ``last_modified_date`` on every cart fetch, so the
+        raw timestamp cannot guard against concurrent modifications. A content
+        fingerprint is stable across reads of an untouched cart and changes
+        whenever lines, totals or the product count change.
+        """
+
+        lines = sorted(
+            [
+                str(raw.get("product_id", "")).strip(),
+                str(as_decimal(raw.get("amount")).normalize()),
+                str(as_decimal(raw.get("line_price")).normalize()),
+            ]
+            for raw in cart.get("products", [])
+            if isinstance(raw, Mapping)
+        )
+        material = json.dumps(
+            {
+                "cart_id": str(cart.get("id", "")).strip(),
+                "count": int(as_decimal(cart.get("total_products") or 0)),
+                "lines": lines,
+                "total": str(as_decimal(cart.get("total_cart_price")).normalize()),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return int.from_bytes(hashlib.sha256(material).digest()[:8], "big") >> 1
+
+    @staticmethod
     def normalize_cart(cart: Mapping[str, Any]) -> dict[str, Any]:
         lines: list[dict[str, Any]] = []
         products = cart.get("products", [])
@@ -271,7 +304,7 @@ class GadisHTTPClient:
         return {
             "store": "gadis",
             "cart_id": str(cart.get("id", "")).strip() or None,
-            "version": int(cart.get("last_modified_date") or 0),
+            "version": GadisHTTPClient._stable_version(cart),
             "products_count": int(cart.get("total_products") or 0),
             "total": float(total),
             "total_text": money(total),
