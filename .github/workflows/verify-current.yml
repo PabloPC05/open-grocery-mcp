@@ -1,0 +1,108 @@
+name: Verify current feature branch
+
+on:
+  push:
+    branches: [feat/initial-mcp]
+    paths:
+      - src/**
+      - tests/**
+      - tools/**
+      - pyproject.toml
+      - tools/verify-request.json
+      - .github/workflows/verify-current.yml
+  workflow_dispatch:
+
+concurrency:
+  group: verify-current-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Run verification and preserve status
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          mkdir -p diagnostics/ci
+          python -m pytest -q > /tmp/pytest.log 2>&1
+          pytest_code=$?
+          python -m compileall -q src tests tools > /tmp/compile.log 2>&1
+          compile_code=$?
+          python -m ruff check . > /tmp/ruff.log 2>&1
+          ruff_code=$?
+          export PYTEST_CODE="$pytest_code"
+          export COMPILE_CODE="$compile_code"
+          export RUFF_CODE="$ruff_code"
+          export VERIFIED_SHA="${GITHUB_SHA}"
+          python - <<'PY'
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          def tail(path: str, lines: int = 80) -> list[str]:
+              content = Path(path).read_text(errors='replace').splitlines()
+              return content[-lines:]
+
+          codes = {
+              'pytest': int(os.environ['PYTEST_CODE']),
+              'compileall': int(os.environ['COMPILE_CODE']),
+              'ruff': int(os.environ['RUFF_CODE']),
+          }
+          payload = {
+              'recorded_at': datetime.now(UTC).isoformat(),
+              'verified_sha': os.environ['VERIFIED_SHA'],
+              'python': '3.13',
+              'success': all(code == 0 for code in codes.values()),
+              'exit_codes': codes,
+              'pytest_tail': tail('/tmp/pytest.log'),
+              'compileall_tail': tail('/tmp/compile.log'),
+              'ruff_tail': tail('/tmp/ruff.log'),
+          }
+          Path('diagnostics/ci/last-run.json').write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          echo "pytest_code=$pytest_code" >> "$GITHUB_OUTPUT"
+          echo "compile_code=$compile_code" >> "$GITHUB_OUTPUT"
+          echo "ruff_code=$ruff_code" >> "$GITHUB_OUTPUT"
+
+      - name: Publish verification result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- diagnostics/ci/last-run.json
+          if git diff --cached --quiet; then
+            echo 'Verification status unchanged.'
+          else
+            git commit -m 'chore: publish branch verification result [skip ci]'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Fail when verification failed
+        if: steps.verify.outputs.pytest_code != '0' || steps.verify.outputs.compile_code != '0' || steps.verify.outputs.ruff_code != '0'
+        run: exit 1
