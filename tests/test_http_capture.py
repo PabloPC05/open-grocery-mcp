@@ -42,12 +42,10 @@ def test_safe_url_redacts_short_private_ids_but_keeps_public_product_ids() -> No
     )
 
 
-def test_gadis_capture_uses_authenticated_shell_and_rewrites_catalogue_urls() -> None:
-    assert STORES["gadis"].base_url == "https://super.gadisline.com"
-    assert _browser_product_url(
-        "gadis",
-        "https://www.gadisline.com/product/leche?campaign=1#private",
-    ) == "https://super.gadisline.com/product/leche?campaign=1"
+def test_gadis_capture_uses_current_resolvable_storefront() -> None:
+    assert STORES["gadis"].base_url == "https://www.gadisline.com"
+    url = "https://www.gadisline.com/product/leche?campaign=1#private"
+    assert _browser_product_url("gadis", url) == url
 
 
 def test_shape_redacts_generic_and_account_identifiers() -> None:
