@@ -1,26 +1,1164 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-08-21T01:28:23.747002+00:00",
+  "captured_at": "2026-08-21T01:34:53.615768+00:00",
   "store": "gadis",
   "mode": "guest",
-  "endpoint_manifest": [],
+  "endpoint_manifest": [
+    {
+      "method": "POST",
+      "host": "analytics.google.com",
+      "path": "/g/collect",
+      "query_keys": [
+        "_eu",
+        "_fv",
+        "_gaz",
+        "_nsi",
+        "_p",
+        "_s",
+        "_ss",
+        "are",
+        "cid",
+        "dl",
+        "dma",
+        "dt",
+        "en",
+        "frm",
+        "gaf",
+        "gcd",
+        "gcs",
+        "gdid",
+        "gtm",
+        "ir",
+        "npa",
+        "pscdl",
+        "rcb",
+        "sct",
+        "seg",
+        "sid",
+        "sr",
+        "tag_exp",
+        "tfd",
+        "tid",
+        "uaa",
+        "uab",
+        "uafvl",
+        "uam",
+        "uamb",
+        "uap",
+        "uapv",
+        "uaw",
+        "ul",
+        "v"
+      ],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "content-type",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": "string",
+      "response_body_schema": null,
+      "response_statuses": [
+        204
+      ]
+    },
+    {
+      "method": "POST",
+      "host": "catalog.gadisline.com",
+      "path": "/api/v3/catalog/products/search",
+      "query_keys": [
+        "keep_request",
+        "order_field",
+        "page_number",
+        "rows_per_page",
+        "sort_type"
+      ],
+      "phases": [
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "content-type",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": {
+        "minimum_should_match": "integer",
+        "product_ids": {
+          "type": "array",
+          "items": "string"
+        }
+      },
+      "response_body_schema": {
+        "elements": {
+          "type": "array",
+          "items": {
+            "brand_description": "string",
+            "categories": {
+              "type": "array",
+              "items": {
+                "descriptions_translate": {
+                  "type": "array",
+                  "items": {
+                    "language": "string",
+                    "value": "string"
+                  }
+                },
+                "id": "string",
+                "level": "integer"
+              }
+            },
+            "category": {
+              "descriptions_translate": {
+                "type": "array",
+                "items": {
+                  "language": "string",
+                  "value": "string"
+                }
+              },
+              "id": "string",
+              "level": "null"
+            },
+            "commercial_description": {
+              "type": "array",
+              "items": {
+                "language": "string",
+                "value": "string"
+              }
+            },
+            "fidelity_date_end": "null",
+            "fidelity_necessary_points": "null",
+            "fidelity_offer_price": "null",
+            "id": "string",
+            "image": {
+              "image": "string",
+              "image_thumbnails": "string",
+              "thumbnail_id": "string"
+            },
+            "max_weight": "number",
+            "min_weight": "number",
+            "offers": {
+              "type": "array",
+              "items": null
+            },
+            "preparation_methods": "null",
+            "price": "number",
+            "price_kilo_litre": "number",
+            "price_kilo_litre_suffix": {
+              "type": "array",
+              "items": {
+                "language": "string",
+                "value": "string"
+              }
+            },
+            "product_code": "integer",
+            "properties": {
+              "type": "array",
+              "items": {
+                "description": {
+                  "type": "array",
+                  "items": {
+                    "language": "string",
+                    "value": "string"
+                  }
+                },
+                "icon": {
+                  "css": "null",
+                  "id": "string",
+                  "name": "string",
+                  "url": "string"
+                },
+                "property_code": "string",
+                "property_id": "string"
+              }
+            },
+            "real_range": "integer",
+            "scale": "number",
+            "slug": "string",
+            "weight": "string"
+          }
+        },
+        "offer": "null",
+        "page": {
+          "number": "integer",
+          "rows_per_page": "integer",
+          "total_elements": "integer",
+          "total_pages": "integer"
+        },
+        "sort": {
+          "field": "string",
+          "type": "string"
+        }
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "cdn.cookielaw.org",
+      "path": "/consent/<id>/0199eee3-7740-76eb-ad32-04b1884925c0-test.json",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "AuthenticatedConsent": "string",
+        "BulkDomainCheckUrl": "string",
+        "CDNLocation": "string",
+        "CookieSPAEnabled": "string",
+        "CookieSameSiteNoneEnabled": "string",
+        "CookieV2CSPEnabled": "string",
+        "DataLanguage": "string",
+        "DisclosureCDNUrl": "string",
+        "Domain": "string",
+        "EnvId": "string",
+        "GATrackAssignedCategory": "string",
+        "GATrackToggle": "boolean",
+        "GeoRuleGroupName": "string",
+        "GeolocationUrl": "string",
+        "GoogleData": {
+          "googleVendorListUrl": "string",
+          "vendorListVersion": "integer"
+        },
+        "GppData": {
+          "cmpId": "string"
+        },
+        "Iab2V2Data": {
+          "cmpId": "string",
+          "cmpVersion": "string",
+          "consentLanguage": "null",
+          "consentScreen": "string",
+          "cookieVersion": "string",
+          "createdTime": "string",
+          "encodingType": "string",
+          "globalVendorListUrl": "string",
+          "maxVendorId": "integer",
+          "updatedTime": "string",
+          "vendorListVersion": "integer"
+        },
+        "IabData": {
+          "cmpId": "string",
+          "cmpVersion": "string",
+          "consentLanguage": "null",
+          "consentScreen": "string",
+          "cookieVersion": "string",
+          "createdTime": "string",
+          "encodingType": "string",
+          "globalVendorListUrl": "string",
+          "maxVendorId": "integer",
+          "updatedTime": "string",
+          "vendorListVersion": "integer"
+        },
+        "IabV2Data": {
+          "cmpId": "string",
+          "cmpVersion": "string",
+          "consentLanguage": "null",
+          "consentScreen": "string",
+          "cookieVersion": "string",
+          "createdTime": "string",
+          "encodingType": "string",
+          "globalVendorListUrl": "string",
+          "maxVendorId": "integer",
+          "updatedTime": "string",
+          "vendorListVersion": "integer"
+        },
+        "IsSuppressBanner": "boolean",
+        "IsSuppressPC": "boolean",
+        "LanguageDetectionByHtml": "boolean",
+        "LanguageDetectionEnabled": "boolean",
+        "MobileSDK": "string",
+        "MultiVariantTestingEnabled": "boolean",
+        "OptanonDataJSON": "string",
+        "PublisherCC": "string",
+        "RemoteActionsEnabled": "boolean",
+        "RootDomainConsentEnabled": "boolean",
+        "RootDomainUrl": "string",
+        "RuleSet": {
+          "type": "array",
+          "items": {
+            "BannerPushesDown": "boolean",
+            "Conditions": {
+              "type": "array",
+              "items": null
+            },
+            "Countries": {
+              "type": "array",
+              "items": "string"
+            },
+            "Default": "boolean",
+            "EnableJWTAuthForKnownUsers": "string",
+            "GCEnable": "boolean",
+            "Global": "boolean",
+            "Id": "string",
+            "IsGPPEnabled": "boolean",
+            "LanguageSwitcherPlaceholder": {
+              "default": "string",
+              "en": "string",
+              "es": "string",
+              "gl": "string"
+            },
+            "Name": "string",
+            "States": {},
+            "TemplateName": "string",
+            "TestEndTime": "null",
+            "Type": "string",
+            "UseGoogleVendors": "boolean",
+            "VariantEnabled": "boolean",
+            "Variants": {
+              "type": "array",
+              "items": null
+            }
+          }
+        },
+        "SEOOptimization": "boolean",
+        "ScriptDynamicLoadEnabled": "boolean",
+        "ScriptType": "string",
+        "SkipGeolocation": "boolean",
+        "TenantFeatures": {
+          "ConsentStoreConsentStrings": "boolean",
+          "CookieV2AssignTemplateRule": "string",
+          "CookieV2BannerFocus": "string",
+          "CookieV2BannerLogo": "string",
+          "CookieV2GCMDMA": "string",
+          "CookieV2GPC": "string",
+          "CookieV2GPP": "string",
+          "CookieV2GeneralVendors": "string",
+          "CookieV2GeolocationJsonApi": "string",
+          "CookieV2MicrosoftUET": "string",
+          "CookieV2NewConsentReceiptAPI": "string",
+          "CookieV2RejectAll": "string",
+          "CookieV2RemoveSettingsIcon": "string",
+          "CookieV2SkipCategory": "string",
+          "CookieV2TCF21": "string",
+          "CookieV2TargetedTemplates": "string",
+          "MobileAuthenticatedConsents": "string"
+        },
+        "TenantGuid": "string",
+        "UseV2": "boolean",
+        "Version": "string",
+        "WebFormIntegrationEnabled": "boolean",
+        "WebFormSrcUrl": "string",
+        "WebFormWorkerUrl": "string"
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "cdn.cookielaw.org",
+      "path": "/consent/<id>/<id>/es-es.json",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "CommonData": {
+          "AllowHostOptOut": "boolean",
+          "BAnimation": "string",
+          "BCategoryContainerColor": "string",
+          "BCategoryStyle": "string",
+          "BCategoryStyleColor": "string",
+          "BConsentPurposesText": "string",
+          "BConsentText": "string",
+          "BContinueColor": "string",
+          "BFeaturesText": "string",
+          "BFocusBorderColor": "string",
+          "BLegitInterestText": "string",
+          "BLegitimateInterestPurposesText": "string",
+          "BLineBreakColor": "string",
+          "BSaveBtnColor": "string",
+          "BSpecialFeaturesText": "string",
+          "BSpecialPurposesText": "string",
+          "BackgroundColor": "string",
+          "BannerAccordionBackgroundColor": "string",
+          "BannerCustomCSS": "string",
+          "BannerExternalLinksLogo": "string",
+          "BannerLinksTextColor": "string",
+          "BannerMPButtonColor": "string",
+          "BannerMPButtonTextColor": "string",
+          "BannerRequireExternalLinks": "boolean",
+          "BannerRequireExternalLinksCustomLogo": "boolean",
+          "BnrLogo": "string",
+          "ButtonColor": "string",
+          "ButtonTextColor": "string",
+          "ConsentIntegration": {
+            "AnonymousConsentApi": "null",
+            "CROConsentApi": "null",
+            "ConsentApi": "null",
+            "DefaultAnonymousIdentifier": "null",
+            "DefaultIdentifier": "null",
+            "EnableJWTAuthForKnownUsers": "string",
+            "IdentifiedReceiptsAllowed": "null",
+            "RequestInformation": "null"
+          },
+          "CookieListCustomCss": "string",
+          "CookieListGroupNameColor": "string",
+          "CookieListPrimaryColor": "string",
+          "CookieListTableHeaderBackgroundColor": "string",
+          "CookieListTableHeaderColor": "string",
+          "CookieListTitleColor": "string",
+          "CookiePersistentLogo": "string",
+          "CookiesV2NewCookiePolicy": "string",
+          "GeoRuleGroupName": "string",
+          "GeoRuleName": "string",
+          "IabLegalTextUrl": "string",
+          "IabThirdPartyCookieUrl": "string",
+          "LegacyBannerLayout": "string",
+          "OTCloseBtnLogo": "string",
+          "OTExternalLinkLogo": "string",
+          "OTGuardLogo": "string",
+          "OTSpriteLogo": "null",
+          "OneTrustFooterLogo": "string",
+          "OptanonCookieDomain": "string",
+          "OptanonGroupIdFunctionalityCookies": "string",
+          "OptanonGroupIdPerformanceCookies": "string",
+          "OptanonGroupIdSocialCookies": "string",
+          "OptanonGroupIdTargetingCookies": "string",
+          "OptanonHideAcceptButton": "string",
+          "OptanonHideCookieSettingButton": "string",
+          "OptanonLogo": "string",
+          "OptanonStaticContentLocation": "string",
+          "OptanonStyle": "string",
+          "PCCListCategory": "string",
+          "PCCListDescription": "string",
+          "PCCListDuration": "string",
+          "PCCListHost": "string",
+          "PCCListName": "string",
+          "PCCListType": "string",
+          "PCContinueColor": "string",
+          "PCCustomCSS": "string",
+          "PCDialogClose": "string",
+          "PCFocusBorderColor": "string",
+          "PCFooterCookieProLogoUrl": "string",
+          "PCFooterLogoUrl": "string",
+          "PCShowCookieCategory": "string",
+          "PCShowCookieDescription": "string",
+          "PCShowCookieDuration": "string",
+          "PCShowCookieHost": "string",
+          "PCShowCookieType": "string",
+          "PCenterExpandToViewText": "string",
+          "PcAccordionBackgroundColor": "string",
+          "PcBackgroundColor": "string",
+          "PcButtonColor": "string",
+          "PcButtonTextColor": "string",
+          "PcEnableToggles": "boolean",
+          "PcLegIntButtonColor": "string",
+          "PcLegIntButtonTextColor": "string",
+          "PcLinksTextColor": "string",
+          "PcMenuColor": "string",
+          "PcMenuHighLightColor": "string",
+          "PcTextColor": "string",
+          "ShowBannerAcceptButton": "boolean",
+          "ShowBannerCookieSettings": "string",
+          "ShowCookieList": "string",
+          "ShowSubGroupCookies": "string",
+          "TTLGroupByTech": "boolean",
+          "TTLShowTechDesc": "boolean",
+          "TemplateName": "string",
+          "TextColor": "string",
+          "UseRTL": "boolean",
+          "pcenterContinueWoAcceptLinkColor": "string"
+        },
+        "DomainData": {
+          "AboutCookiesText": "string",
+          "AboutLink": "string",
+          "AboutText": "string",
+          "AcceptAllCookies": "string",
+          "ActiveText": "string",
+          "AddLinksToCookiepedia": "string",
+          "AdvancedAnalyticsCategory": "string",
+          "AlertAllowCookiesText": "string",
+          "AlertCloseText": "string",
+          "AlertLayout": "string",
+          "AlertMoreInfoText": "string",
+          "AlertMoreInfoTextDialog": "string",
+          "AlertNoticeText": "string",
+          "AllowAllText": "string",
+          "AlwaysActiveText": "string",
+          "AlwaysInactiveText": "string",
+          "AriaClosePreferences": "string",
+          "AriaDescribedBy": "string",
+          "AriaOpenPreferences": "string",
+          "AriaPrivacy": "string",
+          "BCloseButtonType": "string",
+          "BContinueText": "string",
+          "BCookiePolicyLinkScreenReader": "string",
+          "BNoCursorFocus": "boolean",
+          "BRejectConsentType": "string",
+          "BSaveBtnText": "string",
+          "BShowSaveBtn": "boolean",
+          "BannerAdditionalDescPlacement": "string",
+          "BannerAdditionalDescription": "string",
+          "BannerCloseButtonText": "string",
+          "BannerDPDDescription": "null",
+          "BannerDPDDescriptionFormat": "null",
+          "BannerDPDTitle": "null",
+          "BannerFeatureDescription": "string",
+          "BannerFeatureTitle": "string",
+          "BannerFocus": "boolean",
+          "BannerIABPartnersLink": "string",
+          "BannerInformationDescription": "string",
+          "BannerInformationTitle": "string",
+          "BannerNonIABVendorListText": "string",
+          "BannerPosition": "string",
+          "BannerPurposeDescription": "string",
+          "BannerPurposeTitle": "string",
+          "BannerPushesDownPage": "boolean",
+          "BannerRejectAllButtonText": "string",
+          "BannerRelativeFontSizesToggle": "boolean",
+          "BannerSettingsButtonDisplayLink": "boolean",
+          "BannerShowRejectAllButton": "boolean",
+          "BannerTitle": "string",
+          "BnrLogoAria": "string",
+          "CategoriesText": "string",
+          "Center": "boolean",
+          "CenterRounded": "boolean",
+          "ChoicesBanner": "boolean",
+          "CloseShouldAcceptAllCookies": "string",
+          "CloseText": "string",
+          "ConfirmText": "string",
+          "ConsentModel": "string",
+          "CookieFirstPartyText": "string",
+          "CookieListDescription": "string",
+          "CookieListTitle": "string",
+          "CookieSettingButtonText": "string",
+          "CookieThirdPartyText": "string",
+          "CookiesDescText": "string",
+          "CookiesText": "string",
+          "CookiesUsedText": "string",
+          "CustomJs": "string",
+          "Flat": "boolean",
+          "FloatingFlat": "boolean",
+          "FloatingRounded": "boolean",
+          "FloatingRoundedCorner": "boolean",
+          "FloatingRoundedIcon": "boolean",
+          "ForceConsent": "boolean",
+          "GCAdPersonalization": "string",
+          "GCAdStorage": "string",
+          "GCAdUserData": "string",
+          "GCAnalyticsStorage": "string",
+          "GCEnable": "boolean",
+          "GCFunctionalityStorage": "string",
+          "GCPersonalizationStorage": "string",
+          "GCRedactEnable": "boolean",
+          "GCSecurityStorage": "string",
+          "GCWaitTime": "integer",
+          "GeneralVendors": {
+            "type": "array",
+            "items": null
+          },
+          "GlobalRestrictionEnabled": "boolean",
+          "GlobalRestrictions": {},
+          "Groups": {
+            "type": "array",
+            "items": {
+              "AlwaysShowCategory": "boolean",
+              "CustomGroupId": "string",
+              "DescriptionLegal": "string",
+              "FirstPartyCookies": "string",
+              "GeneralVendorsIds": {
+                "type": "array",
+                "items": null
+              },
+              "GroupDescription": "string",
+              "GroupDescriptionOTT": "string",
+              "GroupId": "string",
+              "GroupName": "string",
+              "GroupNameMobile": "string",
+              "GroupNameOTT": "string",
+              "HasConsentOptOut": "boolean",
+              "HasLegIntOptOut": "boolean",
+              "Hosts": {
+                "type": "array",
+                "items": null
+              },
+              "IabIllustrations": {
+                "type": "array",
+                "items": null
+              },
+              "IsDntEnabled": "boolean",
+              "IsGpcEnabled": "boolean",
+              "IsIabPurpose": "boolean",
+              "OptanonGroupId": "string",
+              "Order": "string",
+              "Parent": "string",
+              "PurposeId": "string",
+              "ShowInPopup": "boolean",
+              "ShowInPopupNonIAB": "boolean",
+              "ShowSDKListLink": "boolean",
+              "ShowSubGroupDescription": "boolean",
+              "ShowSubgroup": "boolean",
+              "ShowSubgroupToggle": "boolean",
+              "Status": "string",
+              "TrackingTech": "null",
+              "Type": "string",
+              "VendorServices": "null"
+            }
+          },
+          "HasScriptArchive": "boolean",
+          "IabType": "string",
+          "InactiveText": "string",
+          "IsConsentLoggingEnabled": "boolean",
+          "IsIabEnabled": "boolean",
+          "IsIabThirdPartyCookieEnabled": "string",
+          "IsLifespanEnabled": "boolean",
+          "Language": {
+            "Culture": "string"
+          },
+          "LastReconsentDate": "null",
+          "LegIntSettings": "null",
+          "LifespanDurationText": "string",
+          "LifespanText": "string",
+          "LifespanTypeText": "string",
+          "List": "boolean",
+          "MainInfoText": "string",
+          "MainText": "string",
+          "NextPageAcceptAllCookies": "string",
+          "NextPageCloseBanner": "boolean",
+          "NoBanner": "boolean",
+          "OnClickAcceptAllCookies": "string",
+          "OnClickCloseBanner": "boolean",
+          "OverriddenVendors": {},
+          "OverridenGoogleVendors": "null",
+          "PCAccordionStyle": "string",
+          "PCActiveText": "string",
+          "PCAllowToggleLbl": "string",
+          "PCCloseButtonType": "string",
+          "PCContinueText": "string",
+          "PCCookiePolicyLinkScreenReader": "string",
+          "PCCookiePolicyText": "string",
+          "PCFirstPartyCookieListText": "string",
+          "PCGeneralVendorsPolicyText": "string",
+          "PCGoogleVendorsText": "string",
+          "PCGrpDescLinkPosition": "null",
+          "PCGrpDescType": "null",
+          "PCIABVendorLegIntClaimText": "string",
+          "PCIABVendorsText": "string",
+          "PCIllusText": "string",
+          "PCInactiveText": "string",
+          "PCLifeSpanSecs": "string",
+          "PCLifeSpanWk": "string",
+          "PCLifeSpanWks": "string",
+          "PCLifeSpanYr": "string",
+          "PCLifeSpanYrs": "string",
+          "PCLogoScreenReader": "string",
+          "PCOpensCookiesDetailsAlert": "string",
+          "PCOpensVendorDetailsAlert": "string",
+          "PCShowAlwaysActiveToggle": "boolean",
+          "PCShowConsentLabels": "boolean",
+          "PCShowPersistentCookiesHoverButton": "string",
+          "PCTemplateUpgrade": "boolean",
+          "PCVLSDomainsUsed": "string",
+          "PCVLSUse": "string",
+          "PCVendorFullLegalText": "null",
+          "PCViewCookiesText": "string",
+          "PCenterAllowAllConsentText": "string",
+          "PCenterAllowVendorOptout": "boolean",
+          "PCenterApplyFiltersText": "string",
+          "PCenterBackText": "string",
+          "PCenterCancelFiltersText": "string",
+          "PCenterClearFiltersText": "string",
+          "PCenterCookiesListText": "string",
+          "PCenterDynamicRenderingEnable": "boolean",
+          "PCenterEnableAccordion": "boolean",
+          "PCenterFilterText": "string",
+          "PCenterGeneralVendorThirdPartyCookiesText": "string",
+          "PCenterGeneralVendorsText": "string",
+          "PCenterRejectAllButtonText": "string",
+          "PCenterSelectAllVendorsText": "string",
+          "PCenterShowRejectAllButton": "boolean",
+          "PCenterUseGeneralVendorsToggle": "boolean",
+          "PCenterVendorListDescText": "string",
+          "PCenterVendorListDisclosure": "string",
+          "PCenterVendorListLifespan": "string",
+          "PCenterVendorListLifespanDay": "string",
+          "PCenterVendorListLifespanDays": "string",
+          "PCenterVendorListLifespanMonth": "string",
+          "PCenterVendorListLifespanMonths": "string",
+          "PCenterVendorListNonCookieUsage": "string",
+          "PCenterVendorListStorageDomain": "string",
+          "PCenterVendorListStorageIdentifier": "string",
+          "PCenterVendorListStoragePurposes": "string",
+          "PCenterVendorListStorageType": "string",
+          "PCenterVendorsListText": "string",
+          "PCenterViewPrivacyPolicyText": "string",
+          "Panel": "boolean",
+          "Popup": "boolean",
+          "PreferenceCenterConfirmText": "string",
+          "PreferenceCenterManagePreferencesText": "string",
+          "PreferenceCenterMoreInfoScreenReader": "string",
+          "PreferenceCenterPosition": "string",
+          "PublisherCC": "string",
+          "ReconsentFrequencyDays": "integer",
+          "ScrollAcceptAllCookies": "string",
+          "ScrollCloseBanner": "boolean",
+          "ShowAlertNotice": "boolean",
+          "ShowPreferenceCenterCloseButton": "boolean",
+          "Tab": "boolean",
+          "ThirdPartyCookieListText": "string",
+          "UseGoogleVendors": "boolean",
+          "VendorConsentModel": "string",
+          "VendorLevelOptOut": "boolean",
+          "VendorListText": "string",
+          "Vendors": {
+            "type": "array",
+            "items": null
+          },
+          "pccloseButtonType": "string",
+          "pccontinueWithoutAcceptText": "string",
+          "pclifeSpanSecs": "string",
+          "pclifeSpanWk": "string",
+          "pclifeSpanWks": "string",
+          "pclifeSpanYr": "string",
+          "pclifeSpanYrs": "string",
+          "publisher": {
+            "restrictions": {}
+          },
+          "showBannerCloseButton": "boolean"
+        },
+        "MobileData": "string",
+        "NtfyConfig": {
+          "CSButton": {
+            "Align": "string",
+            "BdrColor": "string",
+            "BgColor": "string",
+            "Color": "string"
+          },
+          "CSLink": {
+            "Align": "string",
+            "Color": "string"
+          },
+          "CSTxt": "string",
+          "CSType": "string",
+          "Complete": {
+            "BdrColor": "string",
+            "BgColor": "string",
+            "CloseAria": "string",
+            "Desc": "string",
+            "DescAlign": "string",
+            "DescColor": "string",
+            "IconBgColor": "string",
+            "ShowClose": "boolean",
+            "ShowIcon": "boolean",
+            "Title": "string",
+            "TitleAlign": "string",
+            "TitleColor": "string"
+          },
+          "NtfyDuration": "integer",
+          "ShowCS": "boolean",
+          "ShowNtfy": "boolean",
+          "Sync": {
+            "BdrColor": "string",
+            "BgColor": "string",
+            "CloseAria": "string",
+            "Desc": "string",
+            "DescAlign": "string",
+            "DescColor": "string",
+            "IconBgColor": "string",
+            "ShowClose": "boolean",
+            "ShowIcon": "boolean",
+            "Title": "string",
+            "TitleAlign": "string",
+            "TitleColor": "string"
+          }
+        },
+        "OTTData": "null"
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "cdn.cookielaw.org",
+      "path": "/logos/static/ot_guard_logo.svg",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap",
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "cdn.cookielaw.org",
+      "path": "/scripttemplates/202510.1.0/assets/otCommonStyles.css",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "cdn.cookielaw.org",
+      "path": "/scripttemplates/202510.1.0/assets/otFlat.json",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "css": "string",
+        "html": "string",
+        "name": "string"
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "cdn.cookielaw.org",
+      "path": "/scripttemplates/202510.1.0/assets/v2/otPcCenter.json",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "css": "string",
+        "html": "string",
+        "name": "string"
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "geolocation.onetrust.com",
+      "path": "/cookieconsentpub/v1/geo/location",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "bootstrap"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "continent": "string",
+        "country": "string",
+        "state": "string",
+        "stateName": "string"
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "store.gadisline.com",
+      "path": "/api/v3/stores/postal-codes/delivery",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "elements": {
+          "type": "array",
+          "items": {
+            "minimum_order_quantity": "number",
+            "minimum_shipping_free": "number",
+            "postal_code": "string",
+            "shipping_costs": "number",
+            "store_id": "string"
+          }
+        }
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "store.gadisline.com",
+      "path": "/api/v3/stores/public",
+      "query_keys": [
+        "filter_fields",
+        "filterclass_pickup_store",
+        "filtertype_pickup_store",
+        "filtervalue_pickup_store"
+      ],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {
+        "type": "array",
+        "items": {
+          "address": "string",
+          "delivery": "boolean",
+          "id": "string",
+          "payment_method": "null",
+          "pickup": "boolean",
+          "platform_code": "integer"
+        }
+      },
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "www.gadisline.com",
+      "path": "/_next/static/css/1dae1797b2e4b906.css",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "cookie",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "www.gadisline.com",
+      "path": "/_next/static/css/868f1072e512bd76.css",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "cookie",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "www.gadisline.com",
+      "path": "/_next/static/css/c7dd33a7c1be0681.css",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "cookie",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "www.gadisline.com",
+      "path": "/api/auth/session",
+      "query_keys": [],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup",
+        "login"
+      ],
+      "request_header_names": [
+        "accept",
+        "content-type",
+        "cookie",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": {},
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "host": "www.google.com",
+      "path": "/measurement/conversion",
+      "query_keys": [
+        "auid",
+        "cv",
+        "dma",
+        "en",
+        "fmt",
+        "frm",
+        "fst",
+        "gacid",
+        "gcd",
+        "gcs",
+        "gdid",
+        "gtm",
+        "npa",
+        "pscdl",
+        "random",
+        "rcb",
+        "tag_exp",
+        "tiba",
+        "tid",
+        "u_h",
+        "u_w",
+        "uaa",
+        "uab",
+        "uafvl",
+        "uam",
+        "uamb",
+        "uap",
+        "uapv",
+        "uaw",
+        "url"
+      ],
+      "phases": [
+        "add",
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "origin",
+        "referer",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": []
+    }
+  ],
   "blocked": [],
   "errors": [
-    {
-      "phase": "bootstrap",
-      "type": "Error",
-      "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://<redacted-token>/\nCall log:\n  - navigating to \"https://<redacted-token>/\", waiting until \"domcontentloaded\"\n"
-    },
-    {
-      "phase": "add",
-      "type": "Error",
-      "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://<redacted-token>/leche-entera-ram-brik-1-l\nCall log:\n  - navigating to \"https://<redacted-token>/leche-entera-ram-brik-1-l\", waiting until \"domcontentloaded\"\n"
-    },
-    {
-      "phase": "cart",
-      "type": "Error",
-      "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://<redacted-token>/\nCall log:\n  - navigating to \"https://<redacted-token>/\", waiting until \"domcontentloaded\"\n"
-    },
     {
       "phase": "quantity_2",
       "type": "RuntimeError",
@@ -33,13 +1171,8 @@
     },
     {
       "phase": "checkout",
-      "type": "Error",
-      "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://<redacted-token>/\nCall log:\n  - navigating to \"https://<redacted-token>/\", waiting until \"domcontentloaded\"\n"
-    },
-    {
-      "phase": "cleanup",
-      "type": "Error",
-      "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://<redacted-token>/\nCall log:\n  - navigating to \"https://<redacted-token>/\", waiting until \"domcontentloaded\"\n"
+      "type": "RuntimeError",
+      "message": "checkout control not found"
     }
   ],
   "safety": {

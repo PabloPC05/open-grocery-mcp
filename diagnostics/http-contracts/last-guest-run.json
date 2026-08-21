@@ -1,10 +1,9 @@
 {
-  "recorded_at": "2026-08-21T01:28:26.326309+00:00",
+  "recorded_at": "2026-08-21T01:34:53.748339+00:00",
   "mode": "guest",
-  "requested_target": "all",
-  "capture_outcome": "failure",
+  "requested_target": "gadis",
+  "capture_outcome": "success",
   "manifests_produced": [
-    "froiz",
     "gadis"
   ]
 }
