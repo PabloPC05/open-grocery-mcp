@@ -1,6 +1,6 @@
 {
-  "store": "all",
+  "store": "gadis",
   "mode": "guest",
-  "revision": 9,
-  "reason": "Re-run the complete guest probe after adding public Gadis context headers, retailer-only manifests, JS endpoint extraction and DOM inventory."
+  "revision": 10,
+  "reason": "Capture current Gadis login/cart controls and Next.js endpoint literals after the password-reset entry point was not accessible."
 }
