@@ -1,29 +1,30 @@
 # Open Grocery MCP
 
-Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una misma cesta entre supermercados y gestionar, con confirmaciones explícitas, el carrito y el checkout de la cuenta del usuario.
+Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y gestionar, con confirmaciones explícitas, el carrito y el checkout de la cuenta del usuario.
 
-> **Alpha `0.3.0`.** Gadis, Froiz y Mercadona ofrecen catálogo/comparación y un flujo autenticado de carrito, entrega y checkout. Mercadona usa su API autenticada; Gadis y Froiz usan la interfaz web real mediante Playwright para no depender de rutas privadas inventadas. El envío definitivo permanece apagado por defecto y ninguna integración se presenta como transacción real validada hasta hacer deliberadamente una compra de prueba.
+> **Alpha `0.4.0`.** Mercadona usa su API autenticada. Gadis y Froiz mantienen un backend de navegador para las operaciones de cuenta, pero el proyecto ya incluye una captura HTTP redactada para migrarlos progresivamente al mismo modelo eficiente de Mercadona.
 
 ## Estado actual
 
-| Supermercado | Catálogo | Comparar | Carrito real | Entrega/checkout | Pedido final |
-|---|---:|---:|---:|---:|---:|
-| Gadis | Sí | Sí | Sí, navegador | Sí, navegador | Experimental y apagado |
-| Froiz | Sí | Sí | Sí, navegador | Sí, navegador | Experimental y apagado |
-| Mercadona | Sí | Sí | Sí, API | Sí, API | Experimental y apagado |
+| Supermercado | Catálogo | Comparar | Carrito/checkout | HTTP autenticado |
+|---|---:|---:|---:|---:|
+| Gadis | Sí, por código postal | Sí, con portes y mínimos públicos | Sí, navegador | En investigación mediante captura |
+| Froiz | Sí | Sí | Sí, navegador | En investigación mediante captura |
+| Mercadona | Sí, por código postal | Sí | Sí | Sí |
 
-La automatización de Gadis y Froiz opera sobre botones, campos y opciones visibles en una sesión local del usuario. También escucha respuestas JSON para leer mejor el carrito cuando la web las expone, pero no codifica endpoints privados de escritura.
+El envío definitivo permanece experimental y apagado por defecto. Ninguna integración se presenta como transacción real validada hasta hacer deliberadamente una compra de prueba.
 
 ## Herramientas MCP
 
 Catálogo y comparación:
 
 - `health`, `stores`
+- `get_delivery_coverage`
 - `search_products`, `get_product`, `list_categories`
 - `compare_basket`
 - `prepare_cart`, `get_cart_draft`, `delete_cart_draft`
 
-Cuenta y compra, disponibles en las tres cadenas:
+Cuenta y compra:
 
 - `account_status`, `login_with_browser`, `import_browser_session`
 - `get_real_cart`
@@ -33,7 +34,100 @@ Cuenta y compra, disponibles en las tres cadenas:
 - `prepare_delivery_selection`, `commit_delivery_selection`
 - `prepare_order_submission`, `submit_order`
 
-Las herramientas `prepare_*` no ejecutan la operación descrita. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige la frase exacta y consume el identificador una sola vez.
+Las herramientas `prepare_*` no ejecutan la operación. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige esa frase y consume el identificador una sola vez.
+
+## Comparación realista en Gadis
+
+Cuando se pasa `postal_code`, Gadis consulta su servicio público de cobertura para resolver:
+
+- el surtido que sirve esa zona;
+- los gastos de envío;
+- el pedido mínimo;
+- el importe a partir del cual el envío es gratuito.
+
+Por eso `compare_basket` conserva `total` como subtotal de productos y añade, cuando es verificable:
+
+```json
+{
+  "subtotal_text": "30.00",
+  "delivery": {
+    "applied_delivery_fee_text": "4.90",
+    "minimum_order_text": "25.00",
+    "free_delivery_from_text": "90.00",
+    "minimum_order_met": true
+  },
+  "estimated_checkout_total_text": "34.90"
+}
+```
+
+`get_delivery_coverage(store="gadis", postal_code="28050")` permite consultar esa política directamente.
+
+## Captura HTTP para convertir Gadis/Froiz a clientes ligeros
+
+El objetivo es terminar con esta arquitectura:
+
+```text
+login/anti-bot en Playwright -> cookies/tokens -> cliente HTTP -> carrito y checkout
+```
+
+La captura local abre una ventana visible, pero no recibe credenciales como argumentos. Escribe el usuario y contraseña de una cuenta desechable únicamente en la página del supermercado.
+
+Instalación:
+
+```bash
+python -m pip install -e ".[dev,browser]"
+playwright install chromium
+```
+
+Gadis:
+
+```bash
+python tools/capture_http_local.py \
+  --store gadis \
+  --output local-captures/gadis.json
+```
+
+Froiz:
+
+```bash
+python tools/capture_http_local.py \
+  --store froiz \
+  --output local-captures/froiz.json
+```
+
+El panel negro permite etiquetar estas fases antes de realizarlas manualmente:
+
+1. login;
+2. leer cesta;
+3. añadir producto;
+4. cantidad `1 → 2`;
+5. cantidad `2 → 1`;
+6. eliminar producto;
+7. direcciones;
+8. franjas;
+9. checkout;
+10. entrega;
+11. sonda del pedido final.
+
+Durante la última fase todas las escrituras se registran como esquema y se abortan antes de llegar a la tienda. Además, las rutas conocidas de pedido/pago están bloqueadas en cualquier fase.
+
+La captura no escribe un HAR crudo. Conserva métodos, rutas, nombres de headers, códigos HTTP y esquemas, pero elimina en memoria:
+
+- contraseñas y tokens;
+- cookies, `Authorization` y CSRF/XSRF;
+- emails, teléfonos y direcciones;
+- identificadores privados de usuario, carrito, dirección, checkout y pedido;
+- valores de query string y datos de pago.
+
+El fichero de sesión se guarda aparte en `~/.open-grocery-mcp/<tienda>/storage_state.json` y nunca entra en el JSON compartible.
+
+Consulta [`docs/http-contract-capture.md`](docs/http-contract-capture.md).
+
+### Resultado de las primeras sondas remotas
+
+- Gadis expone microservicios públicos separados para catálogo, tienda y sesión. La versión `0.4.0` ya reutiliza el servicio de cobertura postal en producción.
+- Froiz devuelve `403` a los runners de GitHub en rutas de cesta, por lo que la captura desde la conexión local del propietario es más representativa.
+- El flujo remoto publica únicamente manifiestos redactados bajo `diagnostics/http-contracts/` y extrae candidatos de endpoint de los bundles JavaScript sin guardar su código.
 
 ## Protecciones de compra
 
@@ -44,10 +138,10 @@ Las herramientas `prepare_*` no ejecutan la operación descrita. Devuelven un re
 - Las direcciones se devuelven redactadas; tokens, cookies y contraseñas nunca son parámetros MCP.
 - Productos de alcohol, tabaco, vapeo o nicotina no se añaden automáticamente.
 - Checkout y pedido son acciones separadas.
-- Un intento de pedido se registra antes del clic final y nunca se reintenta automáticamente; si el resultado es ambiguo, hay que revisar el historial de pedidos de la tienda.
-- No se automatizan PSD2, 3-D Secure, códigos SMS, biometría ni confirmaciones bancarias.
+- Un intento de pedido nunca se reintenta automáticamente si el resultado es ambiguo.
+- No se automatizan PSD2, 3-D Secure, SMS, biometría ni confirmaciones bancarias.
 
-El pedido final requiere simultáneamente:
+El pedido final requiere:
 
 ```text
 OPEN_GROCERY_ENABLE_RETAILER_WRITES=1
@@ -59,13 +153,6 @@ Gadis y Froiz requieren además:
 
 ```text
 OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION=1
-```
-
-Ejemplos de frases de un solo uso:
-
-```text
-CONFIRMAR CARRITO 52.38 EUR
-COMPRAR 52.38 EUR
 ```
 
 ## Instalación
@@ -97,23 +184,18 @@ playwright install chromium
 pytest
 ```
 
-También puede utilizarse Google Chrome instalado:
+Puede utilizarse Google Chrome instalado:
 
 ```text
 OPEN_GROCERY_BROWSER_CHANNEL=chrome
-```
-
-O indicar un ejecutable:
-
-```text
-OPEN_GROCERY_BROWSER_EXECUTABLE=/ruta/a/chrome
+OPEN_GROCERY_CAPTURE_BROWSER_CHANNEL=chrome
 ```
 
 ## Sesiones locales
 
-`login_with_browser(store="gadis")`, `login_with_browser(store="froiz")` o `login_with_browser(store="mercadona")` abre un navegador visible. El usuario inicia sesión directamente en la web y completa cualquier verificación. Para Gadis/Froiz pulsa después el botón negro **Open Grocery: guardar sesión**.
+`login_with_browser(store="gadis")`, `login_with_browser(store="froiz")` o `login_with_browser(store="mercadona")` abre un navegador visible. El usuario inicia sesión directamente y completa cualquier verificación.
 
-Por defecto, las sesiones de navegador se guardan en:
+Las sesiones se guardan en:
 
 ```text
 ~/.open-grocery-mcp/gadis/storage_state.json
@@ -121,17 +203,17 @@ Por defecto, las sesiones de navegador se guardan en:
 ~/.open-grocery-mcp/mercadona/storage_state.json
 ```
 
-Puede cambiarse la raíz de Gadis/Froiz mediante `OPEN_GROCERY_STATE_DIR`. Estos archivos equivalen a una sesión iniciada: no deben compartirse ni subirse a Git.
+Estos archivos equivalen a una sesión iniciada: no deben compartirse ni subirse a Git.
 
 ## Ejecución
 
-Solo catálogo y borradores locales:
+Solo catálogo y borradores:
 
 ```bash
 open-grocery-mcp
 ```
 
-Permitir modificaciones confirmadas de carrito y checkout:
+Permitir modificaciones confirmadas:
 
 ```bash
 open-grocery-mcp --allow-retailer-writes
@@ -154,50 +236,16 @@ open-grocery-mcp \
   --allow-browser-order-submission
 ```
 
-Configuración genérica de cliente MCP:
-
-```json
-{
-  "mcpServers": {
-    "open-grocery": {
-      "command": "/ruta/al/entorno/bin/open-grocery-mcp",
-      "env": {
-        "OPEN_GROCERY_ENABLE_RETAILER_WRITES": "1",
-        "OPEN_GROCERY_BROWSER_CHANNEL": "chrome"
-      }
-    }
-  }
-}
-```
-
 ## Flujo recomendado
 
 1. `compare_basket` compara la lista.
-2. `prepare_cart` crea un borrador local de la tienda elegida.
-3. `login_with_browser` guarda una sesión local.
+2. `prepare_cart` crea un borrador local.
+3. `login_with_browser` guarda una sesión.
 4. `get_real_cart` devuelve versión y total.
-5. `prepare_real_cart_update` produce un plan y una frase de confirmación.
+5. `prepare_real_cart_update` produce un plan.
 6. `commit_real_cart_update` aplica exactamente ese plan.
-7. `prepare_checkout_creation` y `commit_checkout_creation` abren un checkout revisado.
-8. Se consultan direcciones y franjas; en los proveedores de navegador, las franjas se vinculan a ese checkout confirmado.
-9. La entrega sigue preparar → confirmar → aplicar.
-10. El pedido final se prepara y confirma por separado.
-
-## Comparación de cesta
-
-```json
-{
-  "postal_code": "28050",
-  "stores": ["gadis", "froiz", "mercadona"],
-  "items": [
-    {"query": "leche entera 1 L", "quantity": 2},
-    {"query": "huevos camperos 12 unidades", "quantity": 1},
-    {"query": "arroz redondo 1 kg", "quantity": 1, "max_unit_price": 2.5}
-  ]
-}
-```
-
-Los resultados pueden no ser SKU idénticos. Deben revisarse las coincidencias de baja confianza. En Gadis/Froiz el surtido efectivo de compra es el seleccionado por la sesión del navegador; el índice público de catálogo puede no coincidir exactamente con una zona concreta.
+7. Checkout y entrega siguen preparar → confirmar → aplicar.
+8. El pedido final se prepara y confirma por separado.
 
 ## Transporte HTTP
 
@@ -205,21 +253,19 @@ Los resultados pueden no ser SKU idénticos. Deben revisarse las coincidencias d
 open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-No expongas esta alpha directamente a Internet. No incorpora identidad multiusuario ni aislamiento de sesiones. Los flujos con navegador están pensados principalmente para `stdio` en la máquina del propietario.
+No expongas esta alpha directamente a Internet. No incorpora identidad multiusuario ni aislamiento de sesiones. Los flujos con navegador están pensados para `stdio` en la máquina del propietario.
 
 ## Desarrollo y verificación
 
 ```bash
 pytest
-python -m compileall -q src tests
+python -m compileall -q src tests tools
 ruff check .
 ```
 
-Las pruebas automatizadas usan transportes y navegadores simulados. Cubren normalización del DOM, aislamiento de sesión, límites de gasto, control de versión, rollback, URLs privadas de checkout, confirmaciones de un uso y bloqueo del pedido. No realizan compras reales.
+Las pruebas automatizadas usan transportes y navegadores simulados. No realizan compras reales.
 
-La implementación de Gadis/Froiz está completa como backend de navegador, pero sus selectores adaptativos deben validarse la primera vez contra una sesión real porque la interfaz de una tienda puede cambiar sin aviso. Un fallo de selector detiene la operación; no se interpreta como éxito.
-
-Consulta [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
+Consulta [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [la captura HTTP](docs/http-contract-capture.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
 
 ## Licencia y procedencia
 
