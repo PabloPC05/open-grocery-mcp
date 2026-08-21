@@ -104,6 +104,14 @@ class GadisAccountClient(GadisCartMixin):
         for expected in left:
             match_index: int | None = None
             for index, actual in enumerate(unmatched):
+                expected_id = str(
+                    expected.get("product_id") or expected.get("id") or ""
+                ).strip()
+                actual_id = str(
+                    actual.get("product_id") or actual.get("id") or ""
+                ).strip()
+                if expected_id and actual_id and expected_id != actual_id:
+                    continue
                 if not same_line_identity(expected, actual):
                     continue
                 if as_decimal(expected.get("quantity")) != as_decimal(
