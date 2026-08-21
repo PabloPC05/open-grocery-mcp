@@ -1,4 +1,4 @@
-"""Composite Gadis catalogue and browser-authenticated provider."""
+"""Composite Gadis catalogue and authenticated hybrid provider."""
 
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ from typing import Any, Mapping, Sequence
 
 from open_grocery_mcp.models import Product, StoreInfo
 from open_grocery_mcp.providers.base import GroceryProvider
-from open_grocery_mcp.providers.browser_account import BrowserAccountClient
-from open_grocery_mcp.providers.browser_config import GADIS_BROWSER_CONFIG
 from open_grocery_mcp.providers.gadis import GadisProvider
+from open_grocery_mcp.providers.gadis_account import GadisAccountClient
 
 
 class GadisFullProvider(GroceryProvider):
@@ -37,15 +36,21 @@ class GadisFullProvider(GroceryProvider):
             "the location selected in the logged-in Gadisline session"
         ),
         notes=(
-            "Catalogue, delivery fee and minimum-order reads use Gadis public HTTP "
-            "services. Account, cart and checkout still use the user's local browser "
-            "session until their authenticated HTTP contract is captured."
+            "Catalogue, coverage, authenticated session checks, cart reads and "
+            "whole-unit cart mutations use HTTP. Login, fractional cart quantities, "
+            "saved-address selection and checkout retain a local browser fallback. "
+            "Order submission remains experimental and disabled by default."
         ),
     )
 
-    def __init__(self) -> None:
-        self._catalogue = GadisProvider()
-        self._account = BrowserAccountClient(GADIS_BROWSER_CONFIG)
+    def __init__(
+        self,
+        *,
+        catalogue: GadisProvider | None = None,
+        account: GadisAccountClient | None = None,
+    ) -> None:
+        self._catalogue = catalogue or GadisProvider()
+        self._account = account or GadisAccountClient()
 
     def search(
         self,
