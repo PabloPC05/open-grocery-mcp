@@ -3,7 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tools.http_capture.common import DANGEROUS, safe_headers, safe_message, safe_url, shape
+from tools.http_capture.common import (
+    DANGEROUS,
+    STORES,
+    _browser_product_url,
+    safe_headers,
+    safe_message,
+    safe_url,
+    shape,
+)
 from tools.http_capture.manifest import add_manifest
 
 
@@ -17,6 +25,29 @@ def test_safe_url_keeps_route_but_removes_values() -> None:
     )
     assert "secret" not in result
     assert "550e8400" not in result
+
+
+def test_safe_url_redacts_short_private_ids_but_keeps_public_product_ids() -> None:
+    assert safe_url("https://shop.test/api/addresses/42/slots") == (
+        "https://shop.test/api/addresses/<id>/slots"
+    )
+    assert safe_url("https://shop.test/api/customers/7/cart/12") == (
+        "https://shop.test/api/customers/<id>/cart/<id>"
+    )
+    assert safe_url("https://shop.test/api/products/42") == (
+        "https://shop.test/api/products/42"
+    )
+    assert safe_url("https://shop.test/api/cart/items") == (
+        "https://shop.test/api/cart/items"
+    )
+
+
+def test_gadis_capture_uses_authenticated_shell_and_rewrites_catalogue_urls() -> None:
+    assert STORES["gadis"].base_url == "https://super.gadisline.com"
+    assert _browser_product_url(
+        "gadis",
+        "https://www.gadisline.com/product/leche?campaign=1#private",
+    ) == "https://super.gadisline.com/product/leche?campaign=1"
 
 
 def test_shape_redacts_generic_and_account_identifiers() -> None:
@@ -45,7 +76,10 @@ def test_headers_and_messages_never_keep_secrets(monkeypatch) -> None:
     headers = safe_headers(
         {
             "Authorization": "Bearer abc.def.ghi",
-            "Referer": "https://shop.test/account/550e8400-e29b-41d4-a716-446655440000?token=x",
+            "Referer": (
+                "https://shop.test/account/"
+                "550e8400-e29b-41d4-a716-446655440000?token=x"
+            ),
             "X-CSRF-Token": "private",
             "X-Store-Id": "gadis-1",
         }
