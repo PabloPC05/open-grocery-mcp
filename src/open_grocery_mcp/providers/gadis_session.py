@@ -91,8 +91,12 @@ class GadisSessionClient:
         base["cookie_names"] = names
         if not cookies:
             return base
+        cookie_header = "; ".join(f"{name}={value}" for name, value in cookies.items())
         try:
-            response = self._client.get(_SESSION_URL, cookies=cookies)
+            response = self._client.get(
+                _SESSION_URL,
+                headers={"Cookie": cookie_header},
+            )
         except httpx.HTTPError as exc:
             base["error"] = f"could not verify Gadis HTTP session: {type(exc).__name__}"
             return base
