@@ -20,3 +20,5 @@ captures/
 local-captures/
 *.har
 *.raw.har
+.opencode/
+*.bak
