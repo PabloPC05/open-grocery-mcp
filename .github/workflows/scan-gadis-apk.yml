@@ -1,0 +1,96 @@
+name: Scan public Gadis Android endpoints
+
+on:
+  push:
+    branches: [feat/initial-mcp]
+    paths:
+      - tools/apk_endpoint_scan.py
+      - .github/workflows/scan-gadis-apk.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scan-gadis-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install APK downloader
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'justapk>=0.3,<1'
+
+      - name: Download public package without executing it
+        id: download
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p /tmp/gadis-apk
+          justapk download com.gadisa.gadis -o /tmp/gadis-apk
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          find /tmp/gadis-apk -maxdepth 3 -type f -printf '%p %s bytes\n' || true
+          exit "$code"
+
+      - name: Extract endpoint-shaped public strings
+        id: scan
+        if: steps.download.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          candidate="$(find /tmp/gadis-apk -type f \( -iname '*.apk' -o -iname '*.xapk' \) -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          if [[ -z "$candidate" ]]; then
+            echo 'No APK/XAPK candidate was downloaded.' >&2
+            exit 1
+          fi
+          mkdir -p diagnostics/apk
+          python tools/apk_endpoint_scan.py "$candidate" --output diagnostics/apk/gadis.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Publish value-free scan
+        if: steps.scan.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git add -- diagnostics/apk/gadis.json
+          if git diff --cached --quiet; then
+            echo 'APK endpoint scan did not change.'
+          else
+            git commit -m 'chore: publish public Gadis APK endpoint scan [skip ci]'
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      - name: Upload scanner output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gadis-apk-endpoint-scan-${{ github.run_id }}
+          path: diagnostics/apk/gadis.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail after preserving diagnostics
+        if: steps.download.outcome == 'failure' || steps.scan.outcome == 'failure'
+        run: exit 1
