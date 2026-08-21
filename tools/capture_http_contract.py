@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 from http_capture.bundle_scan import endpoint_literals
 from http_capture.common import STORES, safe_message, safe_url, shape
+from http_capture.dom import collect_dom_inventory
 from http_capture.manifest import add_manifest
 from http_capture.probe import Probe
 
@@ -23,7 +24,11 @@ class ContractProbe(Probe):
 
     def record_error(self, phase: str, exc: BaseException) -> None:
         self.errors.append(
-            {"phase": phase, "type": type(exc).__name__, "message": safe_message(str(exc))}
+            {
+                "phase": phase,
+                "type": type(exc).__name__,
+                "message": safe_message(str(exc)),
+            }
         )
 
     def login(self, page) -> None:
@@ -42,7 +47,10 @@ class ContractProbe(Probe):
         if "application/x-www-form-urlencoded" in content_type:
             event["body"] = {
                 key: shape(value, key)
-                for key, value in parse_qsl(request.post_data or "", keep_blank_values=True)
+                for key, value in parse_qsl(
+                    request.post_data or "",
+                    keep_blank_values=True,
+                )
             }
         elif "multipart/form-data" in content_type:
             event["body"] = "<multipart-form-body>"
@@ -82,6 +90,7 @@ class ContractProbe(Probe):
             json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        collect_dom_inventory(self.spec.key, self.mode, self.output)
         add_manifest(self.output)
         return status
 
@@ -94,7 +103,11 @@ def main() -> int:
         )
     )
     parser.add_argument("--store", required=True, choices=sorted(STORES))
-    parser.add_argument("--mode", choices=("guest", "authenticated"), default="guest")
+    parser.add_argument(
+        "--mode",
+        choices=("guest", "authenticated"),
+        default="guest",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     return ContractProbe(args.store, args.mode, args.output).run()
