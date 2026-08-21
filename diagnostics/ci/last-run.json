@@ -1,18 +1,27 @@
 {
-  "recorded_at": "2026-08-21T10:11:47.294773+00:00",
-  "verified_sha": "c6c763219bbfa3bc99126a7d828ef73bd1727780",
+  "recorded_at": "2026-08-21T10:59:30.168065+00:00",
+  "verified_sha": "491fa3426a2fc64fbb0bb10d4f51e13f98a72f05",
   "python": "3.13",
-  "success": true,
+  "success": false,
   "exit_codes": {
     "pytest": 0,
     "compileall": 0,
-    "ruff": 0
+    "ruff": 1
   },
   "pytest_tail": [
     "............s.........................................................   [100%]"
   ],
   "compileall_tail": [],
   "ruff_tail": [
-    "All checks passed!"
+    "E402 Module level import not at top of file",
+    "  --> capture_http_local.py:21:1",
+    "   |",
+    "19 |         sys.path.insert(0, _value)",
+    "20 |",
+    "21 | import tools.capture_http_local as capture_mod",
+    "   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+    "help: Move module level imports to top of file",
+    "",
+    "Found 1 error."
   ]
 }
