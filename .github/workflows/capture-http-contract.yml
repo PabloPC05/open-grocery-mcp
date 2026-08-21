@@ -133,12 +133,13 @@ jobs:
               )
           PY
 
-      - name: Publish guest endpoint manifests
-        if: always() && steps.plan.outputs.mode == 'guest'
+      - name: Publish value-free endpoint manifests
+        if: always()
         shell: bash
         env:
           CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
           TARGET: ${{ steps.plan.outputs.target }}
+          MODE: ${{ steps.plan.outputs.mode }}
         run: |
           set -euo pipefail
           mkdir -p diagnostics/http-contracts
@@ -148,40 +149,42 @@ jobs:
           from datetime import UTC, datetime
           from pathlib import Path
 
+          mode = os.environ['MODE']
           produced = []
-          for source in Path('captures').glob('*-guest.json'):
+          for source in Path('captures').glob(f'*-{mode}.json'):
               data = json.loads(source.read_text())
               public = {
                   'schema_version': data.get('schema_version'),
                   'captured_at': data.get('captured_at'),
                   'store': data.get('store'),
-                  'mode': 'guest',
+                  'mode': mode,
                   'endpoint_manifest': data.get('endpoint_manifest', []),
                   'blocked': data.get('blocked', []),
                   'errors': data.get('errors', []),
                   'safety': data.get('safety', {}),
               }
-              target = Path('diagnostics/http-contracts') / f"{data['store']}-guest.json"
+              target = Path('diagnostics/http-contracts') / f"{data['store']}-{mode}.json"
               target.write_text(json.dumps(public, indent=2, ensure_ascii=False) + '\n')
               produced.append(data['store'])
 
           status = {
               'recorded_at': datetime.now(UTC).isoformat(),
+              'mode': mode,
               'requested_target': os.environ.get('TARGET'),
               'capture_outcome': os.environ.get('CAPTURE_OUTCOME'),
               'manifests_produced': sorted(produced),
           }
-          Path('diagnostics/http-contracts/last-guest-run.json').write_text(
-              json.dumps(status, indent=2) + '\n'
-          )
+          Path('diagnostics/http-contracts') / f'last-{mode}-run.json'
+          status_path = Path('diagnostics/http-contracts') / f'last-{mode}-run.json'
+          status_path.write_text(json.dumps(status, indent=2) + '\n')
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- diagnostics/http-contracts
           if git diff --cached --quiet; then
-            echo 'No guest manifest changes.'
+            echo 'No endpoint manifest changes.'
           else
-            git commit -m 'chore: publish sanitized guest HTTP manifests [skip ci]'
+            git commit -m "chore: publish sanitized ${MODE} HTTP manifests [skip ci]"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
