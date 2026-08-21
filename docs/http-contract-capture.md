@@ -3,10 +3,10 @@
 This diagnostic is the migration path from Playwright-driven shopping to the lighter Mercadona-style architecture:
 
 ```text
-visible browser login -> sanitized request capture -> retailer-specific HTTP client
+visible browser login -> value-free request capture -> retailer-specific HTTP client
 ```
 
-It never clicks a final order button. Potential order and payment requests are also blocked at the browser routing layer.
+It never clicks a final order button. Potential order and payment requests are also blocked at the browser routing layer before leaving Chromium.
 
 ## What it inspects
 
@@ -22,18 +22,20 @@ The probe chooses a low-cost non-restricted grocery item from the public catalog
 
 ## Sanitization
 
-The generated artifact redacts or removes:
+Traffic is converted directly into structured events in memory. The capture does **not** write a raw HAR or browser storage state.
+
+The generated JSON preserves phases, methods, route structure, header names, status codes and body schemas while removing:
 
 - passwords and secrets;
-- `Authorization`, cookie and CSRF/XSRF values;
+- `Authorization`, cookie, API-key and CSRF/XSRF values;
 - access, refresh and session tokens;
 - email addresses and phone numbers;
-- customer, user and account identifiers;
+- customer, user, account, cart and checkout identifiers;
 - street addresses and postal codes;
 - payment, card and bank fields;
-- URL fragments and sensitive query parameters.
+- URL fragments and all query values.
 
-The raw HAR is deleted immediately after sanitized JSON is written. Never upload a raw HAR, browser storage state or screenshots of private account pages.
+Authenticated event files remain private workflow artifacts. Guest mode additionally publishes only the compact endpoint manifest under `diagnostics/http-contracts/` so implementation work can continue without downloading a workflow artifact.
 
 ## Guest capture
 
@@ -43,11 +45,11 @@ The committed [`tools/capture-request.json`](../tools/capture-request.json) init
 {"store": "all", "mode": "guest"}
 ```
 
-Changing that file and pushing it to `feat/initial-mcp` triggers the capture workflow.
+Changing that file and pushing it to `feat/initial-mcp` triggers the capture workflow. It exercises a guest cart and publishes value-free manifests for Gadis and Froiz.
 
 ## Authenticated capture
 
-Do not paste credentials into source code, issues, pull requests or chat. Create a disposable retailer account and store the values as GitHub Actions repository secrets:
+Do not paste credentials into source code, issues, pull requests or chat. Create disposable retailer accounts and store the values as GitHub Actions repository secrets:
 
 ```text
 GADIS_TEST_USERNAME
@@ -69,20 +71,21 @@ The disposable account should have:
 - no saved payment method;
 - no active orders;
 - no loyalty balance or coupons of value;
-- a unique password not used anywhere else.
+- a unique password not used anywhere else;
+- no delivery address, unless it is an address the tester is authorized to use.
 
-A delivery address is optional for cart discovery. Add one only when it is fictitious but accepted by the retailer or when the tester is authorized to use it. The probe does not create an address and does not submit an order.
+The probe does not create an address and does not submit an order. Without an authorized address it can still discover login and cart contracts and the transition into checkout; address-specific slots remain for a later controlled capture.
 
-## Turning an artifact into an HTTP provider
+## Turning a capture into an HTTP provider
 
 For each retailer:
 
 1. Identify session cookies, CSRF headers and refresh/bootstrap calls.
-2. Map cart reads and add/set/remove request shapes.
+2. Map cart reads and add/set/remove request schemas.
 3. Determine site/store/location identifiers and concurrency/version semantics.
 4. Map addresses, slots and checkout creation.
 5. Implement fixture tests before enabling live writes.
 6. Retain Playwright only for login, CAPTCHA or anti-bot cookie renewal when required.
 7. Keep the final order endpoint disabled until a deliberate real transaction validates it.
 
-Sanitized artifacts are retained for 14 days by GitHub Actions. Review and download them only from the repository's Actions page.
+Sanitized authenticated artifacts are retained for 14 days by GitHub Actions. Review and download them only from the repository's Actions page.
