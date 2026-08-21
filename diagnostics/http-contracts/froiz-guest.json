@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-21T01:28:26.215522+00:00",
+  "store": "froiz",
+  "mode": "guest",
+  "endpoint_manifest": [
+    {
+      "method": "GET",
+      "host": "supermercado.froiz.com",
+      "path": "/basket",
+      "query_keys": [],
+      "phases": [
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "supermercado.froiz.com",
+      "path": "/cart",
+      "query_keys": [],
+      "phases": [
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "supermercado.froiz.com",
+      "path": "/cesta",
+      "query_keys": [],
+      "phases": [
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "host": "supermercado.froiz.com",
+      "path": "/checkout/cart",
+      "query_keys": [],
+      "phases": [
+        "cart",
+        "checkout",
+        "cleanup"
+      ],
+      "request_header_names": [
+        "accept",
+        "sec-ch-ua-mobile"
+      ],
+      "request_body_schema": null,
+      "response_body_schema": null,
+      "response_statuses": [
+        403
+      ]
+    }
+  ],
+  "blocked": [],
+  "errors": [
+    {
+      "phase": "add",
+      "type": "RuntimeError",
+      "message": "add button not found"
+    },
+    {
+      "phase": "cart",
+      "type": "RuntimeError",
+      "message": "cart navigation failed"
+    },
+    {
+      "phase": "quantity_2",
+      "type": "RuntimeError",
+      "message": "cart row not found"
+    },
+    {
+      "phase": "quantity_1",
+      "type": "RuntimeError",
+      "message": "cart row not found"
+    },
+    {
+      "phase": "checkout",
+      "type": "RuntimeError",
+      "message": "cart navigation failed"
+    },
+    {
+      "phase": "cleanup",
+      "type": "RuntimeError",
+      "message": "cart navigation failed"
+    }
+  ],
+  "safety": {
+    "order_clicked": false,
+    "credentials_recorded": false,
+    "values_sanitized": true
+  }
+}
