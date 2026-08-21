@@ -5,7 +5,7 @@ on:
     branches: [feat/initial-mcp]
     paths:
       - tools/capture_http_contract.py
-      - tools/http_capture_sanitize.py
+      - tools/http_capture/**
       - tools/capture-request.json
       - .github/workflows/capture-http-contract.yml
   workflow_dispatch:
@@ -24,18 +24,12 @@ on:
         options: [guest, authenticated]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   capture:
-    name: Capture ${{ matrix.store }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        store: [gadis, froiz]
-
+    timeout-minutes: 35
     env:
       GADIS_TEST_USERNAME: ${{ secrets.GADIS_TEST_USERNAME }}
       GADIS_TEST_PASSWORD: ${{ secrets.GADIS_TEST_PASSWORD }}
@@ -44,19 +38,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
 
-      - name: Decide whether this matrix entry should run
+      - name: Resolve capture request
         id: plan
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_STORE: ${{ inputs.store }}
           INPUT_MODE: ${{ inputs.mode }}
-          MATRIX_STORE: ${{ matrix.store }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
@@ -66,84 +62,116 @@ jobs:
             target="$(python -c 'import json; print(json.load(open("tools/capture-request.json"))["store"])')"
             mode="$(python -c 'import json; print(json.load(open("tools/capture-request.json"))["mode"])')"
           fi
-          if [[ "$target" == "all" || "$target" == "$MATRIX_STORE" ]]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
+          [[ "$target" =~ ^(all|gadis|froiz)$ ]]
+          [[ "$mode" =~ ^(guest|authenticated)$ ]]
+          echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
-      - name: Install project and browser
-        if: steps.plan.outputs.run == 'true'
+      - name: Validate disposable account secrets
+        if: steps.plan.outputs.mode == 'authenticated'
+        shell: bash
+        env:
+          TARGET: ${{ steps.plan.outputs.target }}
+        run: |
+          set -euo pipefail
+          if [[ "$TARGET" == "all" || "$TARGET" == "gadis" ]]; then
+            [[ -n "${GADIS_TEST_USERNAME:-}" && -n "${GADIS_TEST_PASSWORD:-}" ]]
+          fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "froiz" ]]; then
+            [[ -n "${FROIZ_TEST_USERNAME:-}" && -n "${FROIZ_TEST_PASSWORD:-}" ]]
+          fi
+
+      - name: Install project and Chromium
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev,browser]'
           python -m playwright install --with-deps chromium
 
-      - name: Validate disposable test-account secrets
-        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.mode == 'authenticated'
-        shell: bash
-        env:
-          STORE: ${{ matrix.store }}
-        run: |
-          set -euo pipefail
-          if [[ "$STORE" == "gadis" ]]; then
-            [[ -n "${GADIS_TEST_USERNAME:-}" && -n "${GADIS_TEST_PASSWORD:-}" ]]
-          else
-            [[ -n "${FROIZ_TEST_USERNAME:-}" && -n "${FROIZ_TEST_PASSWORD:-}" ]]
-          fi
-
-      - name: Capture and sanitize traffic
+      - name: Capture value-free contracts
         id: capture
-        if: steps.plan.outputs.run == 'true'
         continue-on-error: true
         shell: bash
         env:
-          STORE: ${{ matrix.store }}
+          TARGET: ${{ steps.plan.outputs.target }}
           MODE: ${{ steps.plan.outputs.mode }}
           OPEN_GROCERY_CAPTURE_HEADLESS: "0"
         run: |
           set +e
           mkdir -p captures
-          xvfb-run -a python tools/capture_http_contract.py \
-            --store "$STORE" \
-            --mode "$MODE" \
-            --output "captures/${STORE}-${MODE}.json"
-          status=$?
-          printf '%s\n' "$status" > "captures/${STORE}-${MODE}.exit-code"
-          exit "$status"
+          failed=0
+          for store in gadis froiz; do
+            if [[ "$TARGET" != "all" && "$TARGET" != "$store" ]]; then
+              continue
+            fi
+            xvfb-run -a python tools/capture_http_contract.py \
+              --store "$store" \
+              --mode "$MODE" \
+              --output "captures/${store}-${MODE}.json"
+            code=$?
+            printf '%s\n' "$code" > "captures/${store}-${MODE}.exit-code"
+            if [[ "$code" -ne 0 ]]; then failed=1; fi
+          done
+          exit "$failed"
 
-      - name: Write non-sensitive summary
-        if: always() && steps.plan.outputs.run == 'true'
+      - name: Print non-sensitive summary
+        if: always()
         shell: bash
-        env:
-          STORE: ${{ matrix.store }}
-          MODE: ${{ steps.plan.outputs.mode }}
         run: |
           python - <<'PY'
-          import json, os
-          from collections import Counter
+          import json
           from pathlib import Path
-          path = Path("captures") / f"{os.environ['STORE']}-{os.environ['MODE']}.json"
-          if not path.exists():
-              print("No capture JSON was produced.")
-              raise SystemExit(0)
-          data = json.loads(path.read_text())
-          methods = Counter(entry["request"]["method"] for entry in data.get("entries", []))
-          print(f"store={data.get('store')} mode={data.get('mode')}")
-          print(f"entries={len(data.get('entries', []))} blocked={len(data.get('blocked', []))} errors={len(data.get('errors', []))}")
-          print("methods=" + ", ".join(f"{k}:{v}" for k, v in sorted(methods.items())))
+          for path in sorted(Path('captures').glob('*.json')):
+              data = json.loads(path.read_text())
+              print(
+                  f"{data.get('store')}: events={len(data.get('events', []))} "
+                  f"endpoints={len(data.get('endpoint_manifest', []))} "
+                  f"blocked={len(data.get('blocked', []))} errors={len(data.get('errors', []))}"
+              )
           PY
 
-      - name: Upload sanitized contract artifact
-        if: always() && steps.plan.outputs.run == 'true'
+      - name: Publish guest endpoint manifests
+        if: always() && steps.plan.outputs.mode == 'guest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostics/http-contracts
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for source in Path('captures').glob('*-guest.json'):
+              data = json.loads(source.read_text())
+              public = {
+                  'schema_version': data.get('schema_version'),
+                  'captured_at': data.get('captured_at'),
+                  'store': data.get('store'),
+                  'mode': 'guest',
+                  'endpoint_manifest': data.get('endpoint_manifest', []),
+                  'blocked': data.get('blocked', []),
+                  'errors': data.get('errors', []),
+                  'safety': data.get('safety', {}),
+              }
+              target = Path('diagnostics/http-contracts') / f"{data['store']}-guest.json"
+              target.write_text(json.dumps(public, indent=2, ensure_ascii=False) + '\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- diagnostics/http-contracts/gadis-guest.json diagnostics/http-contracts/froiz-guest.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo 'No guest manifest changes.'
+          else
+            git commit -m 'chore: publish sanitized guest HTTP manifests [skip ci]'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Upload sanitized diagnostic artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: http-contract-${{ matrix.store }}-${{ steps.plan.outputs.mode }}-${{ github.run_id }}
+          name: http-contract-${{ steps.plan.outputs.target }}-${{ steps.plan.outputs.mode }}-${{ github.run_id }}
           path: captures/
           if-no-files-found: warn
           retention-days: 14
 
       - name: Fail after preserving diagnostics
-        if: steps.plan.outputs.run == 'true' && steps.capture.outcome == 'failure'
+        if: steps.capture.outcome == 'failure'
         run: exit 1
