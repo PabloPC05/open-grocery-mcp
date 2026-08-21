@@ -1,12 +1,12 @@
 {
-  "recorded_at": "2026-08-21T12:30:17.728142+00:00",
-  "verified_sha": "b3f4691c1547a14f463d164ed5176bfbdb841804",
+  "recorded_at": "2026-08-21T12:33:32.076906+00:00",
+  "verified_sha": "89ab23b8b386238e68408601d2bf912f554d45c9",
   "python": "3.13",
-  "success": true,
+  "success": false,
   "exit_codes": {
     "pytest": 0,
     "compileall": 0,
-    "ruff": 0
+    "ruff": 1
   },
   "pytest_tail": [
     "............s........................................................... [ 82%]",
@@ -14,6 +14,24 @@
   ],
   "compileall_tail": [],
   "ruff_tail": [
-    "All checks passed!"
+    "F401 [*] `typing.Sequence` imported but unused",
+    " --> src/open_grocery_mcp/providers/gadis_account.py:6:34",
+    "  |",
+    "5 | from decimal import Decimal",
+    "6 | from typing import Any, Mapping, Sequence",
+    "  |                                  ^^^^^^^^",
+    "7 |",
+    "8 | from open_grocery_mcp.errors import (",
+    "  |",
+    "help: Remove unused import: `typing.Sequence`",
+    "  |",
+    "5 | from decimal import Decimal",
+    "  - from typing import Any, Mapping, Sequence",
+    "6 + from typing import Any, Mapping",
+    "7 |",
+    "  |",
+    "",
+    "Found 1 error.",
+    "[*] 1 fixable with the `--fix` option."
   ]
 }
