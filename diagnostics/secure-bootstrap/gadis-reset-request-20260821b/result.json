@@ -1,0 +1,492 @@
+{
+  "store": "gadis",
+  "operation": "request_reset",
+  "started_at": "2026-08-21T02:13:54.899470+00:00",
+  "finished_at": "2026-08-21T02:14:04.667687+00:00",
+  "completed": false,
+  "request_submitted": null,
+  "page_acknowledged": null,
+  "password_reset_submitted": null,
+  "page_url": null,
+  "events": [
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/",
+      "resource_type": "document",
+      "headers": {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/",
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "x-frame-options": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "x-kong-upstream-latency": "<value>",
+        "x-powered-by": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/consent/<id>/0199eee3-7740-76eb-ad32-04b1884925c0-test.json",
+      "resource_type": "xhr",
+      "headers": {
+        "accept": "*/*",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/consent/<id>/0199eee3-7740-76eb-ad32-04b1884925c0-test.json",
+      "status": 200,
+      "headers": {
+        "x-ms-lease-status": "<value>",
+        "x-content-type-options": "<value>",
+        "x-ms-version": "<value>",
+        "content-type": "application/json",
+        "x-onetrust-isbot": "<value>",
+        "x-ms-request-id": "<value>",
+        "x-ms-blob-type": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location",
+      "resource_type": "xhr",
+      "headers": {
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "accept": "application/json",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/consent/<id>/<id>/es-es.json",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/consent/<id>/<id>/es-es.json",
+      "status": 200,
+      "headers": {
+        "x-ms-lease-status": "<value>",
+        "x-content-type-options": "<value>",
+        "x-ms-version": "<value>",
+        "content-type": "application/json",
+        "x-onetrust-isbot": "<value>",
+        "x-ms-request-id": "<value>",
+        "x-ms-blob-type": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/scripttemplates/202510.1.0/assets/otFlat.json",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/scripttemplates/202510.1.0/assets/v2/otPcCenter.json",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/scripttemplates/202510.1.0/assets/otCommonStyles.css",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/scripttemplates/202510.1.0/assets/otCommonStyles.css",
+      "status": 200,
+      "headers": {
+        "x-ms-version": "<value>",
+        "x-ms-lease-status": "<value>",
+        "x-content-type-options": "<value>",
+        "content-type": "text/css",
+        "x-ms-request-id": "<value>",
+        "x-ms-blob-type": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/scripttemplates/202510.1.0/assets/otFlat.json",
+      "status": 200,
+      "headers": {
+        "x-ms-version": "<value>",
+        "x-ms-lease-status": "<value>",
+        "x-content-type-options": "<value>",
+        "content-type": "application/json",
+        "x-ms-request-id": "<value>",
+        "x-ms-blob-type": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/scripttemplates/202510.1.0/assets/v2/otPcCenter.json",
+      "status": 200,
+      "headers": {
+        "x-ms-version": "<value>",
+        "x-ms-lease-status": "<value>",
+        "x-content-type-options": "<value>",
+        "content-type": "application/json",
+        "x-ms-request-id": "<value>",
+        "x-ms-blob-type": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/logos/static/ot_guard_logo.svg",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://cdn.cookielaw.org/logos/static/ot_guard_logo.svg",
+      "status": 200,
+      "headers": {
+        "x-ms-version": "<value>",
+        "x-ms-lease-status": "<value>",
+        "x-content-type-options": "<value>",
+        "content-type": "image/svg+xml",
+        "x-ms-request-id": "<value>",
+        "x-ms-blob-type": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/api/auth/session",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "content-type": "application/json",
+        "cookie": "<redacted>",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "POST",
+      "url": "https://catalog.gadisline.com/api/v3/catalog/products/search?page_number=%3Cvalue%3E&rows_per_page=%3Cvalue%3E&keep_request=%3Cvalue%3E&order_field=%3Cvalue%3E&sort_type=%3Cvalue%3E",
+      "resource_type": "xhr",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": "<redacted-reset-form>"
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "POST",
+      "url": "https://catalog.gadisline.com/api/v3/catalog/products/search?page_number=%3Cvalue%3E&rows_per_page=%3Cvalue%3E&keep_request=%3Cvalue%3E&order_field=%3Cvalue%3E&sort_type=%3Cvalue%3E",
+      "resource_type": "xhr",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": "<redacted-reset-form>"
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://store.gadisline.com/api/v3/stores/postal-codes/delivery",
+      "resource_type": "xhr",
+      "headers": {
+        "accept": "application/json",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/api/auth/session",
+      "status": 200,
+      "headers": {
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "content-type": "application/json; charset=utf-8",
+        "x-frame-options": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/_next/static/css/1dae1797b2e4b906.css",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "cookie": "<redacted>",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/_next/static/css/c7dd33a7c1be0681.css",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "cookie": "<redacted>",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/_next/static/css/868f1072e512bd76.css",
+      "resource_type": "fetch",
+      "headers": {
+        "accept": "*/*",
+        "cookie": "<redacted>",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "POST",
+      "url": "https://catalog.gadisline.com/api/v3/catalog/products/search?page_number=%3Cvalue%3E&rows_per_page=%3Cvalue%3E&keep_request=%3Cvalue%3E&order_field=%3Cvalue%3E&sort_type=%3Cvalue%3E",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "<value>",
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "x-xss-protection": "<value>",
+        "content-type": "application/json",
+        "x-frame-options": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "POST",
+      "url": "https://catalog.gadisline.com/api/v3/catalog/products/search?page_number=%3Cvalue%3E&rows_per_page=%3Cvalue%3E&keep_request=%3Cvalue%3E&order_field=%3Cvalue%3E&sort_type=%3Cvalue%3E",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "<value>",
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "x-xss-protection": "<value>",
+        "content-type": "application/json",
+        "x-frame-options": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://store.gadisline.com/api/v3/stores/postal-codes/delivery",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "<value>",
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "x-xss-protection": "<value>",
+        "content-type": "application/json",
+        "x-frame-options": "<value>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/_next/static/css/1dae1797b2e4b906.css",
+      "status": 200,
+      "headers": {
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "content-type": "text/css; charset=UTF-8"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/_next/static/css/868f1072e512bd76.css",
+      "status": 200,
+      "headers": {
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "content-type": "text/css; charset=UTF-8"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://www.gadisline.com/_next/static/css/c7dd33a7c1be0681.css",
+      "status": 200,
+      "headers": {
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "content-type": "text/css; charset=UTF-8"
+      },
+      "body": null
+    },
+    {
+      "kind": "request",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://store.gadisline.com/api/v3/stores/public?filter_fields=%3Cvalue%3E&filterclass_pickup_store=%3Cvalue%3E&filtertype_pickup_store=%3Cvalue%3E&filtervalue_pickup_store=%3Cvalue%3E",
+      "resource_type": "xhr",
+      "headers": {
+        "accept": "application/json",
+        "origin": "https://www.gadisline.com",
+        "referer": "https://www.gadisline.com/",
+        "sec-ch-ua-mobile": "<redacted>"
+      },
+      "body": null
+    },
+    {
+      "kind": "response",
+      "phase": "open_login",
+      "method": "GET",
+      "url": "https://store.gadisline.com/api/v3/stores/public?filter_fields=%3Cvalue%3E&filterclass_pickup_store=%3Cvalue%3E&filtertype_pickup_store=%3Cvalue%3E&filtervalue_pickup_store=%3Cvalue%3E",
+      "status": 200,
+      "headers": {
+        "x-content-type-options": "<value>",
+        "x-kong-upstream-latency": "<value>",
+        "x-kong-proxy-latency": "<value>",
+        "x-xss-protection": "<value>",
+        "content-type": "application/json",
+        "x-frame-options": "<value>"
+      },
+      "body": null
+    }
+  ],
+  "blocked": [],
+  "errors": [
+    {
+      "phase": "forgot_password",
+      "type": "RuntimeError",
+      "message": "password-reset entry point not found"
+    }
+  ],
+  "safety": {
+    "credentials_logged": false,
+    "final_order_clicked": false,
+    "payment_opened": false
+  }
+}
