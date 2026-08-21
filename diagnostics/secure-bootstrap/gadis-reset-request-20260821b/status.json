@@ -1,0 +1,8 @@
+{
+  "request_id": "gadis-reset-request-20260821b",
+  "store": "gadis",
+  "operation": "request_reset",
+  "state": "awaiting_encrypted_payload",
+  "created_at": "2026-08-21T02:12:20.008999+00:00",
+  "contains_secret": false
+}
