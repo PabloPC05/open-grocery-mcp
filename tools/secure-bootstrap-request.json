@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "request_id": "idle-bootstrap",
+  "store": "gadis",
+  "operation": "request_reset",
+  "reason": "Set enabled true only for an explicitly authorized one-time account bootstrap."
+}
