@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from tools.capture_http_local import request_body_shape, should_block_request
+from tools.http_capture.bundle_scan import endpoint_literals
 from tools.http_capture.common import (
     DANGEROUS,
     STORES,
@@ -47,6 +48,26 @@ def test_gadis_capture_uses_current_resolvable_storefront() -> None:
     assert STORES["gadis"].base_url == "https://www.gadisline.com"
     url = "https://www.gadisline.com/product/leche?campaign=1#private"
     assert _browser_product_url("gadis", url) == url
+
+
+def test_bundle_scanner_extracts_only_relevant_value_free_routes() -> None:
+    candidates = endpoint_literals(
+        """
+        const cart='/api/v3/carts/12345/lines?token=secret';
+        const checkout="https://checkout.gadisline.com/api/checkouts/abc123/delivery";
+        const image='/assets/logo.svg';
+        """,
+        "https://www.gadisline.com/_next/static/chunks/app.js",
+    )
+    assert (
+        "https://www.gadisline.com/api/v3/carts/<id>/lines?token=%3Cvalue%3E"
+        in candidates
+    )
+    assert (
+        "https://checkout.gadisline.com/api/checkouts/<id>/delivery"
+        in candidates
+    )
+    assert not any("logo.svg" in candidate for candidate in candidates)
 
 
 def test_shape_redacts_generic_and_account_identifiers() -> None:
