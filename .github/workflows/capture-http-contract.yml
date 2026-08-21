@@ -23,6 +23,10 @@ on:
         default: guest
         options: [guest, authenticated]
 
+concurrency:
+  group: http-contract-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -132,12 +136,19 @@ jobs:
       - name: Publish guest endpoint manifests
         if: always() && steps.plan.outputs.mode == 'guest'
         shell: bash
+        env:
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          TARGET: ${{ steps.plan.outputs.target }}
         run: |
           set -euo pipefail
           mkdir -p diagnostics/http-contracts
           python - <<'PY'
           import json
+          import os
+          from datetime import UTC, datetime
           from pathlib import Path
+
+          produced = []
           for source in Path('captures').glob('*-guest.json'):
               data = json.loads(source.read_text())
               public = {
@@ -152,10 +163,21 @@ jobs:
               }
               target = Path('diagnostics/http-contracts') / f"{data['store']}-guest.json"
               target.write_text(json.dumps(public, indent=2, ensure_ascii=False) + '\n')
+              produced.append(data['store'])
+
+          status = {
+              'recorded_at': datetime.now(UTC).isoformat(),
+              'requested_target': os.environ.get('TARGET'),
+              'capture_outcome': os.environ.get('CAPTURE_OUTCOME'),
+              'manifests_produced': sorted(produced),
+          }
+          Path('diagnostics/http-contracts/last-guest-run.json').write_text(
+              json.dumps(status, indent=2) + '\n'
+          )
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- diagnostics/http-contracts/gadis-guest.json diagnostics/http-contracts/froiz-guest.json 2>/dev/null || true
+          git add -- diagnostics/http-contracts
           if git diff --cached --quiet; then
             echo 'No guest manifest changes.'
           else
