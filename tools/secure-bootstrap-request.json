@@ -1,7 +1,7 @@
 {
-  "enabled": true,
+  "enabled": false,
   "request_id": "gadis-reset-request-20260821a",
   "store": "gadis",
   "operation": "request_reset",
-  "reason": "Authorized one-time request for an existing account; no order or payment action."
+  "reason": "Retired because the original runner did not refresh its remote-tracking branch."
 }
