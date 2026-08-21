@@ -13,7 +13,7 @@ def test_safe_url_keeps_route_but_removes_values() -> None:
         "?token=secret&store=42"
     )
     assert result == (
-        "https://shop.test/api/customers/%3Cid%3E/cart?token=%3Cvalue%3E&store=%3Cvalue%3E"
+        "https://shop.test/api/customers/<id>/cart?token=%3Cvalue%3E&store=%3Cvalue%3E"
     )
     assert "secret" not in result
     assert "550e8400" not in result
