@@ -8,7 +8,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.matching import select_best
-from open_grocery_mcp.models import BasketItem, money
+from open_grocery_mcp.models import BasketItem, as_decimal, money
 from open_grocery_mcp.providers.base import GroceryProvider
 from open_grocery_mcp.registry import ProviderRegistry
 
@@ -23,6 +23,50 @@ def parse_basket(items: Iterable[str | Mapping[str, Any]]) -> list[BasketItem]:
     if len(parsed) > 100:
         raise InvalidRequest("basket is limited to 100 lines per comparison")
     return parsed
+
+
+def _delivery_estimate(
+    provider: GroceryProvider,
+    *,
+    postal_code: str | None,
+    subtotal: Decimal,
+) -> dict[str, Any] | None:
+    """Read an optional public delivery/minimum-order policy from a provider."""
+
+    if not postal_code:
+        return None
+    coverage = getattr(provider, "delivery_coverage", None)
+    if not callable(coverage):
+        return None
+    raw = coverage(postal_code)
+    if not isinstance(raw, Mapping):
+        return None
+    listed_fee = as_decimal(raw.get("shipping_costs"))
+    minimum_order = as_decimal(raw.get("minimum_order_quantity"))
+    free_from = as_decimal(raw.get("minimum_shipping_free"))
+    applied_fee = (
+        Decimal("0")
+        if free_from > 0 and subtotal >= free_from
+        else max(Decimal("0"), listed_fee)
+    )
+    minimum_met = minimum_order <= 0 or subtotal >= minimum_order
+    estimated_total = subtotal + applied_fee
+    return {
+        "store_id": raw.get("store_id"),
+        "postal_code": postal_code,
+        "listed_delivery_fee": float(listed_fee),
+        "listed_delivery_fee_text": money(listed_fee),
+        "applied_delivery_fee": float(applied_fee),
+        "applied_delivery_fee_text": money(applied_fee),
+        "minimum_order": float(minimum_order),
+        "minimum_order_text": money(minimum_order),
+        "free_delivery_from": float(free_from),
+        "free_delivery_from_text": money(free_from),
+        "minimum_order_met": minimum_met,
+        "estimated_checkout_total": float(estimated_total),
+        "estimated_checkout_total_text": money(estimated_total),
+        "source": "public retailer delivery policy",
+    }
 
 
 def price_basket(
@@ -86,28 +130,67 @@ def price_basket(
 
     requested = len(items)
     coverage = found / requested if requested else 0.0
-    return {
+    complete = required_missing == 0
+    delivery = _delivery_estimate(
+        provider,
+        postal_code=postal_code,
+        subtotal=total,
+    )
+    checkout_eligible: bool | None = None
+    estimated_checkout_total: float | None = None
+    estimated_checkout_total_text: str | None = None
+    exclusions = [
+        "account-specific coupons",
+        "loyalty-card discounts",
+        "checkout substitutions",
+    ]
+    if delivery is None:
+        exclusions[0:0] = ["delivery fees", "minimum-order rules"]
+    else:
+        checkout_eligible = complete and bool(delivery["minimum_order_met"])
+        estimated_checkout_total = float(delivery["estimated_checkout_total"])
+        estimated_checkout_total_text = str(delivery["estimated_checkout_total_text"])
+        if not delivery["minimum_order_met"]:
+            warnings.append(
+                f"Basket subtotal {money(total)} EUR is below the retailer minimum "
+                f"{delivery['minimum_order_text']} EUR"
+            )
+
+    result: dict[str, Any] = {
         "store": provider.info.key,
         "label": provider.info.label,
         "postal_code": postal_code,
         "currency": "EUR",
+        # ``total`` remains the product subtotal for backward compatibility.
         "total": float(total),
         "total_text": money(total),
+        "subtotal": float(total),
+        "subtotal_text": money(total),
         "items_requested": requested,
         "items_found": found,
         "coverage": round(coverage, 4),
-        "complete": required_missing == 0,
+        "complete": complete,
         "required_missing": required_missing,
+        "checkout_eligible": checkout_eligible,
         "details": details,
         "warnings": warnings,
-        "comparison_excludes": [
-            "delivery fees",
-            "minimum-order rules",
-            "account-specific coupons",
-            "loyalty-card discounts",
-            "checkout substitutions",
-        ],
+        "comparison_excludes": exclusions,
     }
+    if delivery is not None:
+        result["delivery"] = delivery
+        result["estimated_checkout_total"] = estimated_checkout_total
+        result["estimated_checkout_total_text"] = estimated_checkout_total_text
+    return result
+
+
+def _ranking_total(result: Mapping[str, Any]) -> float:
+    value = result.get("estimated_checkout_total")
+    if value is None:
+        value = result.get("total", float("inf"))
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float("inf")
 
 
 def compare_baskets(
@@ -149,6 +232,7 @@ def compare_baskets(
                     {
                         "store": key,
                         "complete": False,
+                        "checkout_eligible": False,
                         "items_requested": len(parsed),
                         "items_found": 0,
                         "coverage": 0.0,
@@ -160,11 +244,12 @@ def compare_baskets(
         key=lambda result: (
             bool(result.get("error")),
             not bool(result.get("complete")),
+            result.get("checkout_eligible") is False,
             -float(result.get("coverage", 0)),
-            float(result.get("total", float("inf"))),
+            _ranking_total(result),
         )
     )
-    best = next(
+    best_complete = next(
         (
             result["store"]
             for result in results
@@ -172,13 +257,25 @@ def compare_baskets(
         ),
         None,
     )
+    best_checkout = next(
+        (
+            result["store"]
+            for result in results
+            if result.get("complete")
+            and result.get("checkout_eligible") is not False
+            and not result.get("error")
+        ),
+        None,
+    )
     return {
         "postal_code": postal_code,
         "items": [item.to_dict() for item in parsed],
         "ranking": results,
-        "best_complete_store": best,
+        "best_complete_store": best_complete,
+        "best_estimated_checkout_store": best_checkout,
         "note": (
             "This compares normalized product matches, not guaranteed identical SKUs. "
-            "Review low-confidence matches and add delivery costs before deciding."
+            "Where a provider exposes a public delivery policy, ranking uses its "
+            "estimated checkout total; otherwise delivery remains excluded."
         ),
     }
