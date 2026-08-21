@@ -5,7 +5,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 
 def _schema(value: Any) -> Any:
@@ -38,7 +38,7 @@ def add_manifest(path: Path) -> dict[str, Any]:
                 "method": key[0],
                 "host": key[1],
                 "path": key[2],
-                "query_keys": sorted({name for name, _ in __import__("urllib.parse", fromlist=["parse_qsl"]).parse_qsl(url.query)}),
+                "query_keys": sorted({name for name, _ in parse_qsl(url.query)}),
                 "phases": set(),
                 "request_header_names": set(),
                 "request_body_schema": None,
