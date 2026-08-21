@@ -22,8 +22,9 @@ def default_state_root() -> Path:
     configured = os.getenv("OPEN_GROCERY_STATE_DIR")
     if configured:
         return Path(configured).expanduser()
-    if os.name == "nt" and os.getenv("LOCALAPPDATA"):
-        return Path(os.environ["LOCALAPPDATA"]) / "open-grocery-mcp"
+    # Every session owner (capture tools, GadisSessionClient and the browser
+    # driver) reads and writes the same directory, so the HTTP and browser
+    # backends must not disagree about where a session lives.
     return Path.home() / ".open-grocery-mcp"
 
 

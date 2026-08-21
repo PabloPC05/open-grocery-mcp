@@ -244,3 +244,17 @@ def test_quantity_safety_limit(account):
             expected_version=cart["version"],
             max_total=Decimal("2000"),
         )
+
+
+def test_default_state_root_matches_canonical_session_dir(monkeypatch):
+    from open_grocery_mcp.providers.browser_account_state import default_state_root
+
+    monkeypatch.delenv("OPEN_GROCERY_STATE_DIR", raising=False)
+    assert default_state_root() == Path.home() / ".open-grocery-mcp"
+
+
+def test_default_state_root_respects_override(monkeypatch, tmp_path):
+    from open_grocery_mcp.providers.browser_account_state import default_state_root
+
+    monkeypatch.setenv("OPEN_GROCERY_STATE_DIR", str(tmp_path))
+    assert default_state_root() == tmp_path
