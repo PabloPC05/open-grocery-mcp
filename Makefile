@@ -1,15 +1,20 @@
-.PHONY: install install-browser test lint run run-writes run-browser-order http
+.PHONY: install install-browser test lint run run-writes run-browser-orders capture-gadis capture-froiz http
 
 install:
 	python -m pip install -e ".[dev]"
 
 install-browser:
 	python -m pip install -e ".[dev,browser]"
-	playwright install chromium
+
+capture-gadis:
+	python tools/capture_http_local.py --store gadis --output local-captures/gadis.json
+
+capture-froiz:
+	python tools/capture_http_local.py --store froiz --output local-captures/froiz.json
 
 test:
 	pytest
-	python -m compileall -q src tests
+	python -m compileall -q src tests tools
 
 lint:
 	ruff check .
@@ -20,7 +25,7 @@ run:
 run-writes:
 	open-grocery-mcp --allow-retailer-writes
 
-run-browser-order:
+run-browser-orders:
 	open-grocery-mcp --allow-retailer-writes --allow-order-submission --allow-browser-order-submission
 
 http:
