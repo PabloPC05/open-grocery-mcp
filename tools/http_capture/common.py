@@ -1,10 +1,11 @@
-"""Shared helpers for sanitized supermarket HTTP-contract capture."""
+"""Shared helpers for value-free supermarket HTTP-contract capture."""
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, unquote, urlsplit, urlunsplit
 
 from open_grocery_mcp.providers.froiz import FroizProvider
 from open_grocery_mcp.providers.gadis import GadisProvider
@@ -12,7 +13,7 @@ from open_grocery_mcp.providers.gadis import GadisProvider
 SENSITIVE = re.compile(
     r"(?i)(pass|secret|token|auth|cookie|csrf|xsrf|session|email|phone|mobile|"
     r"address|street|postal|zip|first.?name|last.?name|surname|dni|nif|card|"
-    r"iban|bic|cvv|cvc|birth|customer.?id|user.?id|account.?id)"
+    r"iban|bic|cvv|cvc|birth|customer.?id|user.?id|account.?id|api.?key)"
 )
 RELEVANT = re.compile(
     r"(?i)(api|graphql|auth|login|session|customer|user|profile|cart|basket|cesta|"
@@ -26,6 +27,10 @@ RESTRICTED = re.compile(
     r"(?i)\b(vino|cerveza|whisk(?:y|ey)|vodka|ginebra|ron|licor|cava|sidra|"
     r"tabaco|cigarr|vape|nicotina)\b"
 )
+UUID = re.compile(r"(?i)^[0-9a-f]{8}-[0-9a-f-]{27,}$")
+OPAQUE = re.compile(r"^[A-Za-z0-9_=-]{25,}$")
+EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
+PHONE = re.compile(r"(?<!\d)(?:\+?34[ .-]?)?[6789](?:[ .-]?\d){8}(?!\d)")
 
 
 @dataclass(frozen=True)
@@ -67,14 +72,33 @@ STORES = {
 }
 
 
+def _path_segment(segment: str) -> str:
+    decoded = unquote(segment)
+    if not decoded:
+        return segment
+    if EMAIL.search(decoded) or UUID.fullmatch(decoded) or OPAQUE.fullmatch(decoded):
+        return "<id>"
+    if re.fullmatch(r"\d{5,}", decoded):
+        return "<number>"
+    return segment
+
+
 def safe_url(url: str) -> str:
-    p = urlsplit(url)
-    query = urlencode((key, "<value>") for key, _ in parse_qsl(p.query, keep_blank_values=True))
-    return urlunsplit((p.scheme, p.netloc, p.path, query, ""))
+    """Keep route structure and query names, never account-specific values."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<invalid-url>"
+    path = "/".join(_path_segment(part) for part in parts.path.split("/"))
+    query = urlencode((key, "<value>") for key, _ in parse_qsl(parts.query, keep_blank_values=True))
+    return urlunsplit((parts.scheme, parts.netloc, path, query, ""))
 
 
 def shape(value: Any, key: str = "") -> Any:
-    """Preserve a JSON contract while removing account-specific values."""
+    """Preserve JSON keys and primitive types while removing user values."""
+    lowered = key.casefold()
+    if lowered == "id":
+        return "<id>"
     if SENSITIVE.search(key):
         return "<redacted>"
     if isinstance(value, Mapping):
@@ -84,8 +108,8 @@ def shape(value: Any, key: str = "") -> Any:
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, str):
-        if key.casefold() in {
-            "id", "product_id", "sku", "code", "currency", "unit", "status", "type",
+        if lowered in {
+            "product_id", "sku", "code", "currency", "unit", "status", "type",
             "method", "locale", "lang", "site_id", "store_id", "warehouse", "version",
         } and len(value) <= 120:
             return value
@@ -95,13 +119,35 @@ def shape(value: Any, key: str = "") -> Any:
 
 def safe_headers(headers: Mapping[str, str]) -> dict[str, str]:
     out: dict[str, str] = {}
+    safe_x = {"x-requested-with", "x-customer-wh", "x-site-id", "x-store-id", "x-locale", "x-lang"}
     for key, value in headers.items():
         low = key.casefold()
         if low in {"authorization", "cookie", "set-cookie", "proxy-authorization"} or SENSITIVE.search(key):
             out[key] = "<redacted>"
-        elif low in {"content-type", "accept", "origin", "referer", "x-requested-with"} or low.startswith("x-"):
+        elif low in {"origin", "referer"}:
+            out[key] = safe_url(value)
+        elif low in {"content-type", "accept"} or low in safe_x:
             out[key] = value[:300]
+        elif low.startswith("x-"):
+            out[key] = "<value>"
     return out
+
+
+def safe_message(value: str) -> str:
+    text = value
+    for name in (
+        "GADIS_TEST_USERNAME", "GADIS_TEST_PASSWORD",
+        "FROIZ_TEST_USERNAME", "FROIZ_TEST_PASSWORD",
+    ):
+        secret = os.getenv(name, "")
+        if secret:
+            text = text.replace(secret, "<redacted>")
+    text = EMAIL.sub("<redacted-email>", text)
+    text = PHONE.sub("<redacted-phone>", text)
+    text = re.sub(r"(?i)Bearer\s+[A-Za-z0-9._=-]+", "Bearer <redacted>", text)
+    text = re.sub(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "<redacted-token>", text)
+    text = re.sub(r"(?i)[0-9a-f]{8}-[0-9a-f-]{27,}", "<redacted-id>", text)
+    return text[:800]
 
 
 def regex(words: Iterable[str]) -> re.Pattern[str]:
