@@ -481,6 +481,18 @@ class LocalCapture:
             finally:
                 browser.close()
 
+        if not self.events:
+            self.errors.append(
+                {
+                    "phase": self.phase,
+                    "type": "EmptyCapture",
+                    "message": (
+                        "no HTTP traffic was captured; the storefront may be "
+                        "unreachable or not issuing API calls"
+                    ),
+                }
+            )
+
         payload = {
             "schema_version": 2,
             "captured_at": datetime.now(UTC).isoformat(),

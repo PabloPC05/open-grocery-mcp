@@ -71,9 +71,12 @@ class Probe:
             return False
         if request.resource_type in {"image", "font", "media", "stylesheet"}:
             return False
+        # A document/script navigation is always recorded so a bootstrap that
+        # never fires an xhr/fetch request (cookie walls, redirects, a static
+        # storefront) cannot produce an empty capture.
         return (
             request.method != "GET"
-            or request.resource_type in {"xhr", "fetch"}
+            or request.resource_type in {"xhr", "fetch", "document"}
             or bool(RELEVANT.search(request.url))
         )
 
@@ -146,8 +149,45 @@ class Probe:
             ("button",),
         )
 
+    @staticmethod
+    def dismiss_dialogs(page: Page) -> None:
+        """Close retailer session/schedule prompts without changing the cart.
+
+        Gadis shows an "AMPLIAR TIEMPO"/"Cancelar" refresh-schedule dialog while
+        a delivery slot is pending; leaving it up blocks the add-to-cart and
+        quantity controls underneath. Extending the schedule is harmless.
+        """
+
+        for label in ("AMPLIAR TIEMPO", "ampliar tiempo", "Ampliar tiempo"):
+            try:
+                target = first_visible(page.get_by_role("button", name=label))
+                if target is not None:
+                    target.click()
+                    page.wait_for_timeout(800)
+                    return
+            except Exception:
+                pass
+        try:
+            target = page.get_by_test_id(
+                "buttonComponentAcceptRefreshScheduleButton"
+            )
+            if target.is_visible():
+                target.click()
+                page.wait_for_timeout(800)
+        except Exception:
+            pass
+
     def discover_product(self) -> None:
         self.product = choose_product(self.spec.key)
+
+    def _state_path(self) -> Path:
+        configured = os.getenv(f"OPEN_GROCERY_{self.spec.key.upper()}_STATE_PATH")
+        if configured:
+            return Path(configured).expanduser()
+        root = Path(
+            os.getenv("OPEN_GROCERY_STATE_DIR", "~/.open-grocery-mcp")
+        ).expanduser()
+        return root / self.spec.key / "storage_state.json"
 
     def login(self, page: Page) -> None:
         if self.mode != "authenticated":
@@ -155,6 +195,8 @@ class Probe:
         username = os.getenv(self.spec.username_env, "")
         password = os.getenv(self.spec.password_env, "")
         if not username or not password:
+            if self._state_path().exists():
+                return
             raise RuntimeError(
                 f"missing {self.spec.username_env}/{self.spec.password_env}"
             )
@@ -197,6 +239,18 @@ class Probe:
         product = self._require_product()
         page.goto(product["url"], wait_until="domcontentloaded")
         self.accept_cookies(page)
+        self.dismiss_dialogs(page)
+        for word in self.spec.add_words:
+            target = first_visible(
+                page.get_by_role(
+                    "button",
+                    name=re.compile(rf"^{re.escape(word)}$", re.IGNORECASE),
+                )
+            )
+            if target is not None:
+                target.click()
+                page.wait_for_timeout(700)
+                return
         if click_words(page, self.spec.add_words, ("button",)):
             page.wait_for_timeout(700)
             return
@@ -214,6 +268,7 @@ class Probe:
     def goto_cart(self, page: Page) -> None:
         page.goto(self.spec.base_url, wait_until="domcontentloaded")
         self.accept_cookies(page)
+        self.dismiss_dialogs(page)
         if click_words(page, self.spec.cart_words):
             page.wait_for_timeout(700)
             return
@@ -224,6 +279,7 @@ class Probe:
                     wait_until="domcontentloaded",
                 )
                 if response is None or response.status < 400:
+                    self.dismiss_dialogs(page)
                     return
             except Exception:
                 pass
@@ -239,7 +295,9 @@ class Probe:
             "ancestor::*[contains(translate(@class,'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
             "'abcdefghijklmnopqrstuvwxyz'),'cart-item')][1] | "
             "ancestor::*[contains(translate(@class,'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
-            "'abcdefghijklmnopqrstuvwxyz'),'basket-item')][1]"
+            "'abcdefghijklmnopqrstuvwxyz'),'basket-item')][1] | "
+            "ancestor::*[.//input[contains(@name,'quantity') or "
+            "contains(@name,'cantidad')]][1]"
         )
         return row.first if row.count() else target.locator("xpath=..")
 
@@ -294,6 +352,15 @@ class Probe:
         target = first_visible(
             row.locator("button,a,[role=button]").filter(has_text=pattern)
         )
+        if target is None:
+            target = first_visible(
+                row.locator(
+                    "button[data-testid*='remove' i],"
+                    "button[aria-label*='eliminar' i],"
+                    "button[title*='eliminar' i],"
+                    "button[data-testid*='eliminar' i]"
+                )
+            )
         if target:
             target.click()
             page.wait_for_timeout(600)
@@ -345,10 +412,15 @@ class Probe:
                 ).casefold() not in {"0", "false", "no", "off"}
                 browser = playwright.chromium.launch(headless=headless)
                 try:
-                    context = browser.new_context(
-                        locale="es-ES",
-                        viewport={"width": 1440, "height": 1000},
-                    )
+                    context_args: dict[str, Any] = {
+                        "locale": "es-ES",
+                        "viewport": {"width": 1440, "height": 1000},
+                    }
+                    if self.mode == "authenticated":
+                        state_path = self._state_path()
+                        if state_path.exists():
+                            context_args["storage_state"] = str(state_path)
+                    context = browser.new_context(**context_args)
                     context.route("**/*", self.route)
                     page = context.new_page()
                     page.set_default_timeout(15000)
@@ -401,5 +473,16 @@ class Probe:
             # report, instead of leaving only an opaque exit code in Actions.
             self.record_error(self.phase or "browser", exc)
         finally:
+            if not self.events:
+                self.errors.append(
+                    {
+                        "phase": self.phase or "capture",
+                        "type": "EmptyCapture",
+                        "message": (
+                            "no HTTP traffic was captured; the storefront may be "
+                            "unreachable, blocked by anti-bot, or not issuing API calls"
+                        ),
+                    }
+                )
             self._write_report()
         return 0 if self.events else 1

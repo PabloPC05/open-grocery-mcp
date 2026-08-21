@@ -48,6 +48,9 @@ def test_gadis_capture_uses_current_resolvable_storefront() -> None:
     assert STORES["gadis"].base_url == "https://www.gadisline.com"
     url = "https://www.gadisline.com/product/leche?campaign=1#private"
     assert _browser_product_url("gadis", url) == url
+    # The live cart lives under the Spanish catch-all route, not the generic
+    # "/cart" guess used by other storefronts.
+    assert "/pag/proceso-de-compra/carrito" in STORES["gadis"].cart_paths
 
 
 def test_bundle_scanner_extracts_only_relevant_value_free_routes() -> None:

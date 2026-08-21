@@ -49,6 +49,7 @@ def _scan(value: Any, path: str = "root") -> list[str]:
             if (
                 not _PUBLIC_ID_FIELD.fullmatch(key_name)
                 and (key_name == "id" or _PRIVATE_FIELD.search(key_name))
+                and not isinstance(child, (dict, list))
                 and child not in _ALLOWED_PLACEHOLDERS
                 and child not in (None, False, True, 0, "")
             ):

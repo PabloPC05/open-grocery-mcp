@@ -18,7 +18,7 @@ for _path in (_REPOSITORY_ROOT / "src", _REPOSITORY_ROOT):
     if _value not in sys.path:
         sys.path.insert(0, _value)
 
-import tools.capture_http_local as capture_mod
+import tools.capture_http_local as capture_mod  # noqa: E402
 
 
 # Playwright bindings survive document navigation, but the HTML overlay is

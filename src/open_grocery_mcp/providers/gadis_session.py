@@ -26,7 +26,8 @@ class GadisSessionClient:
 
     The public response is deliberately value-free: it exposes only whether the
     endpoint authenticated and which user-field names were present. Cookie and
-    profile values never leave this client.
+    profile values never leave this client. The retailer OAuth bearer token is
+    kept in memory and is never written into a status payload.
     """
 
     def __init__(
@@ -79,6 +80,44 @@ class GadisSessionClient:
             names.append(name)
         return cookies, sorted(set(names))
 
+    def _cookie_header(self) -> str | None:
+        cookies, _ = self._cookie_jar()
+        if not cookies:
+            return None
+        return "; ".join(f"{name}={value}" for name, value in cookies.items())
+
+    def session_token(self) -> tuple[str | None, str | None]:
+        """Return the retailer OAuth access token and expiry, or ``(None, None)``.
+
+        The NextAuth session exposes ``token.accessToken``, which is the Keycloak
+        bearer token used by the ``catalog``/``store``/``cart``/``clients``
+        microservices. The value is returned to the caller and never persisted.
+        """
+
+        cookie_header = self._cookie_header()
+        if not cookie_header:
+            return None, None
+        try:
+            response = self._client.get(
+                _SESSION_URL,
+                headers={"Cookie": cookie_header},
+            )
+        except httpx.HTTPError:
+            return None, None
+        if response.status_code != 200:
+            return None, None
+        try:
+            payload = response.json()
+        except ValueError:
+            return None, None
+        if not isinstance(payload, Mapping):
+            return None, None
+        token = payload.get("token")
+        access_token = token.get("accessToken") if isinstance(token, Mapping) else None
+        access_token = str(access_token or "").strip() or None
+        expires = str(payload.get("expires") or "").strip() or None
+        return access_token, expires
+
     def status(self) -> dict[str, Any]:
         base: dict[str, Any] = {
             "store": "gadis",
@@ -116,12 +155,17 @@ class GadisSessionClient:
             return base
         user = payload.get("user")
         user_fields = sorted(str(key) for key in user) if isinstance(user, Mapping) else []
+        token = payload.get("token")
+        bearer_available = bool(
+            isinstance(token, Mapping) and str(token.get("accessToken") or "").strip()
+        )
         authenticated = bool(user_fields or payload.get("expires"))
         base.update(
             {
                 "authenticated": authenticated,
                 "user_fields": user_fields,
                 "expiry_present": bool(payload.get("expires")),
+                "bearer_token_available": bearer_available,
                 "profile_values_exposed": False,
             }
         )

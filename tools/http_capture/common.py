@@ -119,7 +119,7 @@ STORES = {
         # The legacy super.gadisline.com host is not reliably resolvable from
         # automated runners and must not be used as the capture entry point.
         "https://www.gadisline.com",
-        ("/cart", "/carrito", "/cesta", "/checkout/cart"),
+        ("/pag/proceso-de-compra/carrito", "/carrito", "/cesta", "/checkout/cart"),
         ("iniciar sesión", "acceder", "mi cuenta", "identificarse"),
         ("cesta", "carrito", "mi compra"),
         ("añadir", "agregar", "comprar"),
