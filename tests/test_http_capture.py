@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tools.capture_http_local import request_body_shape, should_block_request
 from tools.http_capture.common import (
     DANGEROUS,
     STORES,
@@ -141,3 +142,35 @@ def test_final_order_patterns_are_blocked_but_cart_is_not() -> None:
     assert DANGEROUS.search("https://shop.test/api/payment")
     assert not DANGEROUS.search("https://shop.test/api/cart/items")
     assert not DANGEROUS.search("https://shop.test/api/checkouts/c1/delivery")
+
+
+class _Request:
+    def __init__(self, body: str, content_type: str) -> None:
+        self.post_data = body
+        self.headers = {"content-type": content_type}
+
+
+def test_local_capture_redacts_login_form_values() -> None:
+    value = request_body_shape(
+        _Request(
+            "email=person%40example.com&password=disposable&remember=true",
+            "application/x-www-form-urlencoded",
+        )
+    )
+    assert value == {
+        "email": "<redacted>",
+        "password": "<redacted>",
+        "remember": "<str>",
+    }
+
+
+def test_local_order_probe_blocks_writes_before_they_leave_browser() -> None:
+    assert should_block_request(
+        "order_submit_probe", "POST", "https://shop.test/api/cart/lines"
+    )
+    assert should_block_request(
+        "checkout_open", "POST", "https://shop.test/api/orders"
+    )
+    assert not should_block_request(
+        "cart_add", "POST", "https://shop.test/api/cart/lines"
+    )
