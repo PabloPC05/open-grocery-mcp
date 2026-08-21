@@ -1,20 +1,20 @@
 # Open Grocery MCP
 
-Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y gestionar, con confirmaciones explícitas, el carrito y el checkout de la cuenta del usuario.
+Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y preparar, con confirmaciones explícitas, cambios en el carrito y el checkout de la cuenta del usuario.
 
-> **Alpha `0.4.0`.** Mercadona usa su API autenticada. Gadis y Froiz mantienen un backend de navegador para las operaciones de cuenta, pero el proyecto ya incluye una captura HTTP redactada para migrarlos progresivamente al mismo modelo eficiente de Mercadona.
+> **Alpha `0.5.0`.** Mercadona utiliza HTTP para su flujo autenticado. Gadis ya utiliza HTTP para verificar la sesión, leer el carrito y aplicar mutaciones reversibles de cantidades enteras; conserva Playwright para login, cantidades fraccionarias, direcciones, franjas y checkout. Froiz continúa con backend de navegador mientras se completa su contrato HTTP autenticado.
 
 ## Estado actual
 
-| Supermercado | Catálogo | Comparar | Carrito/checkout | HTTP autenticado |
-|---|---:|---:|---:|---:|
-| Gadis | Sí, por código postal | Sí, con portes y mínimos públicos | Sí, navegador | En investigación mediante captura |
-| Froiz | Sí | Sí | Sí, navegador | En investigación mediante captura |
-| Mercadona | Sí, por código postal | Sí | Sí | Sí |
+| Supermercado | Catálogo | Comparación | Carrito autenticado | Checkout | Pedido final |
+|---|---:|---:|---:|---:|---:|
+| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras; navegador como fallback | Navegador con verificación cruzada | Experimental y apagado |
+| Froiz | Sí | Sí | Navegador | Navegador | Experimental y apagado |
+| Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | Experimental y apagado |
 
-El envío definitivo permanece experimental y apagado por defecto. Ninguna integración se presenta como transacción real validada hasta hacer deliberadamente una compra de prueba.
+Ninguna integración se presenta como compra real validada. El endpoint irreversible permanece separado, exige varias autorizaciones locales y no se ejecuta durante pruebas o capturas.
 
-## Herramientas MCP
+## Qué puede hacer el MCP
 
 Catálogo y comparación:
 
@@ -34,7 +34,50 @@ Cuenta y compra:
 - `prepare_delivery_selection`, `commit_delivery_selection`
 - `prepare_order_submission`, `submit_order`
 
-Las herramientas `prepare_*` no ejecutan la operación. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige esa frase y consume el identificador una sola vez.
+Las herramientas `prepare_*` no modifican el supermercado. Devuelven un resumen, un `confirmation_id`, una frase exacta y una caducidad de cinco minutos. El `commit_*` correspondiente exige esa frase y consume el identificador una sola vez.
+
+## Arquitectura autenticada de Gadis
+
+La captura local confirmó este flujo:
+
+```text
+login en Playwright
+        ↓
+storage_state local
+        ↓
+NextAuth /api/auth/session
+        ↓
+token Keycloak mantenido solo en memoria
+        ↓
+servicios HTTP de Gadis
+```
+
+La versión `0.5.0` usa ese contrato para:
+
+- comprobar si la sesión sigue autenticada;
+- leer el carrito sin abrir Chromium;
+- añadir, cambiar o retirar productos de cantidad entera;
+- verificar producto, cantidad y total después de cada escritura;
+- detectar cambios concurrentes mediante la versión del carrito;
+- restaurar la cesta anterior cuando una escritura o el total no se pueden verificar;
+- aceptar una respuesta de escritura perdida únicamente cuando una lectura segura demuestra que el estado deseado sí quedó aplicado.
+
+Se mantiene el navegador para:
+
+- iniciar sesión, CAPTCHA o 2FA;
+- productos vendidos en cantidades fraccionarias;
+- selección de direcciones y franjas mientras no exista un identificador HTTP utilizable sin exponer datos privados;
+- creación y manejo del checkout;
+- cualquier parte todavía no validada del pedido final.
+
+Antes de pasar del carrito HTTP al checkout del navegador, el proveedor compara:
+
+1. los productos;
+2. las cantidades;
+3. el total;
+4. la versión HTTP revisada.
+
+Solo después traduce esa revisión a la versión interna de la página. Así se evita abrir un checkout con una cesta distinta o rechazar falsamente una cesta correcta porque HTTP y navegador calculan versiones de forma diferente.
 
 ## Comparación realista en Gadis
 
@@ -60,85 +103,22 @@ Por eso `compare_basket` conserva `total` como subtotal de productos y añade, c
 }
 ```
 
-`get_delivery_coverage(store="gadis", postal_code="28050")` permite consultar esa política directamente.
-
-## Captura HTTP para convertir Gadis/Froiz a clientes ligeros
-
-El objetivo es terminar con esta arquitectura:
+También puede consultarse directamente:
 
 ```text
-login/anti-bot en Playwright -> cookies/tokens -> cliente HTTP -> carrito y checkout
+get_delivery_coverage(store="gadis", postal_code="28050")
 ```
-
-La captura local abre una ventana visible, pero no recibe credenciales como argumentos. Escribe el usuario y contraseña de una cuenta desechable únicamente en la página del supermercado.
-
-Instalación:
-
-```bash
-python -m pip install -e ".[dev,browser]"
-playwright install chromium
-```
-
-Gadis:
-
-```bash
-python tools/capture_http_local.py \
-  --store gadis \
-  --output local-captures/gadis.json
-```
-
-Froiz:
-
-```bash
-python tools/capture_http_local.py \
-  --store froiz \
-  --output local-captures/froiz.json
-```
-
-El panel negro permite etiquetar estas fases antes de realizarlas manualmente:
-
-1. login;
-2. leer cesta;
-3. añadir producto;
-4. cantidad `1 → 2`;
-5. cantidad `2 → 1`;
-6. eliminar producto;
-7. direcciones;
-8. franjas;
-9. checkout;
-10. entrega;
-11. sonda del pedido final.
-
-Durante la última fase todas las escrituras se registran como esquema y se abortan antes de llegar a la tienda. Además, las rutas conocidas de pedido/pago están bloqueadas en cualquier fase.
-
-La captura no escribe un HAR crudo. Conserva métodos, rutas, nombres de headers, códigos HTTP y esquemas, pero elimina en memoria:
-
-- contraseñas y tokens;
-- cookies, `Authorization` y CSRF/XSRF;
-- emails, teléfonos y direcciones;
-- identificadores privados de usuario, carrito, dirección, checkout y pedido;
-- valores de query string y datos de pago.
-
-El fichero de sesión se guarda aparte en `~/.open-grocery-mcp/<tienda>/storage_state.json` y nunca entra en el JSON compartible.
-
-Consulta [`docs/http-contract-capture.md`](docs/http-contract-capture.md).
-
-### Resultado de las primeras sondas remotas
-
-- Gadis expone microservicios públicos separados para catálogo, tienda y sesión. La versión `0.4.0` ya reutiliza el servicio de cobertura postal en producción.
-- Froiz devuelve `403` a los runners de GitHub en rutas de cesta, por lo que la captura desde la conexión local del propietario es más representativa.
-- El flujo remoto publica únicamente manifiestos redactados bajo `diagnostics/http-contracts/` y extrae candidatos de endpoint de los bundles JavaScript sin guardar su código.
 
 ## Protecciones de compra
 
 - Las escrituras están deshabilitadas salvo `OPEN_GROCERY_ENABLE_RETAILER_WRITES=1`.
-- Cada cambio usa un plan revisado, límite máximo de gasto y comprobación del carrito inmediatamente anterior.
-- Tras escribir se vuelve a leer el carrito y se comprueban productos y cantidades.
-- Si el total no puede verificarse, se falla de forma cerrada y se intenta restaurar la cesta anterior.
+- Cada cambio usa un plan revisado, límite máximo de gasto y comprobación de versión inmediatamente anterior.
+- Tras escribir se vuelve a leer el carrito y se comprueban productos, cantidades y total.
+- Si el total excede el límite o el estado no coincide, se falla de forma cerrada y se intenta restaurar la cesta anterior.
+- Una respuesta ambigua no se reintenta automáticamente.
 - Las direcciones se devuelven redactadas; tokens, cookies y contraseñas nunca son parámetros MCP.
-- Productos de alcohol, tabaco, vapeo o nicotina no se añaden automáticamente.
+- Alcohol, tabaco, vapeo y nicotina no se añaden automáticamente.
 - Checkout y pedido son acciones separadas.
-- Un intento de pedido nunca se reintenta automáticamente si el resultado es ambiguo.
 - No se automatizan PSD2, 3-D Secure, SMS, biometría ni confirmaciones bancarias.
 
 El pedido final requiere:
@@ -155,9 +135,11 @@ Gadis y Froiz requieren además:
 OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION=1
 ```
 
+Estas opciones no deben activarse durante desarrollo o captura.
+
 ## Instalación
 
-Requiere Python 3.11 o posterior.
+Requiere Python 3.11 o posterior. El desarrollo actual está en `feat/initial-mcp`.
 
 ```bash
 git clone https://github.com/PabloPC05/open-grocery-mcp.git
@@ -178,7 +160,7 @@ pytest
 Windows PowerShell:
 
 ```powershell
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev,browser]"
 playwright install chromium
 pytest
@@ -203,57 +185,70 @@ Las sesiones se guardan en:
 ~/.open-grocery-mcp/mercadona/storage_state.json
 ```
 
-Estos archivos equivalen a una sesión iniciada: no deben compartirse ni subirse a Git.
+En Windows pueden almacenarse bajo `%LOCALAPPDATA%\open-grocery-mcp`. Estos archivos equivalen a una sesión iniciada: no deben compartirse, abrirse en un chat ni subirse a Git.
 
 ## Ejecución
 
-Solo catálogo y borradores:
+Solo catálogo, comparación y borradores:
 
 ```bash
 open-grocery-mcp
 ```
 
-Permitir modificaciones confirmadas:
+Permitir modificaciones confirmadas del carrito:
 
 ```bash
 open-grocery-mcp --allow-retailer-writes
 ```
 
-Permitir el endpoint final de Mercadona:
-
-```bash
-export OPEN_GROCERY_ORDER_APPROVAL_CODE='un-codigo-local-largo'
-open-grocery-mcp --allow-retailer-writes --allow-order-submission
-```
-
-Permitir también el botón final de Gadis/Froiz:
-
-```bash
-export OPEN_GROCERY_ORDER_APPROVAL_CODE='un-codigo-local-largo'
-open-grocery-mcp \
-  --allow-retailer-writes \
-  --allow-order-submission \
-  --allow-browser-order-submission
-```
-
-## Flujo recomendado
-
-1. `compare_basket` compara la lista.
-2. `prepare_cart` crea un borrador local.
-3. `login_with_browser` guarda una sesión.
-4. `get_real_cart` devuelve versión y total.
-5. `prepare_real_cart_update` produce un plan.
-6. `commit_real_cart_update` aplica exactamente ese plan.
-7. Checkout y entrega siguen preparar → confirmar → aplicar.
-8. El pedido final se prepara y confirma por separado.
-
-## Transporte HTTP
+Transporte HTTP local:
 
 ```bash
 open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
 No expongas esta alpha directamente a Internet. No incorpora identidad multiusuario ni aislamiento de sesiones. Los flujos con navegador están pensados para `stdio` en la máquina del propietario.
+
+## Flujo recomendado
+
+1. `compare_basket` compara la lista.
+2. `prepare_cart` crea un borrador local.
+3. `login_with_browser` guarda una sesión si todavía no existe.
+4. `get_real_cart` devuelve versión, líneas y total.
+5. `prepare_real_cart_update` produce un plan sin escribir.
+6. El usuario revisa la frase exacta.
+7. `commit_real_cart_update` aplica únicamente ese plan y vuelve a verificarlo.
+8. Checkout y entrega siguen preparar → confirmar → aplicar.
+9. El pedido final se mantiene separado y deshabilitado salvo autorización extraordinaria.
+
+## Captura HTTP y trabajo con agentes locales
+
+Las capturas autenticadas deben ejecutarse en la máquina del propietario, pero un agente local con terminal y navegador puede encargarse de ellas sin convertir el proceso en una lista manual.
+
+Lee:
+
+- [`AGENTS.md`](AGENTS.md)
+- [`docs/local-agent-handoff.md`](docs/local-agent-handoff.md)
+- [`docs/http-contract-capture.md`](docs/http-contract-capture.md)
+
+El agente debe validar siempre el JSON con:
+
+```powershell
+python .\tools\validate_capture.py `
+  .\local-captures\gadis-authenticated.json `
+  --minimum-events 5 `
+  --require-response
+```
+
+Una captura con `events: 0` es un fallo que debe depurarse; nunca se acepta como resultado parcial.
+
+La captura no genera un HAR crudo. Conserva métodos, rutas, nombres de cabeceras, códigos HTTP y esquemas, pero elimina en memoria:
+
+- contraseñas y tokens;
+- cookies, `Authorization` y CSRF/XSRF;
+- emails, teléfonos y direcciones;
+- identificadores privados de usuario, carrito, dirección, checkout y pedido;
+- valores de query string y datos de pago.
 
 ## Desarrollo y verificación
 
@@ -265,7 +260,7 @@ ruff check .
 
 Las pruebas automatizadas usan transportes y navegadores simulados. No realizan compras reales.
 
-Consulta [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [la captura HTTP](docs/http-contract-capture.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
+Consulta también [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
 
 ## Licencia y procedencia
 
