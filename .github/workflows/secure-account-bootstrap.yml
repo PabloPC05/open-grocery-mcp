@@ -40,8 +40,9 @@ jobs:
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json, re
           request = json.load(open('tools/secure-bootstrap-request.json'))
-          if not request.get('enabled'):
-              print('enabled=false')
+          enabled = bool(request.get('enabled'))
+          print(f"enabled={'true' if enabled else 'false'}")
+          if not enabled:
               raise SystemExit(0)
           request_id = str(request.get('request_id', ''))
           store = str(request.get('store', ''))
@@ -52,7 +53,6 @@ jobs:
               raise SystemExit('invalid store')
           if operation not in {'request_reset', 'complete_reset'}:
               raise SystemExit('invalid operation')
-          print('enabled=true')
           print(f'request_id={request_id}')
           print(f'store={store}')
           print(f'operation={operation}')
@@ -66,7 +66,7 @@ jobs:
           python -m pip install 'cryptography>=45,<47'
           python -m playwright install --with-deps chromium
 
-      - name: Generate one-time public key
+      - name: Generate and publish one-time public key
         if: steps.request.outputs.enabled == 'true'
         shell: bash
         env:
@@ -75,7 +75,7 @@ jobs:
           OPERATION: ${{ steps.request.outputs.operation }}
         run: |
           set -euo pipefail
-          mkdir -p "/tmp/secure-bootstrap" "diagnostics/secure-bootstrap/$REQUEST_ID"
+          mkdir -p /tmp/secure-bootstrap "diagnostics/secure-bootstrap/$REQUEST_ID"
           python - <<'PY'
           import json, os
           from datetime import UTC, datetime
@@ -99,19 +99,17 @@ jobs:
           target = Path('diagnostics/secure-bootstrap') / request_id
           (target / 'public.pem').write_bytes(public)
           (target / 'status.json').write_text(
-              json.dumps(
-                  {
-                      'request_id': request_id,
-                      'store': os.environ['STORE'],
-                      'operation': os.environ['OPERATION'],
-                      'state': 'awaiting_encrypted_payload',
-                      'created_at': datetime.now(UTC).isoformat(),
-                      'contains_secret': False,
-                  },
-                  indent=2,
-              ) + '\n'
+              json.dumps({
+                  'request_id': request_id,
+                  'store': os.environ['STORE'],
+                  'operation': os.environ['OPERATION'],
+                  'state': 'awaiting_encrypted_payload',
+                  'created_at': datetime.now(UTC).isoformat(),
+                  'contains_secret': False,
+              }, indent=2) + '\n'
           )
           PY
+          chmod 600 /tmp/secure-bootstrap/private.pem
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git pull --rebase origin "$GITHUB_REF_NAME"
@@ -120,7 +118,7 @@ jobs:
           git commit -m "chore: publish one-time bootstrap key $REQUEST_ID [skip ci]"
           git push origin "HEAD:$GITHUB_REF_NAME"
 
-      - name: Wait for encrypted payload
+      - name: Wait for matching encrypted payload
         if: steps.request.outputs.enabled == 'true'
         shell: bash
         env:
@@ -129,7 +127,7 @@ jobs:
           set -euo pipefail
           found=0
           for attempt in $(seq 1 150); do
-            git fetch origin "$GITHUB_REF_NAME" --quiet
+            git fetch origin "+refs/heads/$GITHUB_REF_NAME:refs/remotes/origin/$GITHUB_REF_NAME" --quiet
             if git show "origin/$GITHUB_REF_NAME:tools/secure_payloads/$REQUEST_ID.json" \
                  > /tmp/secure-bootstrap/envelope.json 2>/dev/null; then
               found=1
@@ -161,10 +159,9 @@ jobs:
           if envelope.get('request_id') != request_id or envelope.get('version') != 1:
               raise SystemExit('encrypted envelope does not match this request')
           private_key = serialization.load_pem_private_key(
-              Path('/tmp/secure-bootstrap/private.pem').read_bytes(),
-              password=None,
+              Path('/tmp/secure-bootstrap/private.pem').read_bytes(), password=None
           )
-          aes_key = private_key.decrypt(
+          key = private_key.decrypt(
               base64.b64decode(envelope['encrypted_key']),
               padding.OAEP(
                   mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -172,7 +169,7 @@ jobs:
                   label=None,
               ),
           )
-          plaintext = AESGCM(aes_key).decrypt(
+          plaintext = AESGCM(key).decrypt(
               base64.b64decode(envelope['nonce']),
               base64.b64decode(envelope['ciphertext']),
               request_id.encode(),
@@ -181,11 +178,10 @@ jobs:
           if not isinstance(payload, dict):
               raise SystemExit('decrypted payload is not an object')
           Path('/tmp/secure-bootstrap/payload.json').write_text(
-              json.dumps(payload, ensure_ascii=False),
-              encoding='utf-8',
+              json.dumps(payload, ensure_ascii=False), encoding='utf-8'
           )
           PY
-          chmod 600 /tmp/secure-bootstrap/payload.json /tmp/secure-bootstrap/private.pem
+          chmod 600 /tmp/secure-bootstrap/payload.json
 
       - name: Run reset operation and optional authenticated capture
         id: operation
@@ -208,7 +204,7 @@ jobs:
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit "$code"
 
-      - name: Publish sanitized result only
+      - name: Publish sanitized result and close request
         if: always() && steps.request.outputs.enabled == 'true'
         shell: bash
         env:
@@ -219,6 +215,8 @@ jobs:
           EXIT_CODE: ${{ steps.operation.outputs.exit_code }}
         run: |
           set -euo pipefail
+          git fetch origin "+refs/heads/$GITHUB_REF_NAME:refs/remotes/origin/$GITHUB_REF_NAME" --quiet
+          git rebase "origin/$GITHUB_REF_NAME"
           target="diagnostics/secure-bootstrap/$REQUEST_ID"
           mkdir -p "$target" diagnostics/http-contracts
           python - <<'PY'
@@ -237,37 +235,42 @@ jobs:
                   'store': store,
                   'operation': operation,
                   'completed': False,
-                  'errors': [{'phase': 'runner', 'type': 'MissingResult', 'message': 'operation produced no sanitized result'}],
-                  'safety': {'credentials_logged': False, 'final_order_clicked': False, 'payment_opened': False},
+                  'errors': [{
+                      'phase': 'runner',
+                      'type': 'MissingResult',
+                      'message': 'operation produced no sanitized result',
+                  }],
+                  'safety': {
+                      'credentials_logged': False,
+                      'final_order_clicked': False,
+                      'payment_opened': False,
+                  },
               }
           public_result = {
-              'store': result.get('store'),
-              'operation': result.get('operation'),
-              'started_at': result.get('started_at'),
-              'finished_at': result.get('finished_at'),
-              'completed': result.get('completed', False),
-              'request_submitted': result.get('request_submitted'),
-              'page_acknowledged': result.get('page_acknowledged'),
-              'password_reset_submitted': result.get('password_reset_submitted'),
-              'page_url': result.get('page_url'),
-              'events': result.get('events', []),
-              'blocked': result.get('blocked', []),
-              'errors': result.get('errors', []),
-              'safety': result.get('safety', {}),
+              key: result.get(key)
+              for key in (
+                  'store', 'operation', 'started_at', 'finished_at', 'completed',
+                  'request_submitted', 'page_acknowledged',
+                  'password_reset_submitted', 'page_url', 'events', 'blocked',
+                  'errors', 'safety',
+              )
           }
           base = Path('diagnostics/secure-bootstrap') / request_id
-          (base / 'result.json').write_text(json.dumps(public_result, indent=2, ensure_ascii=False) + '\n')
-          status = {
-              'request_id': request_id,
-              'store': store,
-              'operation': operation,
-              'state': 'completed' if public_result['completed'] else 'failed',
-              'operation_outcome': os.environ.get('OPERATION_OUTCOME'),
-              'exit_code': os.environ.get('EXIT_CODE'),
-              'recorded_at': datetime.now(UTC).isoformat(),
-              'contains_secret': False,
-          }
-          (base / 'status.json').write_text(json.dumps(status, indent=2) + '\n')
+          (base / 'result.json').write_text(
+              json.dumps(public_result, indent=2, ensure_ascii=False) + '\n'
+          )
+          (base / 'status.json').write_text(
+              json.dumps({
+                  'request_id': request_id,
+                  'store': store,
+                  'operation': operation,
+                  'state': 'completed' if public_result.get('completed') else 'failed',
+                  'operation_outcome': os.environ.get('OPERATION_OUTCOME'),
+                  'exit_code': os.environ.get('EXIT_CODE'),
+                  'recorded_at': datetime.now(UTC).isoformat(),
+                  'contains_secret': False,
+              }, indent=2) + '\n'
+          )
 
           capture = Path(f'/tmp/secure-bootstrap/output/{store}-authenticated.json')
           if capture.exists():
@@ -277,7 +280,10 @@ jobs:
                   'captured_at': data.get('captured_at'),
                   'store': data.get('store'),
                   'mode': 'authenticated',
-                  'endpoint_manifest': data.get('retailer_endpoint_manifest', data.get('endpoint_manifest', [])),
+                  'endpoint_manifest': data.get(
+                      'retailer_endpoint_manifest',
+                      data.get('endpoint_manifest', []),
+                  ),
                   'manifest_summary': data.get('manifest_summary', {}),
                   'bundle_candidates': data.get('bundle_candidates', []),
                   'dom_observations': data.get('dom_observations', []),
@@ -289,18 +295,27 @@ jobs:
               Path(f'diagnostics/http-contracts/{store}-authenticated.json').write_text(
                   json.dumps(public_capture, indent=2, ensure_ascii=False) + '\n'
               )
+
+          Path('tools/secure-bootstrap-request.json').write_text(
+              json.dumps({
+                  'enabled': False,
+                  'request_id': request_id,
+                  'store': store,
+                  'operation': operation,
+                  'reason': 'Consumed one-time secure bootstrap request.',
+              }, indent=2) + '\n'
+          )
           PY
+          rm -f "$target/public.pem" "tools/secure_payloads/$REQUEST_ID.json"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git pull --rebase origin "$GITHUB_REF_NAME"
-          git add -- "$target/result.json" "$target/status.json"
+          git add -- "$target" tools/secure-bootstrap-request.json
+          git add -u -- "tools/secure_payloads/$REQUEST_ID.json" "$target/public.pem" || true
           if [[ -f "diagnostics/http-contracts/$STORE-authenticated.json" ]]; then
             git add -- "diagnostics/http-contracts/$STORE-authenticated.json"
           fi
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: publish sanitized bootstrap result $REQUEST_ID [skip ci]"
-            git push origin "HEAD:$GITHUB_REF_NAME"
-          fi
+          git commit -m "chore: publish sanitized bootstrap result $REQUEST_ID [skip ci]"
+          git push origin "HEAD:$GITHUB_REF_NAME"
 
       - name: Upload sanitized debugging output
         if: always() && steps.request.outputs.enabled == 'true'
