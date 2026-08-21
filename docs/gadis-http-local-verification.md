@@ -1,6 +1,6 @@
 # Verificación local del carrito HTTP de Gadis
 
-Esta comprobación debe ejecutarla un agente en la máquina que conserva la sesión de Gadis. Es completamente de solo lectura: no añade productos, no cambia cantidades, no abre un checkout y no intenta realizar pedidos o pagos.
+Estas pruebas deben ejecutarlas un agente en la máquina que conserva la sesión de Gadis. No muestran cookies, tokens, nombres de productos, identificadores privados, direcciones ni datos del perfil.
 
 ## Preparación
 
@@ -13,58 +13,88 @@ git pull --ff-only origin feat/initial-mcp
 python -m pip install -e ".[dev,browser]"
 ```
 
-## Ejecución
+## 1. Lectura HTTP
+
+Esta comprobación es completamente de solo lectura:
 
 ```powershell
 python .\tools\verify_gadis_http_local.py
 ```
 
-El resultado correcto tiene esta forma:
+Debe devolver `ok=true`, `account_backend="gadis_http"`, `cart_backend="gadis_http"`, `browser_driven=false`, `retailer_write_performed=false` y `order_or_payment_attempted=false`.
+
+## 2. Mutación reversible
+
+Esta prueba necesita dos autorizaciones simultáneas: la variable local de escrituras y un flag explícito en el comando. Rechaza la ejecución si están activadas variables de envío de pedidos.
+
+```powershell
+$env:OPEN_GROCERY_ENABLE_RETAILER_WRITES = "1"
+Remove-Item Env:OPEN_GROCERY_ENABLE_ORDER_SUBMISSION -ErrorAction SilentlyContinue
+Remove-Item Env:OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION -ErrorAction SilentlyContinue
+
+python .\tools\verify_gadis_cart_mutation_local.py `
+  --allow-reversible-cart-write `
+  --max-added-value 5.00
+```
+
+La prueba:
+
+1. lee y conserva en memoria la firma del carrito inicial;
+2. exige el backend HTTP, sin fallback silencioso a Playwright;
+3. selecciona un producto ordinario ausente de la cesta;
+4. limita a 5 EUR el valor temporal máximo y también el pico de cantidad 2;
+5. ejecuta `añadir → 1 → 2 → 1 → eliminar`;
+6. utiliza borrador, preparación, frase exacta y confirmación de un solo uso;
+7. vuelve a leer el carrito después de cada escritura;
+8. si una fase falla, lee primero y elimina únicamente el producto de prueba si sigue presente;
+9. compara líneas, cantidades, total y número de productos con el estado inicial.
+
+El resultado válido incluye:
 
 ```json
 {
   "ok": true,
-  "account": {
-    "authenticated": true,
-    "validated_live": true,
-    "bearer_token_available": true,
-    "account_backend": "gadis_http"
-  },
-  "cart": {
-    "version_present": true,
-    "cart_backend": "gadis_http",
-    "browser_driven": false
-  },
-  "retailer_write_performed": false,
-  "order_or_payment_attempted": false
+  "backend": "gadis_http",
+  "confirmation_single_use": true,
+  "cart_restored": true,
+  "initial_and_final_signature_match": true,
+  "initial_and_final_total_match": true,
+  "initial_and_final_count_match": true,
+  "order_or_payment_attempted": false,
+  "secrets_exposed": false
 }
 ```
 
-El script no imprime nombres de productos, identificadores de líneas, cookies, tokens, direcciones ni datos del perfil.
+Una salida con `cart_restored=false` es un fallo crítico. El agente debe detener nuevas escrituras, comprobar el carrito de forma segura y no reintentar operaciones ambiguas a ciegas.
+
+Al terminar la sesión de pruebas puede desactivar las escrituras:
+
+```powershell
+Remove-Item Env:OPEN_GROCERY_ENABLE_RETAILER_WRITES -ErrorAction SilentlyContinue
+```
 
 ## Obligaciones del agente
 
-Si `ok` es `false`, el agente debe:
+Si cualquiera de las pruebas falla, el agente debe diagnosticar y corregir el cliente, el workflow o el script sin pedir al propietario que repita la captura completa. Solo puede solicitar intervención humana para CAPTCHA, 2FA o desbloqueo del gestor de contraseñas.
 
-1. comprobar que está usando la sesión local correcta;
-2. revisar el motivo sin mostrar ni copiar el contenido de `storage_state.json`;
-3. corregir el cliente o la resolución de sesión cuando sea un fallo de código;
-4. repetir la prueba;
-5. no aceptar un fallback silencioso a Playwright como verificación del cliente HTTP;
-6. no pedir al propietario que repita la captura completa.
+Después debe ejecutar:
 
-Solo puede solicitar intervención humana para CAPTCHA, 2FA o desbloqueo del gestor de contraseñas.
+```powershell
+pytest
+python -m compileall -q src tests tools
+ruff check .
+```
 
-## Prompt listo para el agente
+## Prompt breve para el agente
 
 ```text
-Lee AGENTS.md y trabaja en la rama feat/initial-mcp. Actualiza la rama y ejecuta
-python .\tools\verify_gadis_http_local.py en la máquina que contiene la sesión
-de Gadis. Esta prueba es de solo lectura. No modifiques el carrito, no abras un
-checkout y no intentes ningún pedido o pago.
+Lee AGENTS.md y trabaja en feat/initial-mcp. Actualiza la rama y ejecuta primero
+python .\tools\verify_gadis_http_local.py. Después ejecuta la prueba reversible
+siguiendo docs/gadis-http-local-verification.md, con un máximo temporal de 5 EUR.
 
-Si la salida no tiene ok=true y cart_backend=gadis_http, diagnostica y corrige
-el problema tú mismo. No muestres storage_state, cookies o tokens y no me pidas
-que repita la captura. Ejecuta después pytest, compileall y ruff, y reporta el
-resultado con confirmación expresa de que no hubo escrituras ni intento de pago.
+No abras checkout, no envíes pedidos, no inicies pagos y no muestres storage_state,
+cookies o tokens. Si algo falla, lee el carrito antes de cualquier limpieza y
+restaura únicamente el producto de prueba. No aceptes el resultado hasta que
+ok=true y cart_restored=true. Ejecuta luego pytest, compileall y ruff, haz push
+y actualiza la PR con los resultados exactos.
 ```
