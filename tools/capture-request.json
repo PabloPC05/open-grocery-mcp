@@ -1,6 +1,6 @@
 {
   "store": "gadis",
   "mode": "guest",
-  "revision": 5,
-  "reason": "Retry Gadis guest HTTP capture against the current www.gadisline.com storefront after the legacy super host failed DNS resolution."
+  "revision": 6,
+  "reason": "Retry Gadis guest capture with fail-safe diagnostics even when catalogue product discovery fails."
 }
