@@ -1,0 +1,118 @@
+name: Extract Gadis native HTTP contract
+
+on:
+  push:
+    branches: [feat/initial-mcp]
+    paths:
+      - tools/decompiled_endpoint_scan.py
+      - .github/workflows/decompile-gadis-apk.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: decompile-gadis-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install public APK downloader
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'justapk==0.1.1'
+
+      - name: Download official Gadis APK without executing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gadis-apk
+          justapk download com.gadisa.gadis -o /tmp/gadis-apk
+          candidate="$(find /tmp/gadis-apk -type f -iname '*.apk' -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          [[ -n "$candidate" ]]
+          echo "APK_PATH=$candidate" >> "$GITHUB_ENV"
+          sha256sum "$candidate"
+
+      - name: Download patched JADX 1.5.6 from the official release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/jadx /tmp/jadx-home
+          export HOME=/tmp/jadx-home
+          export XDG_CONFIG_HOME=/tmp/jadx-home/config
+          export XDG_CACHE_HOME=/tmp/jadx-home/cache
+          curl --fail --location --retry 3 \
+            'https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip' \
+            --output /tmp/jadx.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          /tmp/jadx/bin/jadx --version
+          version="$(/tmp/jadx/bin/jadx --version)"
+          [[ "$version" == *"1.5.6"* ]]
+
+      - name: Decompile in an isolated temporary home
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME=/tmp/jadx-home
+          export XDG_CONFIG_HOME=/tmp/jadx-home/config
+          export XDG_CACHE_HOME=/tmp/jadx-home/cache
+          mkdir -p /tmp/jadx-out
+          /tmp/jadx/bin/jadx \
+            --threads-count 2 \
+            --comments-level none \
+            --no-res \
+            --output-dir /tmp/jadx-out \
+            "$APK_PATH"
+          test -d /tmp/jadx-out/sources
+
+      - name: Publish only the sanitized API manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostics/decompiled
+          python tools/decompiled_endpoint_scan.py \
+            /tmp/jadx-out/sources \
+            --output diagnostics/decompiled/gadis.json
+          python - <<'PY'
+          import json
+          data = json.load(open('diagnostics/decompiled/gadis.json'))
+          print('files_scanned=', data['files_scanned'])
+          print('http_endpoints=', len(data['http_endpoints']))
+          print('safe_constants=', len(data['safe_constants']))
+          print('relevant_urls=', len(data['relevant_urls']))
+          print('relevant_symbols=', len(data['relevant_symbols']))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git add -- diagnostics/decompiled/gadis.json
+          if git diff --cached --quiet; then
+            echo 'Decompiled API manifest did not change.'
+          else
+            git commit -m 'chore: publish sanitized Gadis native API contract [skip ci]'
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      - name: Destroy downloaded and decompiled application material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf /tmp/gadis-apk /tmp/jadx /tmp/jadx-out /tmp/jadx-home /tmp/jadx.zip
