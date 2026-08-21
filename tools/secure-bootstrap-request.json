@@ -1,7 +1,7 @@
 {
-  "enabled": false,
-  "request_id": "idle-bootstrap",
+  "enabled": true,
+  "request_id": "gadis-reset-request-20260821a",
   "store": "gadis",
   "operation": "request_reset",
-  "reason": "Set enabled true only for an explicitly authorized one-time account bootstrap."
+  "reason": "Authorized one-time request for an existing account; no order or payment action."
 }
