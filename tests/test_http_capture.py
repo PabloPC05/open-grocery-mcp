@@ -101,6 +101,7 @@ def test_manifest_associates_endpoint_with_capture_phase(tmp_path: Path) -> None
         json.dumps(
             {
                 "schema_version": 1,
+                "store": "gadis",
                 "events": [
                     {
                         "kind": "request",
@@ -135,6 +136,53 @@ def test_manifest_associates_endpoint_with_capture_phase(tmp_path: Path) -> None
         "product_id": "string",
         "quantity": "integer",
     }
+
+
+def test_manifest_publishes_a_retailer_only_view(tmp_path: Path) -> None:
+    path = tmp_path / "capture.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "store": "gadis",
+                "events": [
+                    {
+                        "kind": "request",
+                        "phase": "cart",
+                        "method": "PUT",
+                        "url": "https://cart.gadisline.com/api/v3/carts/42/lines",
+                        "headers": {"content-type": "application/json"},
+                        "body": {"product_id": "sku-1", "quantity": 2},
+                    },
+                    {
+                        "kind": "response",
+                        "phase": "cart",
+                        "method": "PUT",
+                        "url": "https://cart.gadisline.com/api/v3/carts/42/lines",
+                        "status": 200,
+                        "headers": {},
+                        "body": {"version": 4},
+                    },
+                    {
+                        "kind": "request",
+                        "phase": "cart",
+                        "method": "POST",
+                        "url": "https://analytics.google.com/g/collect",
+                        "headers": {},
+                        "body": None,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = add_manifest(path)
+    assert len(result["endpoint_manifest"]) == 2
+    assert len(result["retailer_endpoint_manifest"]) == 1
+    endpoint = result["retailer_endpoint_manifest"][0]
+    assert endpoint["host"] == "cart.gadisline.com"
+    assert endpoint["operation_hint"] == "cart"
+    assert result["manifest_summary"]["operation_counts"] == {"cart": 1}
 
 
 def test_final_order_patterns_are_blocked_but_cart_is_not() -> None:
