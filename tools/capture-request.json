@@ -1,6 +1,6 @@
 {
   "store": "all",
   "mode": "guest",
-  "revision": 3,
-  "reason": "Capture guest cart, quantity and checkout HTTP contracts after in-memory sanitization hardening."
+  "revision": 4,
+  "reason": "Run guest Gadis/Froiz HTTP capture after fixing the authenticated Gadis host, short private path-ID redaction and query sanitization."
 }
