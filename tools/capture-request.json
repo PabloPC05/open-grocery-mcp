@@ -1,6 +1,6 @@
 {
   "store": "all",
   "mode": "guest",
-  "revision": 7,
-  "reason": "Capture retailer-only guest endpoints and value-free API candidates extracted from Gadis/Froiz JavaScript bundles."
+  "revision": 8,
+  "reason": "Run the final guest probe with retailer-only manifests, sanitized JS endpoint candidates and DOM control inventory."
 }
