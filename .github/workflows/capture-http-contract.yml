@@ -131,6 +131,7 @@ jobs:
                   f"{data.get('store')}: events={len(data.get('events', []))} "
                   f"all_endpoints={summary.get('all_endpoint_count', len(data.get('endpoint_manifest', [])))} "
                   f"retailer_endpoints={summary.get('retailer_endpoint_count', len(data.get('retailer_endpoint_manifest', [])))} "
+                  f"bundle_sources={len(data.get('bundle_candidates', []))} "
                   f"blocked={len(data.get('blocked', []))} errors={len(data.get('errors', []))}"
               )
           PY
@@ -165,6 +166,7 @@ jobs:
                       data.get('endpoint_manifest', []),
                   ),
                   'manifest_summary': data.get('manifest_summary', {}),
+                  'bundle_candidates': data.get('bundle_candidates', []),
                   'blocked': data.get('blocked', []),
                   'errors': data.get('errors', []),
                   'safety': data.get('safety', {}),
