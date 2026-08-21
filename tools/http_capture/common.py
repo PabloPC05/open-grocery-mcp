@@ -32,6 +32,69 @@ OPAQUE = re.compile(r"^[A-Za-z0-9_=-]{25,}$")
 EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 PHONE = re.compile(r"(?<!\d)(?:\+?34[ .-]?)?[6789](?:[ .-]?\d){8}(?!\d)")
 
+# A short numeric value is still private when it appears after one of these
+# route segments (e.g. /addresses/42/slots). Product/category/store identifiers
+# are intentionally preserved because they are public catalogue identifiers and
+# are needed to reproduce the HTTP contract.
+PRIVATE_PATH_PARENTS = {
+    "account",
+    "accounts",
+    "address",
+    "addresses",
+    "basket",
+    "baskets",
+    "cart",
+    "carts",
+    "carrito",
+    "cesta",
+    "checkout",
+    "checkouts",
+    "customer",
+    "customers",
+    "delivery",
+    "deliveries",
+    "order",
+    "orders",
+    "payment",
+    "payments",
+    "profile",
+    "session",
+    "sessions",
+    "user",
+    "users",
+}
+STATIC_PRIVATE_CHILDREN = {
+    "actions",
+    "addresses",
+    "cart",
+    "checkout",
+    "checkouts",
+    "current",
+    "delivery",
+    "delivery-info",
+    "history",
+    "items",
+    "lines",
+    "me",
+    "orders",
+    "profile",
+    "recommendations",
+    "slots",
+    "summary",
+}
+PUBLIC_PATH_PARENTS = {
+    "category",
+    "categories",
+    "product",
+    "products",
+    "site",
+    "sites",
+    "store",
+    "stores",
+    "warehouse",
+    "warehouses",
+}
+
 
 @dataclass(frozen=True)
 class StoreSpec:
@@ -50,31 +113,45 @@ class StoreSpec:
 
 STORES = {
     "gadis": StoreSpec(
-        "gadis", "Gadis", "https://www.gadisline.com",
+        "gadis",
+        "Gadis",
+        # The authenticated shopping shell/login lives on super.gadisline.com.
+        # Public catalogue URLs may still use www.gadisline.com and are rewritten
+        # in choose_product() before browser navigation.
+        "https://super.gadisline.com",
         ("/cart", "/carrito", "/cesta", "/checkout/cart"),
         ("iniciar sesión", "acceder", "mi cuenta", "identificarse"),
         ("cesta", "carrito", "mi compra"),
         ("añadir", "agregar", "comprar"),
         ("tramitar pedido", "finalizar compra", "continuar compra", "hacer pedido", "ir al pago"),
         ("eliminar", "quitar", "borrar"),
-        "GADIS_TEST_USERNAME", "GADIS_TEST_PASSWORD",
+        "GADIS_TEST_USERNAME",
+        "GADIS_TEST_PASSWORD",
     ),
     "froiz": StoreSpec(
-        "froiz", "Froiz", "https://supermercado.froiz.com",
+        "froiz",
+        "Froiz",
+        "https://supermercado.froiz.com",
         ("/cart", "/cesta", "/basket", "/checkout/cart"),
         ("iniciar sesión", "acceder", "mi cuenta", "identificarse"),
         ("tu cesta", "cesta", "carrito", "mi compra"),
         ("añadir", "agregar", "comprar"),
         ("tramitar pedido", "finalizar compra", "continuar con la compra", "hacer pedido", "ir al pago"),
         ("eliminar", "quitar", "borrar"),
-        "FROIZ_TEST_USERNAME", "FROIZ_TEST_PASSWORD",
+        "FROIZ_TEST_USERNAME",
+        "FROIZ_TEST_PASSWORD",
     ),
 }
 
 
-def _path_segment(segment: str) -> str:
+def _path_segment(segment: str, previous: str = "") -> str:
     decoded = unquote(segment)
     if not decoded:
+        return segment
+    previous = previous.casefold()
+    if previous in PRIVATE_PATH_PARENTS and decoded.casefold() not in STATIC_PRIVATE_CHILDREN:
+        return "<id>"
+    if previous in PUBLIC_PATH_PARENTS:
         return segment
     if EMAIL.search(decoded) or UUID.fullmatch(decoded) or OPAQUE.fullmatch(decoded):
         return "<id>"
@@ -89,8 +166,17 @@ def safe_url(url: str) -> str:
         parts = urlsplit(url)
     except ValueError:
         return "<invalid-url>"
-    path = "/".join(_path_segment(part) for part in parts.path.split("/"))
-    query = urlencode((key, "<value>") for key, _ in parse_qsl(parts.query, keep_blank_values=True))
+    path_parts = parts.path.split("/")
+    sanitized: list[str] = []
+    previous = ""
+    for part in path_parts:
+        sanitized.append(_path_segment(part, previous))
+        if part:
+            previous = unquote(part).casefold()
+    path = "/".join(sanitized)
+    query = urlencode(
+        [(key, "<value>") for key, _ in parse_qsl(parts.query, keep_blank_values=True)]
+    )
     return urlunsplit((parts.scheme, parts.netloc, path, query, ""))
 
 
@@ -109,8 +195,20 @@ def shape(value: Any, key: str = "") -> Any:
         return value
     if isinstance(value, str):
         if lowered in {
-            "product_id", "sku", "code", "currency", "unit", "status", "type",
-            "method", "locale", "lang", "site_id", "store_id", "warehouse", "version",
+            "product_id",
+            "sku",
+            "code",
+            "currency",
+            "unit",
+            "status",
+            "type",
+            "method",
+            "locale",
+            "lang",
+            "site_id",
+            "store_id",
+            "warehouse",
+            "version",
         } and len(value) <= 120:
             return value
         return "<str>"
@@ -119,10 +217,20 @@ def shape(value: Any, key: str = "") -> Any:
 
 def safe_headers(headers: Mapping[str, str]) -> dict[str, str]:
     out: dict[str, str] = {}
-    safe_x = {"x-requested-with", "x-customer-wh", "x-site-id", "x-store-id", "x-locale", "x-lang"}
+    safe_x = {
+        "x-requested-with",
+        "x-customer-wh",
+        "x-site-id",
+        "x-store-id",
+        "x-locale",
+        "x-lang",
+    }
     for key, value in headers.items():
         low = key.casefold()
-        if low in {"authorization", "cookie", "set-cookie", "proxy-authorization"} or SENSITIVE.search(key):
+        if (
+            low in {"authorization", "cookie", "set-cookie", "proxy-authorization"}
+            or SENSITIVE.search(key)
+        ):
             out[key] = "<redacted>"
         elif low in {"origin", "referer"}:
             out[key] = safe_url(value)
@@ -136,8 +244,10 @@ def safe_headers(headers: Mapping[str, str]) -> dict[str, str]:
 def safe_message(value: str) -> str:
     text = value
     for name in (
-        "GADIS_TEST_USERNAME", "GADIS_TEST_PASSWORD",
-        "FROIZ_TEST_USERNAME", "FROIZ_TEST_PASSWORD",
+        "GADIS_TEST_USERNAME",
+        "GADIS_TEST_PASSWORD",
+        "FROIZ_TEST_USERNAME",
+        "FROIZ_TEST_PASSWORD",
     ):
         secret = os.getenv(name, "")
         if secret:
@@ -145,8 +255,14 @@ def safe_message(value: str) -> str:
     text = EMAIL.sub("<redacted-email>", text)
     text = PHONE.sub("<redacted-phone>", text)
     text = re.sub(r"(?i)Bearer\s+[A-Za-z0-9._=-]+", "Bearer <redacted>", text)
-    text = re.sub(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "<redacted-token>", text)
-    text = re.sub(r"(?i)[0-9a-f]{8}-[0-9a-f-]{27,}", "<redacted-id>", text)
+    text = re.sub(
+        r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+        "<redacted-token>",
+        text,
+    )
+    text = re.sub(
+        r"(?i)[0-9a-f]{8}-[0-9a-f-]{27,}", "<redacted-id>", text
+    )
     return text[:800]
 
 
@@ -154,7 +270,11 @@ def regex(words: Iterable[str]) -> re.Pattern[str]:
     return re.compile("(?:" + "|".join(re.escape(x) for x in words) + ")", re.I)
 
 
-def click_words(page: Any, words: Iterable[str], roles: tuple[str, ...] = ("button", "link")) -> bool:
+def click_words(
+    page: Any,
+    words: Iterable[str],
+    roles: tuple[str, ...] = ("button", "link"),
+) -> bool:
     pattern = regex(words)
     for role in roles:
         try:
@@ -186,13 +306,38 @@ def first_visible(locator: Any) -> Any | None:
     return None
 
 
+def _browser_product_url(store: str, value: str) -> str:
+    if store != "gadis":
+        return value
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return value
+    if (parts.hostname or "").casefold() != "www.gadisline.com":
+        return value
+    return urlunsplit(
+        (
+            parts.scheme or "https",
+            "super.gadisline.com",
+            parts.path,
+            parts.query,
+            "",
+        )
+    )
+
+
 def choose_product(store: str) -> dict[str, Any]:
     provider = GadisProvider() if store == "gadis" else FroizProvider()
     try:
         for query in ("leche entera 1 l", "arroz 1 kg", "agua mineral"):
             for product in provider.search(query, limit=10):
                 if product.url and product.price > 0 and not RESTRICTED.search(product.name):
-                    return {"id": product.id, "name": product.name, "url": product.url, "price": float(product.price)}
+                    return {
+                        "id": product.id,
+                        "name": product.name,
+                        "url": _browser_product_url(store, product.url),
+                        "price": float(product.price),
+                    }
     finally:
         provider.close()
     raise RuntimeError(f"no safe product found for {store}")
