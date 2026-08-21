@@ -17,3 +17,5 @@ build/
 storage_state*.json
 checkouts*.json
 captures/
+*.har
+*.raw.har
