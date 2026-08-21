@@ -1,8 +1,8 @@
-"""Gadis catalogue adapter.
+"""Gadis catalogue adapter with location-aware public HTTP reads.
 
 Gadisline exposes JSON microservices used by its own storefront. This adapter
-uses those public catalogue calls instead of scraping rendered HTML. It is
-read-only: no account, cart, checkout or payment endpoint is called.
+uses those public catalogue/store calls instead of scraping rendered HTML. It
+is read-only: no account, cart, checkout or payment endpoint is called.
 """
 
 from __future__ import annotations
@@ -17,15 +17,17 @@ from urllib.parse import quote
 
 import httpx
 
-from open_grocery_mcp.errors import ProviderError
+from open_grocery_mcp.errors import CoverageError, LocationRequired, ProviderError
 from open_grocery_mcp.models import Product, StoreInfo, as_decimal
 from open_grocery_mcp.providers.base import GroceryProvider
 
 _SITE_BASE = "https://site.gadisline.com/api/v3"
 _CATALOG_BASE = "https://catalog.gadisline.com/api/v3"
+_STORE_BASE = "https://store.gadisline.com/api/v3"
 _SHOP_BASE = "https://www.gadisline.com"
 _DOMAIN = "www.gadisline.com"
 _ECO_PROPERTY = "36"
+_POSTAL_RE = re.compile(r"^\d{5}$")
 
 
 class GadisProvider(GroceryProvider):
@@ -34,12 +36,22 @@ class GadisProvider(GroceryProvider):
         label="Gadis",
         country="ES",
         languages=("es", "gl"),
-        capabilities=("search", "product", "categories", "compare", "draft_cart"),
+        capabilities=(
+            "search",
+            "product",
+            "categories",
+            "coverage",
+            "compare",
+            "draft_cart",
+        ),
         requires_postal_code=False,
-        price_scope="Gadis assortment store selected by the storefront or environment override",
+        price_scope=(
+            "Gadis assortment serving the supplied Spanish postal code, or the "
+            "storefront default/environment override when no location is supplied"
+        ),
         notes=(
-            "Postal-code-to-store resolution is not implemented yet; set "
-            "OPEN_GROCERY_GADIS_STORE for a specific assortment."
+            "Pass postal_code for location-correct assortment and prices. "
+            "OPEN_GROCERY_GADIS_STORE remains available as a fixed override."
         ),
     )
 
@@ -63,12 +75,17 @@ class GadisProvider(GroceryProvider):
             follow_redirects=True,
             headers={
                 "Accept": "application/json",
-                "User-Agent": "open-grocery-mcp/0.1 (+https://github.com/PabloPC05/open-grocery-mcp)",
+                "User-Agent": (
+                    "open-grocery-mcp/0.4 "
+                    "(+https://github.com/PabloPC05/open-grocery-mcp)"
+                ),
             },
         )
         self._site_id: str | None = None
         self._store_id: str | None = None
         self._bootstrap_lock = threading.Lock()
+        self._coverage_lock = threading.Lock()
+        self._coverage_by_postal_code: dict[str, dict[str, Any]] | None = None
 
     @property
     def store_id(self) -> str | None:
@@ -92,10 +109,13 @@ class GadisProvider(GroceryProvider):
             first = elements[0]
             site_id = str(first.get("id", "")).strip()
             store_id = str(
-                self._configured_store_id or first.get("default_assortment_store", "")
+                self._configured_store_id
+                or first.get("default_assortment_store", "")
             ).strip()
             if not site_id or not store_id:
-                raise ProviderError("Gadis did not return a usable site/store identifier")
+                raise ProviderError(
+                    "Gadis did not return a usable site/store identifier"
+                )
             self._site_id, self._store_id = site_id, store_id
             return site_id, store_id
 
@@ -107,11 +127,17 @@ class GadisProvider(GroceryProvider):
         params: Mapping[str, Any] | None = None,
         body: Any = None,
         include_context: bool = True,
+        context_store_id: str | None = None,
     ) -> Any:
         headers: dict[str, str] = {"accept-language": self.language.upper()}
         if include_context:
-            site_id, store_id = self._bootstrap()
-            headers.update({"site-id": site_id, "store-id": store_id})
+            site_id, default_store_id = self._bootstrap()
+            headers.update(
+                {
+                    "site-id": site_id,
+                    "store-id": context_store_id or default_store_id,
+                }
+            )
         try:
             response = self._client.request(
                 method,
@@ -124,10 +150,73 @@ class GadisProvider(GroceryProvider):
             return response.json()
         except httpx.HTTPStatusError as exc:
             raise ProviderError(
-                f"Gadis returned HTTP {exc.response.status_code} for {exc.request.url}"
+                f"Gadis returned HTTP {exc.response.status_code} for "
+                f"{exc.request.url}"
             ) from exc
         except (httpx.HTTPError, ValueError) as exc:
             raise ProviderError(f"Could not read Gadis catalogue: {exc}") from exc
+
+    @staticmethod
+    def _validate_postal_code(postal_code: str) -> str:
+        value = postal_code.strip()
+        if not _POSTAL_RE.fullmatch(value):
+            raise LocationRequired(
+                "Gadis requires a five-digit Spanish postal code, for example '28050'"
+            )
+        return value
+
+    def _load_delivery_coverage(self) -> dict[str, dict[str, Any]]:
+        if self._coverage_by_postal_code is not None:
+            return self._coverage_by_postal_code
+        with self._coverage_lock:
+            if self._coverage_by_postal_code is not None:
+                return self._coverage_by_postal_code
+            payload = self._json(
+                "GET",
+                f"{_STORE_BASE}/stores/postal-codes/delivery",
+            )
+            elements = payload.get("elements", []) if isinstance(payload, Mapping) else []
+            coverage: dict[str, dict[str, Any]] = {}
+            for raw in elements if isinstance(elements, list) else []:
+                if not isinstance(raw, Mapping):
+                    continue
+                postal_code = str(raw.get("postal_code", "")).strip()
+                store_id = str(raw.get("store_id", "")).strip()
+                if not _POSTAL_RE.fullmatch(postal_code) or not store_id:
+                    continue
+                coverage[postal_code] = {
+                    "store_id": store_id,
+                    "postal_code": postal_code,
+                    "shipping_costs": float(as_decimal(raw.get("shipping_costs"))),
+                    "minimum_order_quantity": float(
+                        as_decimal(raw.get("minimum_order_quantity"))
+                    ),
+                    "minimum_shipping_free": float(
+                        as_decimal(raw.get("minimum_shipping_free"))
+                    ),
+                }
+            if not coverage:
+                raise ProviderError(
+                    "Gadis delivery coverage endpoint returned no usable postal codes"
+                )
+            self._coverage_by_postal_code = coverage
+            return coverage
+
+    def delivery_coverage(self, postal_code: str) -> dict[str, Any]:
+        """Return public Gadis delivery/store information for a postal code."""
+
+        value = self._validate_postal_code(postal_code)
+        coverage = self._load_delivery_coverage().get(value)
+        if coverage is None:
+            raise CoverageError(
+                f"Gadis did not report online delivery coverage for postal code {value!r}"
+            )
+        return dict(coverage)
+
+    def _context_store(self, postal_code: str | None) -> str | None:
+        if postal_code:
+            return str(self.delivery_coverage(postal_code)["store_id"])
+        return None
 
     @staticmethod
     def _translated(value: Any, language: str) -> str:
@@ -135,7 +224,10 @@ class GadisProvider(GroceryProvider):
             return value.strip()
         if isinstance(value, list):
             for item in value:
-                if isinstance(item, Mapping) and str(item.get("language", "")).lower() == language:
+                if (
+                    isinstance(item, Mapping)
+                    and str(item.get("language", "")).lower() == language
+                ):
                     return str(item.get("value", "")).strip()
             for item in value:
                 if isinstance(item, Mapping) and item.get("value"):
@@ -179,11 +271,17 @@ class GadisProvider(GroceryProvider):
     def _is_eco(raw: Mapping[str, Any]) -> bool:
         properties = raw.get("properties", [])
         return any(
-            isinstance(item, Mapping) and str(item.get("property_code", "")) == _ECO_PROPERTY
+            isinstance(item, Mapping)
+            and str(item.get("property_code", "")) == _ECO_PROPERTY
             for item in properties
         )
 
-    def _product_from_raw(self, raw: Mapping[str, Any]) -> Product:
+    def _product_from_raw(
+        self,
+        raw: Mapping[str, Any],
+        *,
+        context_store_id: str | None = None,
+    ) -> Product:
         product_id = str(raw.get("id", "")).strip()
         name = self._translated(raw.get("commercial_description"), self.language)
         slug = str(raw.get("slug", "")).strip()
@@ -206,7 +304,7 @@ class GadisProvider(GroceryProvider):
             url=url,
             metadata={
                 "eco": self._is_eco(raw),
-                "store_id": self._store_id,
+                "store_id": context_store_id or self._store_id,
                 "product_code": raw.get("product_code"),
             },
         )
@@ -219,10 +317,10 @@ class GadisProvider(GroceryProvider):
         postal_code: str | None = None,
         eco: bool = False,
     ) -> list[Product]:
-        del postal_code  # Gadis postal-code resolution is a future capability.
         query = query.strip()
         if not query:
             return []
+        context_store_id = self._context_store(postal_code)
         requested = max(1, min(limit, 100))
         rows = min(100, requested * 4 if eco else requested)
         payload = self._json(
@@ -234,6 +332,7 @@ class GadisProvider(GroceryProvider):
                 "keep_request": "true",
             },
             body={"search_term": query, "minimum_should_match": 1},
+            context_store_id=context_store_id,
         )
         elements = payload.get("elements", []) if isinstance(payload, Mapping) else []
         products: list[Product] = []
@@ -242,7 +341,10 @@ class GadisProvider(GroceryProvider):
                 continue
             if eco and not self._is_eco(raw):
                 continue
-            product = self._product_from_raw(raw)
+            product = self._product_from_raw(
+                raw,
+                context_store_id=context_store_id,
+            )
             if product.id and product.name:
                 products.append(product)
             if len(products) >= requested:
@@ -270,16 +372,25 @@ class GadisProvider(GroceryProvider):
                 selected = value
         return self._clean_html(selected)
 
-    def product(self, product_id: str, *, postal_code: str | None = None) -> Product:
-        del postal_code
+    def product(
+        self,
+        product_id: str,
+        *,
+        postal_code: str | None = None,
+    ) -> Product:
+        context_store_id = self._context_store(postal_code)
         product_id = product_id.strip()
         payload = self._json(
             "GET",
             f"{_CATALOG_BASE}/catalog/products/{quote(product_id, safe='')}/search",
+            context_store_id=context_store_id,
         )
         if not isinstance(payload, Mapping) or not payload.get("id"):
             raise ProviderError(f"Gadis product {product_id!r} was not found")
-        base = self._product_from_raw(payload)
+        base = self._product_from_raw(
+            payload,
+            context_store_id=context_store_id,
+        )
         detail: dict[str, str] = {}
         for item in payload.get("aecoc_properties", []):
             if not isinstance(item, Mapping):
@@ -296,7 +407,11 @@ class GadisProvider(GroceryProvider):
         )
 
     @classmethod
-    def _convert_categories(cls, categories: Iterable[Any], depth: int) -> list[dict[str, Any]]:
+    def _convert_categories(
+        cls,
+        categories: Iterable[Any],
+        depth: int,
+    ) -> list[dict[str, Any]]:
         if depth <= 0:
             return []
         result: list[dict[str, Any]] = []
@@ -304,7 +419,9 @@ class GadisProvider(GroceryProvider):
             if not isinstance(raw, Mapping):
                 continue
             nested = raw.get("nested_categories", {})
-            children = nested.get("categories", []) if isinstance(nested, Mapping) else []
+            children = (
+                nested.get("categories", []) if isinstance(nested, Mapping) else []
+            )
             node: dict[str, Any] = {
                 "id": str(raw.get("id", "")),
                 "name": str(raw.get("name", "")),
@@ -321,8 +438,12 @@ class GadisProvider(GroceryProvider):
         depth: int = 1,
         postal_code: str | None = None,
     ) -> list[dict[str, Any]]:
-        del postal_code
-        payload = self._json("GET", f"{_CATALOG_BASE}/catalog/categories")
+        context_store_id = self._context_store(postal_code)
+        payload = self._json(
+            "GET",
+            f"{_CATALOG_BASE}/catalog/categories",
+            context_store_id=context_store_id,
+        )
         categories = payload.get("categories", []) if isinstance(payload, Mapping) else []
         return self._convert_categories(categories, max(1, depth))
 
