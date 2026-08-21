@@ -3,16 +3,23 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlsplit
 
-from http_capture.common import STORES, safe_message, shape
+from http_capture.bundle_scan import endpoint_literals
+from http_capture.common import STORES, safe_message, safe_url, shape
 from http_capture.manifest import add_manifest
 from http_capture.probe import Probe
 
 
 class ContractProbe(Probe):
-    """Add safe form-field discovery and error redaction to the capture."""
+    """Add form discovery, JS route extraction and error redaction."""
+
+    def __init__(self, store: str, mode: str, output: Path) -> None:
+        super().__init__(store, mode, output)
+        self.bundle_candidates: list[dict[str, object]] = []
+        self._scanned_bundles: set[str] = set()
 
     def record_error(self, phase: str, exc: BaseException) -> None:
         self.errors.append(
@@ -40,8 +47,41 @@ class ContractProbe(Probe):
         elif "multipart/form-data" in content_type:
             event["body"] = "<multipart-form-body>"
 
+    def _scan_bundle(self, response) -> None:
+        content_type = response.headers.get("content-type", "").casefold()
+        path = urlsplit(response.url).path.casefold()
+        if "javascript" not in content_type and not path.endswith((".js", ".mjs")):
+            return
+        host = (urlsplit(response.url).hostname or "").casefold()
+        suffix = "gadisline.com" if self.spec.key == "gadis" else "froiz.com"
+        if not (host == suffix or host.endswith("." + suffix)):
+            return
+        source = safe_url(response.url)
+        if source in self._scanned_bundles or len(self._scanned_bundles) >= 80:
+            return
+        self._scanned_bundles.add(source)
+        try:
+            candidates = endpoint_literals(response.text(), response.url)
+        except Exception as exc:
+            self.record_error("bundle_scan", exc)
+            return
+        if candidates:
+            self.bundle_candidates.append(
+                {"source": source, "endpoint_candidates": candidates}
+            )
+
+    def on_response(self, response):
+        self._scan_bundle(response)
+        super().on_response(response)
+
     def run(self) -> int:
         status = super().run()
+        payload = json.loads(self.output.read_text(encoding="utf-8"))
+        payload["bundle_candidates"] = self.bundle_candidates
+        self.output.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         add_manifest(self.output)
         return status
 
