@@ -35,7 +35,7 @@ The generated JSON preserves phases, methods, route structure, header names, sta
 - payment, card and bank fields;
 - URL fragments and all query values.
 
-Authenticated event files remain private workflow artifacts. Guest mode additionally publishes only the compact endpoint manifest under `diagnostics/http-contracts/` so implementation work can continue without downloading a workflow artifact.
+Detailed event files remain private workflow artifacts. In both guest and authenticated modes, only the compact value-free endpoint manifest is published under `diagnostics/http-contracts/`, allowing implementation work without exposing account data.
 
 ## Guest capture
 
@@ -88,4 +88,4 @@ For each retailer:
 6. Retain Playwright only for login, CAPTCHA or anti-bot cookie renewal when required.
 7. Keep the final order endpoint disabled until a deliberate real transaction validates it.
 
-Sanitized authenticated artifacts are retained for 14 days by GitHub Actions. Review and download them only from the repository's Actions page.
+Sanitized detailed artifacts are retained for 14 days by GitHub Actions. Review and download them only from the repository's Actions page.
