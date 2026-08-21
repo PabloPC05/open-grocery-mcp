@@ -1,0 +1,5020 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-21T02:22:35.108997+00:00",
+  "input": {
+    "filename": "com.gadisa.gadis-2.0.17.apk",
+    "sha256": "af7c9c9eebb437b647e800062a34161abf9c17e20aea4007b56b5c5a4d7fc2f7",
+    "size": 25618302
+  },
+  "file_types_scanned": {
+    ".dex": 1,
+    ".json": 1,
+    ".properties": 43,
+    ".so": 9,
+    ".txt": 2,
+    ".xml": 524
+  },
+  "urls": [
+    {
+      "url": "http://captiveappgadis.com:880/cgi-bin/hslogin.cgi",
+      "source_files": [
+        "lib/arm64-v8a/libhelper.so"
+      ]
+    },
+    {
+      "url": "http://www.gadis.es/css/style.css",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/CONDICIONES_DE_USO_APP_GADIS.htm",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/api/",
+      "source_files": [
+        "lib/arm64-v8a/libhelper.so"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/api/actiongetvideosempleados.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/api/actionsendemailactivacion.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/imagenes/articulos/",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/redirect/change_email.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/redirect/reset_password.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/redirect/validate_email.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://app.gadis.es/ws/",
+      "source_files": [
+        "lib/arm64-v8a/libhelper.so"
+      ]
+    },
+    {
+      "url": "https://auth.gadisline.com/realms/gadisline/protocol/openid-connect/token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://clients.gadisline.com/api/v3/clients",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://clients.gadisline.com/api/v3/clients/",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://clients.gadisline.com/api/v3/clients/me",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://gadis-wallet.b2w.app/Wapping.svc/rest/",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://masters.gadisline.com/api/v3/masters/countries",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://masters.gadisline.com/api/v3/masters/food-preferences",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://play.spotify.com/user/gadis.supermercados?play=<value>&utm_medium=<value>&utm_source=<value>",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://twitter.com/gadis",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://webapp-api-pro.b2w.app/api/Auth/token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://webapp-api-pro.b2w.app/api/Push/saveToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadis.es/css/bootstrap.css",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadis.es/css/style.css",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadisline.com/",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadisline.com/gl/pag/legal/aviso-legal",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadisline.com/gl/pag/legal/politica-de-privacidade",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadisline.com/pag/legal/aviso-legal",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.gadisline.com/pag/legal/politica-de-privacidad",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "url": "https://www.instagram.com/gadis.supermercados/",
+      "source_files": [
+        "classes.dex"
+      ]
+    }
+  ],
+  "path_candidates": [
+    {
+      "path": "/%s/installations/%s/authTokens:generate",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Landroid/content/DialogInterface$OnKeyListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Landroid/provider/MediaStore$Images$Thumbnails",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Landroid/security/keystore/KeyGenParameterSpec",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/bumptech/glide/module/RegistersComponents",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/EncuestasActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/EventosActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/EventosActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$A",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$B",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$C",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$D",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$E",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$F",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$G",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$H",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$I",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$J",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$K",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$L",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$M",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$N",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$O",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$P",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$Q",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$R",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$S",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$T",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$U",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$V",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$W",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$i",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$j",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$k",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$l",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$m",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$n",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$o",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$p",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$q",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$r",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$s",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$t",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$u",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$v",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$w",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$x",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$y",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/MainActivityNew$z",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/PartidaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/PartidaActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/PartidaActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/PartidaActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/RankingActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/RecetasActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/SaludableActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/ScannerActivity$i",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/SorteosActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/SorteosActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/TicketsActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/TicketsActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/TiendasActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/TiendasActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/UsuarioActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/VersionActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/activities/VersionActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/gadisa/gadis/view/activity/RecipeActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lcom/squareup/picasso/MediaStoreRequestHandler",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/Lwapping/android/libwallet/app/RespLoginWallet",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/accounts/AuthenticatorException",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/MngrCodeOffline$OnUpdateTokensListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/Address",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/CfgCustomerToBusiness",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/Customer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/DCCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/DetailCustomerValidationDoc",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/GroupOfCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/GroupOfCustomerDoc",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/GroupOfStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/KeyBusinessToCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/Store",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/TEnum$TEnumCodeResponseLogin",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/TEnum$TEnumRecoveryType",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/TEnum$TEnumStatusOrder",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/TEnum$TEnumTypeOrder",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/reference/TEnum$TEnumTypeStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnCodeRecovery",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnGetInfoRegister",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnGetStores",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnLogin",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnManageUserTags",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnRegisterCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnSetConfigCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnUnRegisterApi",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/IWalletClient$OnUpdateTokenFCM",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/wrapper/WrapperConfigCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/wrapper/WrapperRecovery",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/wrapper/WrapperRegisterCustomer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/android/libwallet/rest/wrapper/WrapperTokensOffline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/TokenIterator",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/impl/io/AbstractSessionInputBuffer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/impl/io/AbstractSessionOutputBuffer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/impl/io/SessionInputBufferImpl",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/impl/io/SessionOutputBufferImpl",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/io/SessionInputBuffer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/io/SessionOutputBuffer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/message/BasicTokenIterator",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/message/TokenParser",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/apache/http/protocol/RequestUserAgent",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/CONDICIONES_DE_USO_APP_GADIS.htm",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/api",
+      "source_files": [
+        "lib/arm64-v8a/libhelper.so"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/api/actiongetvideosempleados.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/api/actionsendemailactivacion.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/imagenes/articulos",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/redirect/change_email.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/redirect/reset_password.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/redirect/validate_email.php",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/app.gadis.es/ws",
+      "source_files": [
+        "lib/arm64-v8a/libhelper.so"
+      ]
+    },
+    {
+      "path": "/auth.gadisline.com/realms/gadisline/protocol/openid-connect/token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/FileService",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/MediaStoreUtil",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/ThumbFetcher",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/ThumbFetcher$ImageThumbnailQuery",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/ThumbFetcher$VideoThumbnailQuery",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/ThumbnailQuery",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/data/mediastore/ThumbnailStreamOpener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/MediaStoreFileLoader",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/MediaStoreFileLoader$Factory",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/MediaStoreFileLoader$FilePathFetcher",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/stream/MediaStoreImageThumbLoader",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/stream/MediaStoreImageThumbLoader$Factory",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/stream/MediaStoreVideoThumbLoader",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/load/model/stream/MediaStoreVideoThumbLoader$Factory",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/signature/MediaStoreSignature",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/bumptech/glide/util/pool/FactoryPools$Resetter",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/captiveappgadis.com:880/cgi-bin/hslogin.cgi",
+      "source_files": [
+        "lib/arm64-v8a/libhelper.so"
+      ]
+    },
+    {
+      "path": "/clients.gadisline.com/api/v3/clients",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/clients.gadisline.com/api/v3/clients/me",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/content/DialogInterface",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/content/DialogInterface$OnCancelListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/content/DialogInterface$OnClickListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/content/DialogInterface$OnDismissListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/content/DialogInterface$OnMultiChoiceClickListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/content/pm/PackageInstaller$SessionInfo",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/AddToCartEvent",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/DisabledSessionAnalyticsManagerStrategy",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/EnabledSessionAnalyticsManagerStrategy",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/LoginEvent",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionAnalyticsFilesManager",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionAnalyticsFilesSender",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionAnalyticsManager",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionAnalyticsManagerStrategy",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionEvent",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionEvent$1",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionEvent$Builder",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionEvent$Type",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionEventMetadata",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionEventTransform",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SessionMetadataCollector",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/SignUpEvent",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/answers/StartCheckoutEvent",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/beta/DeviceTokenLoader",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/CrashlyticsController$AnySessionPartFileFilter",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/CrashlyticsController$SessionPartFileFilter",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/FileLogStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/InvalidSessionReport",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/LogFileManager$NoopLogStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/MetaDataStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/MetaDataStore$1",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/NativeSessionReport",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/QueueFileLogStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/QueueFileLogStore$1",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/QueueFileLogStore$LogBytes",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/SessionProtobufHelper",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/SessionReport",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/crashlytics/android/core/UserMetaData",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/data/com.gadisa.gadis/databases",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadis-wallet.b2w.app/Wapping.svc/rest",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/GadisaApp",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ArticulosDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ArticulosDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ArticulosDetalleActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ArticulosDetalleActivity$a$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/AyudaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CambiarEmailGadislineActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CambiarEmailGadislineActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CambiarPassGadislineActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CheckPrivacidadActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CheckPrivacidadActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CheckPrivacidadActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CheckPrivacidadActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/CheckPrivacidadActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConfiguracionActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccion2Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccion2Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccion2Activity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccionActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccionActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccionActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccionActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ConsultaSeleccionActivity$c$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/EncuestasActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/EncuestasActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/EventosActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/EventosDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/EventosListaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/FolletoActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/FolletosActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/FolletosActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/FolletosActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/FormularioActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/FormularioActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100Activity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100CalendarioActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100CalendarioActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100CalendarioActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100GaleriaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100GaleriaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100GaleriaActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100GaleriaActivity$b$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Gadis100GaleriaDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNew$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub1ActivityNewGadisline$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2Activity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub2ActivityNew$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub3Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4Activity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4OldActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub4OldActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub5Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6Activity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub6OldActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7Activity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7Activity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7Activity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7Activity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNew",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNew$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNew$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNew$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNew$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNew$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNewGadisline$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNewGadisline$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNewGadisline$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNewGadisline$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClub7ActivityNewGadisline$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAceptaCondiciones",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAceptaCondiciones2",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNew",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNew$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNew$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNew$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNew$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNew$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNewGadisline$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAlta2ActivityNewGadisline$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew$c$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNew$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNewGadisline$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubAltaActivityNewGadisline$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubCambiarPassActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubCambiarPassActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubChangeCarne65PerfilActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubChangeCarneXovePerfilActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubChangeFamNumPerfilActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubChangeNumberActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubChangeNumberPerfilActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubCodigoPostalActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubFinActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubIdiomaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubImportarActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubImportarActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubIntroActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubNotificacionesActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationBajaActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationBajaActivityNewGadisline$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationBajaActivityNewGadisline$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationChangedCodeActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationChangedCodePerfilActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivityNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivityNewGadisline$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivityNewGadisline$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivityNewGadisline2",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivityNewGadisline2$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodeActivityNewGadisline2$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodigoBajaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodigoBajaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodigoBajaActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodigoBajaActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationCodigoPassActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubValidationEmailChangedNewGadisline",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisClubZonaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/GadisPost100Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/HtmlViewActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/HtmlViewActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/HtmlViewActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/JuegoActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/JuegoActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListaUsuariosActivity$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$i",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$j",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$k",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasCompraActivity$l",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasDetalleActivity$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionCopiarActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionCopiarActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionCopiarActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionCopiarActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ListasSeleccionCopiarActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$A",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$b$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$e$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$i",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$j",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$k",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$l",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$m",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$n",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$o",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$p",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$q",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$r",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$s",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$t",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$u",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$v",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$w",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$x",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$y",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivity$z",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$a$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$a$a$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$b$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$b$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$b$a$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$q$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$s$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNew$v$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$A",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$B",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$C",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$D",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$E",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$F",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$G",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$H",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$I",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$h$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$i",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$j",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$j$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$k",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$l",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$m",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$m$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$n",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$o",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$p",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$q",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$r",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$s",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$t",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$u",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$v",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$w",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$x",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$y",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MainActivityNewCopy$z",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MultimediaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MultimediaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/MultimediaActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/NotificacionesActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/NotificacionesActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/NotificacionesActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/NotificacionesActivity$b$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/NotificacionesDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/NotificacionesDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/PartidaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Post100DetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Post100DetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/Post100DetalleActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ProponerpreguntasActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ProponerpreguntasActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/QRViewActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/QRViewActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/QRViewActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/QRViewActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/QRViewActivity$c$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RankingActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasDetalleActivity$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasDetalleActivity$a$a$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasDetalleActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RecetasIngredientesActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/RefreshViewActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SaludableActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SaludableActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SaludableActivity$b$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SaludableDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SaludableDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ScannerActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SorteosActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SorteosActivity$b$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SorteosDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SorteosDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SorteosDetalleActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SplashActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SplashActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/SplashActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/TicketsActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/TicketsDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/TiendasActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/TiendasDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsergameActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsergameActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsergameActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioCodigoActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioCodigoActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioDocumentacionActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioDocumentacionActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioIdiomaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioLoginActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioLoginActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioLoginActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioLoginActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioNotificaciones2Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioNotificaciones2Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioNotificaciones2Activity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioNotificacionesActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioNotificacionesActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioNotificacionesActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioPerfilActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioPerfilActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioPerfilActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioPerfilActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioRegisterActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioRegisterActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioRegisterActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioRestablecerActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioRestablecerActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioSettingsActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioSettingsActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioSettingsActivity$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioSettingsActivity$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioSettingsActivity$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioSettingsActivity$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioTiquePapelActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/UsuarioZonaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/ValidarEmailGadislineActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/VersionActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingAhorroActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleNew2Activity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleNew2Activity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleNewActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleNewActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleNovedadActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleNovedadActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleTarjetaActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleTarjetaActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleTarjetaNewActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleTarjetaNewActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDetalleTiqueActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingDisponibleActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingFidelidadActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingFidelidadActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingNovedadesActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingPromocionesActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingTarjetasActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingTarjetasActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WappingTicketsActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WebViewDetailActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WebViewDetailActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WebViewLinkActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/activities/WebViewLinkActivity$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/data/local/RepositoryDatabase",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/data/local/RepositoryDatabase_Impl",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/data/local/RepositoryDatabase_Impl$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/data/remote/ApiService",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/MyFirebaseInstanceIDService",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/MyFirebaseInstanceIDService$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/MyFirebaseMessagingService",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/MyFirebaseMessagingService$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/WifiService",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/WifiService$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/services/WifiService$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/ui/ImagenFolleto",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/ui/ImagenOportunigadis",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/ui/OwnViewPager",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/utils/ApiServer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/utils/ApiServer$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/utils/ApiServer$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/utils/ApiServer$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/utils/ApiServer$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/view/base/BaseActivity",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/view/fragment/RecipeDetailFragment",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/view/fragment/RecipeListFragment",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/gadisa/gadis/view/fragment/RecipeListFragment$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/GoogleSignInAccount",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/GoogleSignInOptions",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/GoogleSignInOptions$Builder",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/GoogleSignInOptionsExtension",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/internal/GoogleSignInOptionsExtensionParcelable",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/internal/HashAccumulator",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/internal/Storage",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/internal/zaa",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/zaa",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/zab",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/zac",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/zad",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/auth/api/signin/zae",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/GoogleSourceStampsChecker",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/GoogleSourceStampsResult",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/SignInButton",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/SignInButton$ButtonSize",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/SignInButton$ColorScheme",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/UserRecoverableException",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/api/Api$ApiOptions$HasGoogleSignInAccountOptions",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/api/BatchResultToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/api/internal/RegisterListenerMethod",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/api/internal/SignInConnectionListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/api/internal/UnregisterListenerMethod",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/internal/ICancelToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/common/internal/ICancelToken$Stub",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/location/GeofenceStatusCodes",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/measurement/AppMeasurement$ConditionalUserProperty",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/measurement/AppMeasurement$UserProperty",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/measurement/api/AppMeasurementSdk$ConditionalUserProperty",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/SignInOptions",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/SignInClientImpl",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zaa",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zab",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zac",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zad",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zae",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zaf",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zag",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zah",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zai",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zaj",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zak",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/internal/zal",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/zaa",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/zab",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/zac",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/zad",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/zae",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/signin/zaf",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/tasks/CancellationToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/tasks/CancellationTokenSource",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/android/gms/tasks/OnTokenCanceledListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/gson/reflect/TypeToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/gson/stream/JsonToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/aztec/encoder/BinaryShiftToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/aztec/encoder/SimpleToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/aztec/encoder/Token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/client/result/AddressBookAUResultParser",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/client/result/AddressBookDoCoMoResultParser",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/client/result/AddressBookParsedResult",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/client/result/EmailAddressParsedResult",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/client/result/EmailAddressResultParser",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/google/zxing/client/result/SMSTOMMSTOResultParser",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/internal/http2/StreamResetException",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/json/JSONTokener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/masters.gadisline.com/api/v3/masters/countries",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/masters.gadisline.com/api/v3/masters/food-preferences",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaButtonReceiver",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaButtonReceiver$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaController",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaController$Callback",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaController$PlaybackInfo",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaSession$QueueItem",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaSession$Token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/MediaSessionManager$RemoteUserInfo",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/PlaybackState",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/media/session/PlaybackState$CustomAction",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/AuthenticationProvider",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/AuthenticationProvider$1",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/AuthenticationProvider$AuthenticationCallback",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/AuthenticationProvider$TokenProvider",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/AuthenticationProvider$Type",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/channel/SessionTracker",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/ingestion/models/StartSessionLog",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/analytics/ingestion/models/json/StartSessionLogFactory",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/ingestion/models/one/UserExtension",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/AbstractTokenContextListener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/AuthTokenContext",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/AuthTokenContext$Listener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/AuthTokenHistoryEntry",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/AuthTokenInfo",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/SessionContext",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/SessionContext$SessionInfo",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/UserIdContext",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/appcenter/utils/context/UserIdContext$Listener",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/microsoft/windowsazure/messaging/NotificationHubUnauthorizedException",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/net/InetAddress",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/net/InetSocketAddress",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/net/SocketAddress",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/net/ssl/SSLSession",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/nio/ByteOrder",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/os/UserHandle",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/os/UserManager",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/play.google.com/store/apps/details",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/play.spotify.com/user/gadis.supermercados",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/provider/MediaStore$Images$Media",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/provider/MediaStore$Video$Thumbnails",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStore",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStore$Entry",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStore$LoadStoreParameter",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStore$PrivateKeyEntry",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStore$ProtectionParameter",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStore$SecretKeyEntry",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/KeyStoreException",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/UnrecoverableKeyException",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/auth/x500/X500Principal",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/security/keystore/KeyGenParameterSpec$Builder",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/shockwave/pdfium/PdfPasswordException",
+      "source_files": [
+        "classes.dex",
+        "lib/arm64-v8a/libjniPdfium.so"
+      ]
+    },
+    {
+      "path": "/squareup/picasso/MediaStoreRequestHandler$PicassoKind",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaControllerCompat$MediaControllerImplApi21",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaControllerCompat$MediaControllerImplApi21$ExtraBinderRequestResultReceiver",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaControllerCompat$MediaControllerImplApi21$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat$QueueItem",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat$QueueItem$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat$ResultReceiverWrapper",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat$ResultReceiverWrapper$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat$Token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/MediaSessionCompat$Token$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/ParcelableVolumeInfo",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/ParcelableVolumeInfo$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/PlaybackStateCompat",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/PlaybackStateCompat$CustomAction",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/PlaybackStateCompat$CustomAction$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/support/v4/media/session/PlaybackStateCompat$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$a",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$b",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$c",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$d",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$e",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$f",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$g",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/swiperefreshlayout/widget/SwipeRefreshLayout$h",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/system/app/Superuser.apk",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/text/method/PasswordTransformationMethod",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/twitter.com/gadis",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/util/JsonToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/util/StringTokenizer",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/webapp-api-pro.b2w.app/api/Auth/token",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/webapp-api-pro.b2w.app/api/Push/saveToken",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.facebook.com/Gadis.supermercados",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.gadis.es/css/bootstrap.css",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.gadis.es/css/style.css",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.gadisline.com/gl/pag/legal/aviso-legal",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.gadisline.com/gl/pag/legal/politica-de-privacidade",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.gadisline.com/pag/legal/aviso-legal",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.gadisline.com/pag/legal/politica-de-privacidad",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/appstate",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/datastoremobile",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/drive",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/drive.appdata",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/drive.apps",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/drive.file",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/games",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/games.firstparty",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/games_lite",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/plus.login",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.googleapis.com/auth/plus.me",
+      "source_files": [
+        "classes.dex"
+      ]
+    },
+    {
+      "path": "/www.instagram.com/gadis.supermercados",
+      "source_files": [
+        "classes.dex"
+      ]
+    }
+  ],
+  "safety": {
+    "user_data_present": false,
+    "query_values_removed": true,
+    "compiled_secret_values_not_published": true,
+    "state_changes_performed": false
+  }
+}
