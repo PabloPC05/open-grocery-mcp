@@ -132,6 +132,7 @@ jobs:
                   f"all_endpoints={summary.get('all_endpoint_count', len(data.get('endpoint_manifest', [])))} "
                   f"retailer_endpoints={summary.get('retailer_endpoint_count', len(data.get('retailer_endpoint_manifest', [])))} "
                   f"bundle_sources={len(data.get('bundle_candidates', []))} "
+                  f"dom_pages={len(data.get('dom_observations', []))} "
                   f"blocked={len(data.get('blocked', []))} errors={len(data.get('errors', []))}"
               )
           PY
@@ -167,8 +168,10 @@ jobs:
                   ),
                   'manifest_summary': data.get('manifest_summary', {}),
                   'bundle_candidates': data.get('bundle_candidates', []),
+                  'dom_observations': data.get('dom_observations', []),
                   'blocked': data.get('blocked', []),
                   'errors': data.get('errors', []),
+                  'skipped': data.get('skipped', []),
                   'safety': data.get('safety', {}),
               }
               target = Path('diagnostics/http-contracts') / f"{data['store']}-{mode}.json"
