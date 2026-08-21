@@ -1,6 +1,6 @@
 {
   "store": "all",
   "mode": "guest",
-  "revision": 8,
-  "reason": "Run the final guest probe with retailer-only manifests, sanitized JS endpoint candidates and DOM control inventory."
+  "revision": 9,
+  "reason": "Re-run the complete guest probe after adding public Gadis context headers, retailer-only manifests, JS endpoint extraction and DOM inventory."
 }
