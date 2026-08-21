@@ -22,6 +22,7 @@ class GadisFullProvider(GroceryProvider):
             "search",
             "product",
             "categories",
+            "coverage",
             "compare",
             "draft_cart",
             "account",
@@ -32,12 +33,13 @@ class GadisFullProvider(GroceryProvider):
         ),
         requires_postal_code=False,
         price_scope=(
-            "catalogue assortment plus the location selected in the logged-in "
-            "Gadisline session"
+            "public catalogue assortment serving the supplied postal code, plus "
+            "the location selected in the logged-in Gadisline session"
         ),
         notes=(
-            "Catalogue reads use Gadis public services. Account, cart and checkout use "
-            "the user's locally stored browser session and rendered Gadisline controls."
+            "Catalogue, delivery fee and minimum-order reads use Gadis public HTTP "
+            "services. Account, cart and checkout still use the user's local browser "
+            "session until their authenticated HTTP contract is captured."
         ),
     )
 
@@ -70,6 +72,9 @@ class GadisFullProvider(GroceryProvider):
         postal_code: str | None = None,
     ) -> list[dict[str, Any]]:
         return self._catalogue.categories(depth=depth, postal_code=postal_code)
+
+    def delivery_coverage(self, postal_code: str) -> dict[str, Any]:
+        return self._catalogue.delivery_coverage(postal_code)
 
     def account_status(self) -> dict[str, Any]:
         return self._account.status()
