@@ -88,6 +88,28 @@ def stores(country: str | None = None) -> list[dict[str, object]]:
 
 
 @mcp.tool()
+def get_delivery_coverage(store: str, postal_code: str) -> dict[str, Any]:
+    """Return a store's public delivery fee, minimum and serving assortment.
+
+    Only providers with a verified public coverage contract expose this tool.
+    Account-specific checkout data is never inferred here.
+    """
+
+    provider = _registry.get(store)
+    coverage = getattr(provider, "delivery_coverage", None)
+    if not callable(coverage):
+        raise InvalidRequest(
+            f"{provider.info.label} does not expose a verified public delivery policy"
+        )
+    result = coverage(postal_code)
+    return {
+        "store": provider.info.key,
+        "label": provider.info.label,
+        **dict(result),
+    }
+
+
+@mcp.tool()
 def search_products(
     store: str,
     query: str,
