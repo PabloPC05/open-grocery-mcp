@@ -115,10 +115,10 @@ STORES = {
     "gadis": StoreSpec(
         "gadis",
         "Gadis",
-        # The authenticated shopping shell/login lives on super.gadisline.com.
-        # Public catalogue URLs may still use www.gadisline.com and are rewritten
-        # in choose_product() before browser navigation.
-        "https://super.gadisline.com",
+        # The current public shop and account flow are served from www.
+        # The legacy super.gadisline.com host is not reliably resolvable from
+        # automated runners and must not be used as the capture entry point.
+        "https://www.gadisline.com",
         ("/cart", "/carrito", "/cesta", "/checkout/cart"),
         ("iniciar sesión", "acceder", "mi cuenta", "identificarse"),
         ("cesta", "carrito", "mi compra"),
@@ -307,23 +307,9 @@ def first_visible(locator: Any) -> Any | None:
 
 
 def _browser_product_url(store: str, value: str) -> str:
-    if store != "gadis":
-        return value
-    try:
-        parts = urlsplit(value)
-    except ValueError:
-        return value
-    if (parts.hostname or "").casefold() != "www.gadisline.com":
-        return value
-    return urlunsplit(
-        (
-            parts.scheme or "https",
-            "super.gadisline.com",
-            parts.path,
-            parts.query,
-            "",
-        )
-    )
+    """Return the public catalogue URL used by the current storefront."""
+    del store
+    return value
 
 
 def choose_product(store: str) -> dict[str, Any]:
