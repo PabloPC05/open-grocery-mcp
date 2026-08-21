@@ -1,6 +1,6 @@
 {
-  "store": "all",
+  "store": "gadis",
   "mode": "guest",
-  "revision": 4,
-  "reason": "Run guest Gadis/Froiz HTTP capture after fixing the authenticated Gadis host, short private path-ID redaction and query sanitization."
+  "revision": 5,
+  "reason": "Retry Gadis guest HTTP capture against the current www.gadisline.com storefront after the legacy super host failed DNS resolution."
 }
