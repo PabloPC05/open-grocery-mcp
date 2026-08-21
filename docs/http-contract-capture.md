@@ -56,7 +56,13 @@ FROIZ_TEST_USERNAME
 FROIZ_TEST_PASSWORD
 ```
 
-Then run **Capture retailer HTTP contract** manually with `mode=authenticated`.
+While the workflow exists only on `feat/initial-mcp`, authenticated capture is triggered by changing [`tools/capture-request.json`](../tools/capture-request.json) to:
+
+```json
+{"store": "all", "mode": "authenticated"}
+```
+
+and pushing that change. After the workflow is merged into the default branch, it can also be started manually from the Actions tab through `workflow_dispatch`.
 
 The disposable account should have:
 
