@@ -16,3 +16,4 @@ build/
 .open-grocery-mcp/
 storage_state*.json
 checkouts*.json
+captures/
