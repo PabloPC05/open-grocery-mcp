@@ -71,42 +71,103 @@ PHASES = (
 OVERLAY = r"""
 (() => {
   const phases = __OPEN_GROCERY_PHASES__;
+  const hostId = '__open_grocery_capture';
+
+  const important = (element, property, value) => {
+    element.style.setProperty(property, value, 'important');
+  };
+
   const install = () => {
-    if (document.getElementById('__open_grocery_capture')) return;
+    if (document.getElementById(hostId)) return;
+
+    // Use a top-anchored shadow-DOM host. Some retailer login pages have a
+    // transformed/clipped root and can hide bottom-fixed elements outside the
+    // physical browser window, especially with Windows display scaling.
+    const host = document.createElement('div');
+    host.id = hostId;
+    important(host, 'all', 'initial');
+    important(host, 'position', 'fixed');
+    important(host, 'top', '12px');
+    important(host, 'right', '12px');
+    important(host, 'bottom', 'auto');
+    important(host, 'left', 'auto');
+    important(host, 'z-index', '2147483647');
+    important(host, 'width', 'min(380px, calc(100vw - 24px))');
+    important(host, 'max-height', 'calc(100vh - 24px)');
+    important(host, 'overflow', 'auto');
+    important(host, 'box-sizing', 'border-box');
+    important(host, 'isolation', 'isolate');
+    important(host, 'pointer-events', 'auto');
+    important(host, 'transform', 'none');
+
+    const shadow = host.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = `
+      *, *::before, *::after { box-sizing: border-box; }
+      .panel {
+        width: 100%; padding: 14px; background: #111; color: #fff;
+        border-radius: 12px; box-shadow: 0 8px 32px #0008;
+        font: 13px/1.35 system-ui, sans-serif;
+      }
+      .header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+      .title { flex: 1; font-weight: 700; }
+      .collapse {
+        border: 0; border-radius: 7px; padding: 4px 8px; cursor: pointer;
+        background: #333; color: #fff; font: inherit;
+      }
+      .note { margin-bottom: 10px; color: #ddd; }
+      select {
+        display: block; width: 100%; margin: 0 0 8px; padding: 9px;
+        border: 1px solid #777; border-radius: 8px; background: #fff;
+        color: #111; font: inherit;
+      }
+      .actions { display: flex; gap: 8px; }
+      .actions button {
+        flex: 1; padding: 9px; border: 0; border-radius: 8px;
+        cursor: pointer; font: inherit;
+      }
+      .mark { background: #f2f2f2; color: #111; }
+      .finish { background: #2f80ed; color: #fff; }
+      .warning { margin-top: 9px; color: #ffcc80; font-size: 12px; }
+      .hidden { display: none; }
+    `;
+
     const panel = document.createElement('section');
-    panel.id = '__open_grocery_capture';
-    Object.assign(panel.style, {
-      position: 'fixed', right: '16px', bottom: '16px', zIndex: '2147483647',
-      width: '360px', padding: '14px', background: '#111', color: '#fff',
-      borderRadius: '12px', boxShadow: '0 8px 32px #0008',
-      font: '13px/1.35 system-ui,sans-serif'
-    });
-    const title = document.createElement('strong');
+    panel.className = 'panel';
+
+    const header = document.createElement('div');
+    header.className = 'header';
+    const title = document.createElement('div');
+    title.className = 'title';
     title.textContent = 'Open Grocery · captura HTTP local';
-    title.style.display = 'block';
-    title.style.marginBottom = '8px';
+    const collapse = document.createElement('button');
+    collapse.className = 'collapse';
+    collapse.type = 'button';
+    collapse.textContent = '−';
+    collapse.title = 'Contraer o desplegar';
+    header.append(title, collapse);
+
+    const body = document.createElement('div');
     const note = document.createElement('div');
+    note.className = 'note';
     note.textContent =
       'Usa una cuenta de prueba. Marca la fase ANTES de cada acción. ' +
       'La sonda final bloquea toda escritura.';
-    note.style.marginBottom = '10px';
-    note.style.color = '#ddd';
+
     const select = document.createElement('select');
-    Object.assign(select.style, {
-      width: '100%', padding: '9px', borderRadius: '8px', marginBottom: '8px'
-    });
     for (const [value, label] of phases) {
       const option = document.createElement('option');
       option.value = value;
       option.textContent = label;
       select.appendChild(option);
     }
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
     const mark = document.createElement('button');
+    mark.className = 'mark';
+    mark.type = 'button';
     mark.textContent = 'Marcar fase';
-    Object.assign(mark.style, {
-      width: '49%', marginRight: '2%', padding: '9px', border: '0',
-      borderRadius: '8px', cursor: 'pointer'
-    });
     mark.addEventListener('click', async () => {
       await window.__openGrocerySetCapturePhase(select.value);
       panel.style.outline =
@@ -114,27 +175,35 @@ OVERLAY = r"""
       mark.textContent = 'Fase marcada ✓';
       setTimeout(() => { mark.textContent = 'Marcar fase'; }, 900);
     });
+
     const finish = document.createElement('button');
+    finish.className = 'finish';
+    finish.type = 'button';
     finish.textContent = 'Finalizar';
-    Object.assign(finish.style, {
-      width: '49%', padding: '9px', border: '0', borderRadius: '8px',
-      background: '#2f80ed', color: '#fff', cursor: 'pointer'
-    });
     finish.addEventListener('click', async () => {
       finish.disabled = true;
       finish.textContent = 'Guardando…';
       await window.__openGroceryFinishCapture();
       finish.textContent = 'Captura finalizada';
     });
+    actions.append(mark, finish);
+
     const warning = document.createElement('div');
+    warning.className = 'warning';
     warning.textContent =
       'No pegues las credenciales en un chat: escríbelas solo en esta ventana.';
-    Object.assign(warning.style, {
-      marginTop: '9px', color: '#ffcc80', fontSize: '12px'
+
+    body.append(note, select, actions, warning);
+    collapse.addEventListener('click', () => {
+      const collapsed = body.classList.toggle('hidden');
+      collapse.textContent = collapsed ? '+' : '−';
     });
-    panel.append(title, note, select, mark, finish, warning);
-    document.documentElement.appendChild(panel);
+
+    panel.append(header, body);
+    shadow.append(style, panel);
+    (document.body || document.documentElement).appendChild(host);
   };
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', install, { once: true });
   } else {
@@ -181,7 +250,10 @@ def _launch_kwargs(store: str) -> dict[str, Any]:
         or os.getenv("OPEN_GROCERY_CAPTURE_BROWSER_CHANNEL")
         or os.getenv("OPEN_GROCERY_BROWSER_CHANNEL")
     )
-    result: dict[str, Any] = {"headless": False}
+    result: dict[str, Any] = {
+        "headless": False,
+        "args": ["--start-maximized"],
+    }
     if executable:
         result["executable_path"] = executable
     elif channel:
@@ -374,7 +446,7 @@ class LocalCapture:
             try:
                 context_args: dict[str, Any] = {
                     "locale": "es-ES",
-                    "viewport": {"width": 1440, "height": 1000},
+                    "no_viewport": True,
                 }
                 if not self.fresh_session and self.state_path.exists():
                     context_args["storage_state"] = str(self.state_path)
