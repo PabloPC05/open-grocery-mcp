@@ -1,5 +1,6 @@
 {
   "store": "all",
   "mode": "guest",
-  "reason": "Initial guest-cart HTTP contract discovery; final order and payment requests are blocked."
+  "revision": 3,
+  "reason": "Capture guest cart, quantity and checkout HTTP contracts after in-memory sanitization hardening."
 }
