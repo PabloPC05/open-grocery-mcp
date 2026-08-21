@@ -41,7 +41,27 @@ class ContractProbe(Probe):
         if len(self.events) == before:
             return
         event = self.events[-1]
-        if event.get("kind") != "request" or event.get("body") != "<non-json-body>":
+        if event.get("kind") != "request":
+            return
+
+        # Gadis' public microservices use these context headers without an X-
+        # prefix. Their values identify public site/store/catalogue context and
+        # are needed to reproduce the HTTP contract; account/session headers
+        # remain redacted by the shared sanitizer.
+        headers = event.setdefault("headers", {})
+        for name in (
+            "site-id",
+            "store-id",
+            "x-site-id",
+            "x-store-id",
+            "x-customer-wh",
+            "accept-language",
+        ):
+            value = request.headers.get(name)
+            if value:
+                headers[name] = value[:300]
+
+        if event.get("body") != "<non-json-body>":
             return
         content_type = request.headers.get("content-type", "").casefold()
         if "application/x-www-form-urlencoded" in content_type:
