@@ -7,14 +7,14 @@ install-browser:
 	python -m pip install -e ".[dev,browser]"
 
 capture-gadis:
-	python tools/capture_http_local.py --store gadis --output local-captures/gadis.json
+	python capture_http_local.py --store gadis --output local-captures/gadis.json
 
 capture-froiz:
-	python tools/capture_http_local.py --store froiz --output local-captures/froiz.json
+	python capture_http_local.py --store froiz --output local-captures/froiz.json
 
 test:
 	pytest
-	python -m compileall -q src tests tools
+	python -m compileall -q src tests tools capture_http_local.py
 
 lint:
 	ruff check .
