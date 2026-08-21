@@ -6,15 +6,24 @@ import argparse
 from pathlib import Path
 from urllib.parse import parse_qsl
 
-from http_capture.common import STORES, shape
+from http_capture.common import STORES, safe_message, shape
 from http_capture.manifest import add_manifest
 from http_capture.probe import Probe
 
 
 class ContractProbe(Probe):
-    """Add safe form-field discovery to the in-memory capture."""
+    """Add safe form-field discovery and error redaction to the capture."""
 
-    def on_request(self, request):  # type annotations come from Playwright at runtime
+    def record_error(self, phase: str, exc: BaseException) -> None:
+        self.errors.append(
+            {"phase": phase, "type": type(exc).__name__, "message": safe_message(str(exc))}
+        )
+
+    def login(self, page) -> None:
+        self.accept_cookies(page)
+        super().login(page)
+
+    def on_request(self, request):  # Playwright provides the runtime types.
         before = len(self.events)
         super().on_request(request)
         if len(self.events) == before:
