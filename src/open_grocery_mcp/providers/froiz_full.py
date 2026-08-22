@@ -7,9 +7,8 @@ from typing import Any, Mapping, Sequence
 
 from open_grocery_mcp.models import Product, StoreInfo
 from open_grocery_mcp.providers.base import GroceryProvider
-from open_grocery_mcp.providers.browser_account import BrowserAccountClient
-from open_grocery_mcp.providers.browser_config import FROIZ_BROWSER_CONFIG
 from open_grocery_mcp.providers.froiz import FroizProvider
+from open_grocery_mcp.providers.froiz_account import FroizAccountClient
 
 
 class FroizFullProvider(GroceryProvider):
@@ -34,14 +33,16 @@ class FroizFullProvider(GroceryProvider):
             "Froiz session"
         ),
         notes=(
-            "Catalogue search uses Froiz's public search index. Account, cart and "
-            "checkout use the user's locally stored browser session and rendered controls."
+            "Catalogue search uses Froiz's public Empathy.co index. Cart reads "
+            "and whole-object reversible mutations use the verified Nuxt HTTP "
+            "contract; login, delivery and checkout keep a local browser "
+            "session until their HTTP contracts are captured."
         ),
     )
 
     def __init__(self) -> None:
         self._catalogue = FroizProvider()
-        self._account = BrowserAccountClient(FROIZ_BROWSER_CONFIG)
+        self._account = FroizAccountClient()
 
     def search(
         self,
@@ -68,7 +69,7 @@ class FroizFullProvider(GroceryProvider):
         return self._account.login_with_browser(timeout_seconds=timeout_seconds)
 
     def real_cart(self) -> dict[str, Any]:
-        return self._account.cart()
+        return self._account.real_cart()
 
     def preview_cart_update(
         self,

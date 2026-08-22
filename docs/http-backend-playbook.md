@@ -177,6 +177,27 @@ Criterios de aceptación: `calendar_read`, `addresses_read`,
 | `ConcurrentCartChange` sistemático | versión derivada de campo volátil | huella de contenido estable |
 | captura con `events: 0` | listeners tardíos o anti-bot | validar y depurar según AGENTS.md |
 
+### Lecciones de Froiz (Nuxt SPA con API propia)
+
+- **Rotación de token por arranque**: la SPA rota su OAuth access token en
+  cada carga y lo guarda en memoria/sessionStorage; la copia en cookie del
+  `storage_state` queda invalidada. Patrón que funciona: un *bootstrap*
+  headless abre la sesión guardada, intercepta la primera llamada a la API y
+  captura el header `Authorization` fresco para el cliente HTTP puro.
+- **Cookies URL-codificadas**: el valor de `auth._token.*` llega
+  percent-encoded; aplicar `urllib.parse.unquote` antes de usarlo.
+- **Descubrir el host real**: el axios del SPA define `browserBaseURL`
+  (aquí `https://servicios.froiz.com`, distinto del host web). Búscalo en el
+  bundle antes de probar rutas contra el dominio equivocado (respondería el
+  fallback SSR con HTML).
+- **Carrito desechable**: si la API permite crear y borrar carritos enteros
+  (`POST`/`DELETE /api/cart`), verifica las mutaciones sobre un carrito
+  desechable propio: cero contacto con el carrito real del usuario y limpieza
+  garantizada (`channel_cart_untouched=true` como criterio).
+- **Sin contador de versiones**: usa huella determinista del contenido desde
+  el primer día y trata "sin carrito ligado" (`cartId: null`) como carrito
+  vacío creable con POST, igual que hace la SPA.
+
 ## Checklist para replicar en otro supermercado
 
 1. Salud de sesión y captura base validadas (Fase 0–1).
