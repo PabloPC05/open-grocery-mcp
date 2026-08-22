@@ -33,10 +33,12 @@ class FroizFullProvider(GroceryProvider):
             "Froiz session"
         ),
         notes=(
-            "Catalogue search uses Froiz's public Empathy.co index. Cart reads "
-            "and whole-object reversible mutations use the verified Nuxt HTTP "
-            "contract; login, delivery and checkout keep a local browser "
-            "session until their HTTP contracts are captured."
+            "Catalogue search uses Froiz's public Empathy.co index. Cart reads, "
+            "whole-object reversible mutations, saved addresses and the "
+            "delivery calendar use the verified Nuxt HTTP contract; login and "
+            "checkout keep a local browser session. Checkout stays browser-"
+            "backed because Froiz's API has no separate checkout step: its "
+            "orders/create endpoint places the real order."
         ),
     )
 

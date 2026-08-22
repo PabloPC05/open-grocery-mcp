@@ -319,7 +319,7 @@ class FroizHTTPClient:
         }
 
     def channel_cart_id(self) -> str | None:
-        me_payload = self._request("GET", "/api/me")
+        me_payload = self.me()
         options = (
             me_payload.get("userChannelOptions", [])
             if isinstance(me_payload, Mapping)
@@ -333,6 +333,101 @@ class FroizHTTPClient:
             ):
                 return str(option["cartId"])
         return None
+
+    def me(self) -> dict[str, Any]:
+        payload = self._request("GET", "/api/me")
+        if not isinstance(payload, Mapping):
+            raise ProviderError("Froiz profile returned an invalid response")
+        return payload
+
+    def addresses(self) -> list[dict[str, Any]]:
+        """Saved addresses from /api/me with personal values redacted."""
+        me_payload = self.me()
+        rows = me_payload.get("userAddresses", [])
+        result = []
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, Mapping):
+                continue
+            result.append(
+                {
+                    "id": str(row.get("id", "")).strip() or None,
+                    "is_default": bool(row.get("isDefault")),
+                    "field_names": sorted(str(key) for key in row),
+                }
+            )
+        return result
+
+    def default_postal_code(self) -> str | None:
+        for row in self.me().get("userAddresses", []) or []:
+            if isinstance(row, Mapping) and row.get("isDefault"):
+                code = str(row.get("postalCode") or "").strip()
+                if code:
+                    return code
+        return None
+
+    def store_by_postal_code(self, postal_code: str) -> dict[str, Any]:
+        payload = self._request(
+            "GET",
+            f"/api/stores/postalcode/{str(postal_code).strip()}",
+        )
+        if not isinstance(payload, Mapping):
+            raise ProviderError("Froiz store lookup returned an invalid response")
+        return payload
+
+    def delivery_calendar(self, postal_code: str | None = None) -> list[dict[str, Any]]:
+        """Delivery slots for the store serving a postal code.
+
+        Live contract: ``GET /api/stores/postalcode/{cp}`` yields the store's
+        ``codEnt``/``codSubent`` and ``GET
+        /api/deliverymatrix/calendar/{codEnt}_{codSubent}`` returns a week of
+        ``deliveryCalendar`` days each holding six two-hour ``slots``.
+        """
+        effective = str(postal_code or "").strip()
+        if not effective:
+            effective = str(self.default_postal_code() or "").strip()
+        if not effective:
+            raise ProviderError("Froiz delivery calendar needs a postal code")
+        store = self.store_by_postal_code(effective)
+        code = store.get("codEnt")
+        subcode = store.get("codSubent")
+        if code in (None, "") or subcode in (None, ""):
+            raise ProviderError("Froiz store lookup lacked codEnt/codSubent")
+        payload = self._request(
+            "GET", f"/api/deliverymatrix/calendar/{code}_{subcode}"
+        )
+        calendar = (
+            payload.get("deliveryCalendar")
+            if isinstance(payload, Mapping)
+            else None
+        )
+        if calendar is None and isinstance(payload, Mapping):
+            calendar = payload.get("elements")
+        if not isinstance(calendar, list):
+            raise ProviderError(
+                "Froiz delivery calendar returned an invalid response"
+            )
+        slots: list[dict[str, Any]] = []
+        for day in calendar:
+            if not isinstance(day, Mapping):
+                continue
+            date = str(day.get("date", "")).strip()
+            day_active = bool(day.get("active"))
+            for slot in day.get("slots", []) or []:
+                if not isinstance(slot, Mapping):
+                    continue
+                text = str(slot.get("slotText", "")).strip()
+                start, _, end = text.partition(" - ")
+                slots.append(
+                    {
+                        "id": f"{date}#{slot.get('slotNumber')}",
+                        "date": date,
+                        "start": start.strip() or None,
+                        "end": end.strip() or None,
+                        "available": bool(slot.get("active")) and day_active,
+                        "active": bool(slot.get("active")),
+                    }
+                )
+        return slots
 
     def raw_cart(self, cart_id: str) -> dict[str, Any]:
         payload = self._request("GET", f"/api/cart/raw/{str(cart_id).strip()}")

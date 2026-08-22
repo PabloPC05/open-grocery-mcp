@@ -114,6 +114,8 @@ def verify(
             "remove_verified": False,
             "disposed_verified": False,
             "gone_after_delete": False,
+            "addresses_read": False,
+            "calendar_read": False,
         },
         "channel_cart_untouched": None,
     }
@@ -140,6 +142,16 @@ def verify(
     failure_type: str | None = None
 
     try:
+        failure_stage = "delivery_reads"
+        addresses = client.addresses()
+        report["steps"]["addresses_read"] = True
+        report["address_ids_present"] = sum(1 for a in addresses if a.get("id"))
+        calendar = client.delivery_calendar()
+        report["steps"]["calendar_read"] = True
+        report["calendar_slots_available"] = sum(
+            1 for slot in calendar if slot.get("available")
+        )
+
         failure_stage = "channel_read"
         fingerprint_before = _channel_fingerprint(client)
         excluded: set[str] = set()

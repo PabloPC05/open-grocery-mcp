@@ -98,8 +98,23 @@ class FakeHTTP:
     def delete_cart(self, cart_id: str) -> None:
         self.calls.append(("delete", []))
 
+    def status(self) -> dict[str, Any]:
+        return {
+            "store": "froiz",
+            "session_present": True,
+            "authenticated": True,
+        }
+
     def invalidate_session(self) -> None:
         pass
+
+    def addresses(self) -> list[dict[str, Any]]:
+        self.address_calls = getattr(self, "address_calls", 0) + 1
+        return [{"id": "addr-http", "is_default": True}]
+
+    def delivery_calendar(self, postal_code=None):
+        self.calendar_calls = getattr(self, "calendar_calls", 0) + 1
+        return [{"date": "2026-08-22", "available": True}]
 
     def close(self) -> None:
         pass
@@ -298,6 +313,19 @@ def test_commit_rolls_back_when_result_does_not_match_review(account) -> None:
         client.commit_cart_update(plan)
     updates = [items for op, items in fake.calls if op == "update"]
     assert updates[-1] == plan["previous_items"]
+
+
+def test_delivery_reads_use_http_first(account) -> None:
+    client, fake, browser = account
+    addresses = client.addresses()
+    assert addresses == [{"id": "addr-http", "is_default": True}]
+    assert fake.address_calls == 1
+    slots = client.slots("addr-http")
+    assert len(slots) == 1 and slots[0]["available"] is True
+    assert fake.calendar_calls == 1
+    status = client.status()
+    assert status["delivery_backend"] == "froiz_http_with_browser_fallback"
+    assert status["checkout_backend"] == "browser_blocked_by_design"
 
 
 def test_account_never_touches_order_or_payment_endpoints(account) -> None:

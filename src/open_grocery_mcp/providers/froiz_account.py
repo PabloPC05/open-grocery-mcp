@@ -62,8 +62,8 @@ class FroizAccountClient:
             **http_status,
             "account_backend": "froiz_http_with_browser_fallback",
             "cart_backend": "froiz_http_with_browser_fallback",
-            "delivery_backend": "browser",
-            "checkout_backend": "browser",
+            "delivery_backend": "froiz_http_with_browser_fallback",
+            "checkout_backend": "browser_blocked_by_design",
         }
 
     def login_with_browser(self, *, timeout_seconds: int = 300) -> dict[str, Any]:
@@ -342,10 +342,19 @@ class FroizAccountClient:
     # ------------------------------------------------- browser-backed regions
 
     def addresses(self) -> list[dict[str, Any]]:
+        try:
+            rows = self._http.addresses()
+            if rows:
+                return rows
+        except (AuthenticationRequired, ProviderError):
+            pass
         return self._browser.addresses()
 
     def slots(self, address_id: str | int) -> list[dict[str, Any]]:
-        return self._browser.slots(address_id)
+        try:
+            return self._http.delivery_calendar()
+        except (AuthenticationRequired, ProviderError):
+            return self._browser.slots(address_id)
 
     def preview_checkout(
         self, *, expected_version: int | None, max_total: Decimal

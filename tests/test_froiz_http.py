@@ -55,9 +55,44 @@ def _router(
                 200,
                 json={
                     "id": "user-1",
+                    "userAddresses": [
+                        {
+                            "id": "addr-1",
+                            "isDefault": True,
+                            "postalCode": "28050",
+                            "street": "Calle Secreta",
+                        }
+                    ],
                     "userChannelOptions": [
                         {"channelName": "shop", "cartId": "cart-uuid"}
                     ],
+                },
+            )
+        if path.startswith("/api/stores/postalcode/"):
+            return httpx.Response(
+                200,
+                json={
+                    "id": "store-7",
+                    "codEnt": "E1",
+                    "codSubent": "S2",
+                    "hasDelivery": True,
+                },
+            )
+        if path.startswith("/api/deliverymatrix/calendar/"):
+            assert path == "/api/deliverymatrix/calendar/E1_S2"
+            return httpx.Response(
+                200,
+                json={
+                    "deliveryCalendar": [
+                        {
+                            "date": "2026-08-22",
+                            "active": True,
+                            "slots": [
+                                {"slotText": "10:00 - 12:00", "slotNumber": 0, "active": True},
+                                {"slotText": "12:00 - 14:00", "slotNumber": 1, "active": False},
+                            ],
+                        }
+                    ]
                 },
             )
         if path.startswith("/api/cart/raw/"):
@@ -95,6 +130,50 @@ def _client(tmp_path: Path, transport: httpx.MockTransport) -> FroizHTTPClient:
         json.dumps({"token": "tok", "fetched_at": time.time()}), encoding="utf-8"
     )
     return client
+
+
+def test_addresses_are_redacted_and_calendar_normalizes_slots(tmp_path: Path) -> None:
+    requests: list[httpx.Request] = []
+    client = _client(tmp_path, _router(requests))
+
+    addresses = client.addresses()
+    assert addresses == [
+        {
+            "id": "addr-1",
+            "is_default": True,
+            "field_names": [
+                "id",
+                "isDefault",
+                "postalCode",
+                "street",
+            ],
+        }
+    ]
+    serialized = json.dumps(addresses)
+    assert "Calle Secreta" not in serialized
+    assert "28050" not in serialized
+
+    slots = client.delivery_calendar("28050")
+    assert len(slots) == 2
+    first, second = slots
+    assert (first["date"], first["start"], first["end"]) == (
+        "2026-08-22",
+        "10:00",
+        "12:00",
+    )
+    assert first["available"] is True and second["available"] is False
+
+    store_call = next(
+        r for r in requests if r.url.path.startswith("/api/stores/postalcode/")
+    )
+    assert store_call.url.path == "/api/stores/postalcode/28050"
+    calendar_call = next(
+        r for r in requests if r.url.path.startswith("/api/deliverymatrix/calendar/")
+    )
+    assert calendar_call.url.path == "/api/deliverymatrix/calendar/E1_S2"
+    urls = json.dumps([str(r.url) for r in requests])
+    assert "/orders" not in urls and "/api/payment" not in urls
+    client.close()
 
 
 def test_channel_cart_id_reads_shop_channel(tmp_path: Path) -> None:
