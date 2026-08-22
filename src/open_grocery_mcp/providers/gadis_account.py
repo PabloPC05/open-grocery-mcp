@@ -84,13 +84,17 @@ class GadisAccountClient(GadisCartMixin):
                 rows = self._http.addresses(cart_id)
                 if rows:
                     return rows
+            # A fresh cart may carry no attached addresses yet; fall back to
+            # the client's saved address book over the same HTTP backend.
+            return self._http.client_addresses()
         except (AuthenticationRequired, ProviderError):
-            pass
-        return self._browser.addresses()
+            return self._browser.addresses()
 
     def slots(self, address_id: str | int) -> list[dict[str, Any]]:
         try:
-            return self._http.delivery_slots()
+            cart = self._http_cart()
+            store_id = str(cart.get("store_id") or "").strip() or None
+            return self._http.delivery_slots(store_id=store_id)
         except (AuthenticationRequired, ProviderError):
             return self._browser.slots(address_id)
 

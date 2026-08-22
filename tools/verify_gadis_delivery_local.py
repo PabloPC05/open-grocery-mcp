@@ -15,6 +15,7 @@ import json
 import os
 from typing import Any, Callable, Mapping
 
+from open_grocery_mcp.errors import AuthenticationRequired, ProviderError
 from open_grocery_mcp.providers.gadis_full import GadisFullProvider
 
 ORDER_OPT_INS = (
@@ -111,9 +112,19 @@ def verify(
 
         addresses = http.addresses(cart_id)
         usable_addresses = [a for a in addresses if a.get("id")]
+        client_rows: list[dict[str, Any]] = []
+        if not usable_addresses:
+            try:
+                client_rows = [
+                    a for a in http.client_addresses() if a.get("id")
+                ]
+            except (AuthenticationRequired, ProviderError):
+                client_rows = []
         report["steps"]["addresses_read"] = True
         report["cart_address_rows"] = len(addresses)
-        report["cart_address_ids_present"] = len(usable_addresses)
+        report["client_address_ids_present"] = len(client_rows)
+        usable_addresses = usable_addresses or client_rows
+        report["usable_address_ids"] = len(usable_addresses)
 
         baseline_raw = http.read_cart()
         baseline = _fingerprint(baseline_raw)
@@ -133,65 +144,88 @@ def verify(
         if not slot_id or not delivery_date:
             return 1, {**report, "reason": "the offered slot lacks id or date"}
 
-        updated = http.update_schedule(
-            cart_id,
-            store_id,
-            delivery_date=delivery_date,
-            schedule_range_id=slot_id,
-        )
-        report["retailer_write_performed"] = True
-        applied_raw = http.read_cart()
-        applied_delivery = _delivery_state(applied_raw)
-        report["steps"]["schedule_applied"] = bool(
-            updated.get("cart_id") == cart_id
-            and applied_delivery["delivery_date"] == delivery_date
-            and str(applied_delivery["schedule_range_id"] or "") == slot_id
-        )
+        # Prerequisite checks happen BEFORE any write so a missing address can
+        # never leave a schedule write behind without cleanup.
+        if allow_checkout_create and not usable_addresses:
+            return 1, {
+                **report,
+                "reason": (
+                    "the account exposes no saved address id for checkout "
+                    "creation; nothing was written"
+                ),
+            }
 
-        checkout_result: dict[str, Any] | None = None
-        if allow_checkout_create:
-            if not usable_addresses:
-                return 1, {
-                    **report,
-                    "reason": "the cart exposes no usable address id for checkout creation",
-                }
-            address = usable_addresses[0]
-            checkout_result = http.create_checkout(
+        try:
+            updated = http.update_schedule(
                 cart_id,
                 store_id,
-                shipping_address_id=str(address["id"]),
-                shipping_address_owner=address.get("owner"),
                 delivery_date=delivery_date,
                 schedule_range_id=slot_id,
             )
-            report["steps"]["checkout_created"] = bool(
-                checkout_result.get("checkout_present")
+            report["retailer_write_performed"] = True
+            applied_raw = http.read_cart()
+            applied_delivery = _delivery_state(applied_raw)
+            report["steps"]["schedule_applied"] = bool(
+                updated.get("cart_id") == cart_id
+                and applied_delivery["delivery_date"] == delivery_date
+                and str(applied_delivery["schedule_range_id"] or "") == slot_id
             )
-            report["checkout_removed_products"] = len(
-                checkout_result.get("removed_products") or []
-            )
-            report["checkout_price_changes"] = bool(
-                checkout_result.get("has_product_price_changes")
-            )
-            report["checkout_order_placed"] = bool(checkout_result.get("order_placed"))
 
-        http.delete_schedule(cart_id)
-        report["retailer_write_performed"] = True
-        if previous_delivery["had_delivery_date"] and previous_delivery["delivery_date"]:
-            http.update_schedule(
-                cart_id,
-                store_id,
-                delivery_date=str(previous_delivery["delivery_date"]),
-                schedule_range_id=previous_delivery["schedule_range_id"],
-            )
-        final_raw = http.read_cart()
-        final_delivery = _delivery_state(final_raw)
-        report["steps"]["schedule_removed"] = not (
-            final_delivery["delivery_date"] and not previous_delivery["had_delivery_date"]
-        )
-        report["steps"]["state_restored"] = _fingerprint(final_raw) == baseline and (
-            final_delivery["delivery_date"] == previous_delivery["delivery_date"]
-        )
+            if allow_checkout_create and report["steps"]["schedule_applied"]:
+                address = usable_addresses[0]
+                checkout_result = http.create_checkout(
+                    cart_id,
+                    store_id,
+                    shipping_address_id=str(address["id"]),
+                    shipping_address_owner=address.get("owner"),
+                    delivery_date=delivery_date,
+                    schedule_range_id=slot_id,
+                )
+                report["steps"]["checkout_created"] = bool(
+                    checkout_result.get("checkout_present")
+                )
+                report["checkout_removed_products"] = len(
+                    checkout_result.get("removed_products") or []
+                )
+                report["checkout_price_changes"] = bool(
+                    checkout_result.get("has_product_price_changes")
+                )
+                report["checkout_order_placed"] = bool(
+                    checkout_result.get("order_placed")
+                )
+        finally:
+            # Cleanup runs no matter what happened above.
+            cleanup_error: str | None = None
+            try:
+                http.delete_schedule(cart_id)
+                if previous_delivery["had_delivery_date"] and previous_delivery[
+                    "delivery_date"
+                ]:
+                    http.update_schedule(
+                        cart_id,
+                        store_id,
+                        delivery_date=str(previous_delivery["delivery_date"]),
+                        schedule_range_id=previous_delivery["schedule_range_id"],
+                    )
+            except Exception as exc:
+                cleanup_error = f"{type(exc).__name__}: {exc}"
+            try:
+                final_raw = http.read_cart()
+                final_delivery = _delivery_state(final_raw)
+                report["steps"]["schedule_removed"] = not (
+                    final_delivery["delivery_date"]
+                    and not previous_delivery["had_delivery_date"]
+                )
+                report["steps"]["state_restored"] = (
+                    _fingerprint(final_raw) == baseline
+                    and final_delivery["delivery_date"]
+                    == previous_delivery["delivery_date"]
+                )
+            except Exception as exc:
+                cleanup_error = cleanup_error or f"{type(exc).__name__}: {exc}"
+                report["steps"]["state_restored"] = False
+            if cleanup_error:
+                report["cleanup_failure"] = cleanup_error
 
         base_ok = bool(
             report["steps"]["calendar_read"]

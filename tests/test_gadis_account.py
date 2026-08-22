@@ -111,6 +111,7 @@ class FakeHTTP:
         self.actual_prices: dict[str, float] = {}
         self.update_calls: list[tuple[str, int]] = []
         self.address_calls = 0
+        self.client_address_calls = 0
         self.schedule_calls: list[tuple[str, str]] = []
         self.delete_schedule_calls = 0
         self.checkout_calls = 0
@@ -155,6 +156,10 @@ class FakeHTTP:
     def addresses(self, cart_id: str) -> list[dict[str, Any]]:
         assert cart_id == "cart-1"
         self.address_calls += 1
+        return []
+
+    def client_addresses(self) -> list[dict[str, Any]]:
+        self.client_address_calls += 1
         return []
 
     def delivery_slots(self, postal_code=None, *, store_id=None, **_: Any) -> list[dict[str, Any]]:
@@ -458,10 +463,11 @@ def test_http_checkout_refuses_changed_cart_version(tmp_path: Path) -> None:
 
 def test_gadis_delivery_prefers_http_and_checkout_stays_gated(tmp_path: Path) -> None:
     account, http, browser = _account(tmp_path)
-    # Empty HTTP results fall back to the browser delivery backend.
-    assert account.addresses() == [{"id": "browser-address"}]
-    assert browser.address_calls == 1
+    # Empty HTTP results stay empty: no silent browser fallback without error.
+    assert account.addresses() == []
+    assert browser.address_calls == 0
     assert http.address_calls == 1
+    assert http.client_address_calls == 1
     status = account.status()
     assert status["delivery_backend"] == "gadis_http_with_browser_fallback"
     assert status["checkout_backend"] == "gadis_http_with_browser_fallback"

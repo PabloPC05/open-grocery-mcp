@@ -18,6 +18,7 @@ import json
 import os
 import re
 import threading
+from datetime import date, timedelta
 from typing import Any, Mapping
 
 import httpx
@@ -386,6 +387,38 @@ class GadisHTTPClient:
             result.append(entry)
         return result
 
+    def client_addresses(self) -> list[dict[str, Any]]:
+        """Saved client addresses from the clients microservice (bearer).
+
+        Rows expose only identifiers (`id`, `owner`) and field names; street
+        or personal values never leave this method.
+        """
+        me = self._request("GET", f"{_CLIENTS_BASE}/clients/me")
+        client_id = str(me.get("id", "")).strip() if isinstance(me, Mapping) else ""
+        if not client_id:
+            raise ProviderError("Gadis profile did not expose a client id")
+        payload = self._request(
+            "GET",
+            f"{_CLIENTS_BASE}/clients/{client_id}/addresses",
+        )
+        elements = (
+            payload.get("elements", []) if isinstance(payload, Mapping) else payload
+        )
+        if not isinstance(elements, list):
+            raise ProviderError("Gadis client addresses returned an invalid response")
+        result: list[dict[str, Any]] = []
+        for row in elements:
+            if not isinstance(row, Mapping):
+                continue
+            result.append(
+                {
+                    "id": str(row.get("id", "")).strip() or None,
+                    "owner": str(row.get("owner", "")).strip() or None,
+                    "field_names": sorted(str(key) for key in row),
+                }
+            )
+        return result
+
     def update_schedule(
         self,
         cart_id: str,
@@ -534,18 +567,32 @@ class GadisHTTPClient:
         postal_code: str | None = None,
         *,
         store_id: str | None = None,
-        delivery_type: str = "delivery",
+        delivery_type: str = "HOME_DELIVERY",
         init_date: str | None = None,
         end_date: str | None = None,
     ) -> list[dict[str, Any]]:
+        """Read the store delivery calendar for the coming week.
+
+        The live contract requires ``delivery_type=HOME_DELIVERY`` plus an
+        ``init_date``/``end_date`` range and the session's postal code; the
+        postal code falls back to the one stored on the current cart.
+        """
         selected_store = store_id or self._bootstrap()[1]
-        params: dict[str, str] = {"delivery_type": delivery_type}
-        if postal_code and str(postal_code).strip():
-            params["postal_code"] = str(postal_code).strip()
-        if init_date:
-            params["init_date"] = init_date
-        if end_date:
-            params["end_date"] = end_date
+        effective_postal_code = str(postal_code or "").strip()
+        if not effective_postal_code:
+            try:
+                effective_postal_code = str(
+                    self.read_cart().get("postal_code") or ""
+                ).strip()
+            except (AuthenticationRequired, ProviderError):
+                effective_postal_code = ""
+        params: dict[str, str] = {
+            "delivery_type": delivery_type,
+            "init_date": init_date or date.today().isoformat(),
+            "end_date": end_date or (date.today() + timedelta(days=7)).isoformat(),
+        }
+        if effective_postal_code:
+            params["postal_code"] = effective_postal_code
         payload = self._request(
             "GET",
             f"{_STORE_BASE}/stores/{selected_store}/calendar",
@@ -558,7 +605,7 @@ class GadisHTTPClient:
         for day in elements:
             if not isinstance(day, Mapping):
                 continue
-            date = str(day.get("date", "")).strip()
+            day_date = str(day.get("date", "")).strip()
             ranges = day.get("schedule_ranges", [])
             for slot in ranges if isinstance(ranges, list) else []:
                 if not isinstance(slot, Mapping):
@@ -566,7 +613,7 @@ class GadisHTTPClient:
                 result.append(
                     {
                         "id": str(slot.get("id", "")).strip() or None,
-                        "date": date or None,
+                        "date": day_date or None,
                         "start": str(slot.get("init_time", "")).strip() or None,
                         "end": str(slot.get("end_time", "")).strip() or None,
                         "available": bool(slot.get("available")),

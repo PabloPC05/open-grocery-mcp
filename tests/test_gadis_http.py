@@ -227,7 +227,7 @@ def test_gadis_http_delivery_slots_normalize_calendar(tmp_path: Path) -> None:
         r for r in requests if r.url.host == "store.gadisline.com" and r.url.path.endswith("/calendar")
     )
     assert calendar.url.params["postal_code"] == "28050"
-    assert calendar.url.params["delivery_type"] == "delivery"
+    assert calendar.url.params["delivery_type"] == "HOME_DELIVERY"
     assert calendar.url.params["init_date"] == "2026-08-25"
     assert calendar.url.path.endswith("/stores/store-7/calendar")
     account.close()
