@@ -2,15 +2,18 @@
 
 Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y preparar, con confirmaciones explícitas, cambios en el carrito y el checkout de la cuenta del usuario.
 
-> **Alpha `0.5.0`.** Mercadona utiliza HTTP para su flujo autenticado. Gadis ya utiliza HTTP para verificar la sesión, leer el carrito y aplicar mutaciones reversibles de cantidades enteras; conserva Playwright para login, cantidades fraccionarias, direcciones, franjas y checkout. Froiz continúa con backend de navegador mientras se completa su contrato HTTP autenticado.
+> **Alpha `0.5.0`.** Mercadona utiliza HTTP para su flujo autenticado. Gadis ya utiliza HTTP para verificar la sesión, leer el carrito, aplicar mutaciones reversibles de cantidades enteras, consultar direcciones y franjas y crear el checkout; conserva Playwright para login, cantidades fraccionarias y casos en que el bearer de microservicios está caducado. Froiz continúa con backend de navegador mientras se completa su contrato HTTP autenticado.
 
 ## Estado actual
 
-| Supermercado | Catálogo | Comparación | Carrito autenticado | Checkout | Pedido final |
-|---|---:|---:|---:|---:|---:|
-| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras; navegador como fallback | Navegador con verificación cruzada | Experimental y apagado |
-| Froiz | Sí | Sí | Navegador | Navegador | Experimental y apagado |
-| Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | Experimental y apagado |
+| Supermercado | Catálogo | Comparación | Carrito autenticado | Entrega (direcciones/franjas) | Checkout | Pedido final |
+|---|---:|---:|---:|---:|---:|---:|
+| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras | HTTP con fallback a navegador | HTTP con confirmación; navegador como fallback | Experimental y apagado |
+| Froiz | Sí | Sí | Navegador | Navegador | Navegador | Experimental y apagado |
+| Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | HTTP | Experimental y apagado |
+
+El método para replicar la migración a HTTP con otro supermercado está
+documentado en `docs/http-backend-playbook.md`.
 
 Ninguna integración se presenta como compra real validada. El endpoint irreversible permanece separado, exige varias autorizaciones locales y no se ejecuta durante pruebas o capturas.
 

@@ -60,9 +60,28 @@ def register_authenticated_tools(mcp, workflows):
         return workflows.delivery_slots(store, address_id)
 
     @mcp.tool()
-    def prepare_checkout_creation(store: str, max_total: float, expected_cart_version: int | None = None) -> dict[str, Any]:
-        """Preview opening a checkout from the current cart without creating it yet."""
-        return workflows.prepare_checkout_creation(store=store, max_total=max_total, expected_cart_version=expected_cart_version)
+    def prepare_checkout_creation(
+        store: str,
+        max_total: float,
+        expected_cart_version: int | None = None,
+        shipping_address_id: str | None = None,
+        delivery_date: str | None = None,
+        schedule_range_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Preview opening a checkout from the current cart without creating it yet.
+
+    For Gadis over HTTP, pass the full delivery triple (shipping_address_id
+    from list_delivery_addresses, plus delivery_date and schedule_range_id
+    from get_delivery_slots) to create the checkout without a browser.
+    """
+        return workflows.prepare_checkout_creation(
+            store=store,
+            max_total=max_total,
+            expected_cart_version=expected_cart_version,
+            shipping_address_id=shipping_address_id,
+            delivery_date=delivery_date,
+            schedule_range_id=schedule_range_id,
+        )
 
     @mcp.tool()
     def commit_checkout_creation(confirmation_id: str, confirmation_phrase: str) -> dict[str, Any]:

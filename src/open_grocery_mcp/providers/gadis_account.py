@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any, Mapping
 
 from open_grocery_mcp.errors import (
+    AuthenticationRequired,
     BudgetExceeded,
     ConcurrentCartChange,
     InvalidRequest,
@@ -61,8 +62,8 @@ class GadisAccountClient(GadisCartMixin):
             "validated_live": bool(http.get("http_session_checked")),
             "account_backend": "gadis_http",
             "cart_backend": "gadis_http_with_browser_fallback",
-            "delivery_backend": "browser",
-            "checkout_backend": "browser",
+            "delivery_backend": "gadis_http_with_browser_fallback",
+            "checkout_backend": "gadis_http_with_browser_fallback",
         }
 
     def import_storage_state(self, storage_state_path: str) -> dict[str, Any]:
@@ -76,10 +77,22 @@ class GadisAccountClient(GadisCartMixin):
         return {**result, **self.status()}
 
     def addresses(self) -> list[dict[str, Any]]:
+        try:
+            cart = self._http_cart()
+            cart_id = str(cart.get("cart_id") or "").strip()
+            if cart_id:
+                rows = self._http.addresses(cart_id)
+                if rows:
+                    return rows
+        except (AuthenticationRequired, ProviderError):
+            pass
         return self._browser.addresses()
 
     def slots(self, address_id: str | int) -> list[dict[str, Any]]:
-        return self._browser.slots(address_id)
+        try:
+            return self._http.delivery_slots()
+        except (AuthenticationRequired, ProviderError):
+            return self._browser.slots(address_id)
 
     @staticmethod
     def _cart_lines(cart: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -159,6 +172,9 @@ class GadisAccountClient(GadisCartMixin):
 
     def create_checkout(self, plan: Mapping[str, Any]) -> dict[str, Any]:
         backend = str(plan.get("reviewed_cart_backend") or "browser")
+        delivery = plan.get("delivery")
+        if backend == "gadis_http" and isinstance(delivery, Mapping):
+            return self._create_http_checkout(plan, delivery)
         if backend != "gadis_http":
             return self._browser.create_checkout(plan)
 
@@ -214,6 +230,102 @@ class GadisAccountClient(GadisCartMixin):
             **result,
             "reviewed_cart_backend": "gadis_http",
             "checkout_backend": "browser",
+        }
+
+    def _create_http_checkout(
+        self,
+        plan: Mapping[str, Any],
+        delivery: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Create the checkout over authenticated HTTP; never submit an order.
+
+        Fail-closed order of operations:
+        1. re-read the cart and require the reviewed version and total;
+        2. validate the chosen slot against the live calendar;
+        3. attach the schedule (reversible);
+        4. create the checkout once, rolling the schedule back on failure.
+        """
+        current = self._http_cart()
+        expected_version = int(plan.get("expected_cart_version") or 0)
+        if int(current.get("version") or 0) != expected_version:
+            raise ConcurrentCartChange(
+                "Gadis cart changed after checkout review; prepare checkout again"
+            )
+        cap = as_decimal(plan.get("max_total"))
+        total = as_decimal(current.get("total"))
+        if total <= 0:
+            raise InvalidRequest("Gadis cart has no verifiable positive total")
+        if total > cap:
+            raise BudgetExceeded(
+                f"Gadis cart total {money(total)} EUR exceeds cap "
+                f"{money(cap)} EUR"
+            )
+
+        cart_id = str(current.get("cart_id") or "").strip()
+        store_id = str(current.get("store_id") or "").strip() or str(
+            self._http._bootstrap()[1]
+        )
+        if not cart_id:
+            raise ProviderError("Gadis cart did not expose a cart id")
+
+        delivery_date = str(delivery.get("delivery_date", "")).strip()
+        schedule_range_id = delivery.get("schedule_range_id")
+        shipping_address_id = delivery.get("shipping_address_id")
+        shipping_address_owner = delivery.get("shipping_address_owner")
+        if not delivery_date or schedule_range_id in (None, ""):
+            raise InvalidRequest(
+                "Gadis HTTP checkout needs a delivery date and schedule range"
+            )
+        if shipping_address_id in (None, ""):
+            raise InvalidRequest(
+                "Gadis HTTP checkout needs a reviewed shipping address id"
+            )
+
+        slots = self._http.delivery_slots(store_id=store_id)
+        selected = next(
+            (
+                slot
+                for slot in slots
+                if str(slot.get("id")) == str(schedule_range_id)
+            ),
+            None,
+        )
+        if selected is None or not selected.get("available"):
+            raise InvalidRequest("selected delivery slot is not currently available")
+
+        self._http.update_schedule(
+            cart_id,
+            store_id,
+            delivery_date=delivery_date,
+            schedule_range_id=schedule_range_id,
+        )
+        try:
+            result = self._http.create_checkout(
+                cart_id,
+                store_id,
+                shipping_address_id=str(shipping_address_id),
+                shipping_address_owner=(
+                    str(shipping_address_owner) if shipping_address_owner else None
+                ),
+                delivery_date=delivery_date,
+                schedule_range_id=schedule_range_id,
+            )
+        except Exception:
+            # The checkout was not created; undo the reversible schedule write.
+            try:
+                self._http.delete_schedule(cart_id)
+            except Exception:
+                pass
+            raise
+
+        removed = result.get("removed_products")
+        return {
+            **result,
+            "reviewed_cart_backend": "gadis_http",
+            "checkout_backend": "gadis_http",
+            "removed_products_count": len(removed) if isinstance(removed, list) else 0,
+            "max_total": float(cap),
+            "max_total_text": money(cap),
         }
 
     def get_checkout(self, checkout_id: str) -> dict[str, Any]:

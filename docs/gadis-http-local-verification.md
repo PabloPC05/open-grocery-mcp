@@ -73,6 +73,33 @@ Al terminar la sesión de pruebas puede desactivar las escrituras:
 Remove-Item Env:OPEN_GROCERY_ENABLE_RETAILER_WRITES -ErrorAction SilentlyContinue
 ```
 
+## 3. Direcciones, franjas y creación de checkout por HTTP
+
+Lecturas y escritura reversible de franja; la creación de checkout es una
+segunda autorización explícita y jamás envía un pedido:
+
+```powershell
+$env:OPEN_GROCERY_ENABLE_RETAILER_WRITES = "1"
+Remove-Item Env:OPEN_GROCERY_ENABLE_ORDER_SUBMISSION -ErrorAction SilentlyContinue
+Remove-Item Env:OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION -ErrorAction SilentlyContinue
+
+python .\tools\verify_gadis_delivery_local.py --allow-reversible-schedule-write
+
+# crea además un checkout real una sola vez (nunca llega a pedido/pago):
+python .\tools\verify_gadis_delivery_local.py `
+  --allow-reversible-schedule-write `
+  --allow-checkout-create
+```
+
+Resultado válido: `calendar_read`, `addresses_read`, `schedule_applied`,
+`schedule_removed` y `state_restored=true`; con checkout:
+`checkout_created=true` y `checkout_order_placed=false`.
+
+Si los microservicios devuelven `AuthenticationRequired`, el bearer Keycloak
+de la sesión está caducado: pide al propietario un `login_with_browser`
+visible y repite. El método completo de migración a HTTP está en
+`docs/http-backend-playbook.md`.
+
 ## Obligaciones del agente
 
 Si cualquiera de las pruebas falla, el agente debe diagnosticar y corregir el cliente, el workflow o el script sin pedir al propietario que repita la captura completa. Solo puede solicitar intervención humana para CAPTCHA, 2FA o desbloqueo del gestor de contraseñas.

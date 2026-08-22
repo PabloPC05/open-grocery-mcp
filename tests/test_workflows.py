@@ -36,6 +36,9 @@ class Provider:
         capabilities=("real_cart",),
     )
 
+    def __init__(self):
+        self._last_plan = None
+
     def account_status(self):
         return {"authenticated": True}
     def import_browser_session(self, storage_state_path):
@@ -64,6 +67,7 @@ class Provider:
     def preview_checkout(self, *, expected_version, max_total):
         return {"cart": {"version": expected_version, "total_text": "4.00"}, "cart_payload": {}}
     def create_checkout(self, plan):
+        self._last_plan = plan
         return {"created": True}
     def get_checkout(self, checkout_id):
         return {
@@ -100,6 +104,44 @@ def test_cart_workflow_is_two_phase(monkeypatch) -> None:
         prepared["confirmation_id"], prepared["confirmation_phrase"]
     )
     assert result == {"committed": 4}
+
+
+def test_checkout_creation_embeds_reviewed_delivery(monkeypatch) -> None:
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
+    registry = Registry()
+    service = RetailerWorkflowService(registry, Drafts(), ConfirmationStore())
+    prepared = service.prepare_checkout_creation(
+        store="fake",
+        max_total=10,
+        expected_cart_version=1,
+        shipping_address_id="addr-1",
+        delivery_date="2026-08-25",
+        schedule_range_id="slot",
+    )
+    assert prepared["confirmation_phrase"] == "CREAR CHECKOUT 4.00 EUR"
+    committed = service.commit_checkout_creation(
+        prepared["confirmation_id"], prepared["confirmation_phrase"]
+    )
+    assert committed == {"created": True}
+    assert registry.provider._last_plan["delivery"] == {
+        "shipping_address_id": "addr-1",
+        "delivery_date": "2026-08-25",
+        "schedule_range_id": "slot",
+    }
+
+
+def test_partial_delivery_triple_is_rejected(monkeypatch) -> None:
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
+    from open_grocery_mcp.errors import InvalidRequest
+
+    service = RetailerWorkflowService(Registry(), Drafts(), ConfirmationStore())
+    with pytest.raises(InvalidRequest):
+        service.prepare_checkout_creation(
+            store="fake",
+            max_total=10,
+            expected_cart_version=1,
+            shipping_address_id="addr-1",
+        )
 
 
 def test_order_workflow_uses_exact_total_phrase(monkeypatch) -> None:

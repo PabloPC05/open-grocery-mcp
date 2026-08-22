@@ -10,6 +10,7 @@ import pytest
 from open_grocery_mcp.errors import (
     BudgetExceeded,
     ConcurrentCartChange,
+    InvalidRequest,
     ProviderError,
 )
 from open_grocery_mcp.providers.gadis_account import GadisAccountClient
@@ -21,6 +22,7 @@ class FakeBrowser:
         self.state_path = state_path
         self.preview_calls = 0
         self.commit_calls = 0
+        self.address_calls = 0
 
     def status(self) -> dict[str, Any]:
         return {"store": "gadis", "authenticated_session": True}
@@ -40,6 +42,10 @@ class FakeBrowser:
             "browser_fake": True,
         }
 
+    def addresses(self):
+        self.address_calls += 1
+        return [{"id": "browser-address"}]
+
     def preview_cart_update(self, changes, *, mode, expected_version, max_total):
         self.preview_calls += 1
         return {
@@ -55,9 +61,6 @@ class FakeBrowser:
     def commit_cart_update(self, plan):
         self.commit_calls += 1
         return {"browser_commit": True, "plan": plan}
-
-    def addresses(self):
-        return [{"id": "browser-address"}]
 
     def slots(self, address_id):
         return [{"id": "browser-slot", "address_id": str(address_id)}]
@@ -107,6 +110,22 @@ class FakeHTTP:
         self.prices = {"p-old": 2.0, "p-new": 1.5}
         self.actual_prices: dict[str, float] = {}
         self.update_calls: list[tuple[str, int]] = []
+        self.address_calls = 0
+        self.schedule_calls: list[tuple[str, str]] = []
+        self.delete_schedule_calls = 0
+        self.checkout_calls = 0
+        self.fail_checkout = False
+        self.calendar = [
+            {
+                "id": "slot-9",
+                "date": "2026-08-25",
+                "start": "10:00",
+                "end": "11:00",
+                "available": True,
+                "active": True,
+                "max_lines": 8,
+            }
+        ]
         self.raise_after_apply = False
         self.invalidated = 0
 
@@ -132,6 +151,51 @@ class FakeHTTP:
         # raw timestamp must never be usable as an optimistic-lock version.
         self.raw["last_modified_date"] += 2312
         return deepcopy(self.raw)
+
+    def addresses(self, cart_id: str) -> list[dict[str, Any]]:
+        assert cart_id == "cart-1"
+        self.address_calls += 1
+        return []
+
+    def delivery_slots(self, postal_code=None, *, store_id=None, **_: Any) -> list[dict[str, Any]]:
+        return deepcopy(self.calendar)
+
+    def update_schedule(
+        self, cart_id: str, store_id: str, *, delivery_date: str, schedule_range_id
+    ) -> dict[str, Any]:
+        self.schedule_calls.append(("put", cart_id, str(schedule_range_id)))
+        return self.normalize_cart(self.raw)
+
+    def delete_schedule(self, cart_id: str) -> None:
+        self.delete_schedule_calls += 1
+        return None
+
+    def create_checkout(
+        self,
+        cart_id: str,
+        store_id: str,
+        *,
+        shipping_address_id,
+        shipping_address_owner=None,
+        delivery_date: str,
+        schedule_range_id,
+        **_: Any,
+    ) -> dict[str, Any]:
+        self.checkout_calls += 1
+        if self.fail_checkout:
+            raise ProviderError("simulated checkout failure")
+        return {
+            "store": "gadis",
+            "checkout_present": True,
+            "checkout_id": "checkout-http",
+            "total": float(self.raw["total_cart_price"]),
+            "total_text": f"{self.raw['total_cart_price']:.2f}",
+            "currency": "EUR",
+            "removed_products": [],
+            "has_product_price_changes": False,
+            "order_placed": False,
+            "cart_backend": "gadis_http",
+        }
 
     def update_product(
         self,
@@ -334,20 +398,73 @@ def test_concurrent_content_change_between_review_and_commit_is_rejected(
     assert http.update_calls == []
 
 
-def test_gadis_delivery_and_checkout_remain_browser_backed(tmp_path: Path) -> None:
-    account, _, _ = _account(tmp_path)
-    addresses = account.addresses()
-    assert addresses == [{"id": "browser-address"}]
-    assert account.slots("browser-address") == [
-        {"id": "browser-slot", "address_id": "browser-address"}
-    ]
-    delivery = account.set_checkout_delivery(
-        "checkout-1",
-        address_id="browser-address",
-        slot_id="browser-slot",
-        max_total=Decimal("20"),
-    )
-    assert delivery["address_id"] == "browser-address"
+def _http_checkout_plan(account: GadisAccountClient) -> dict[str, Any]:
+    version = account.cart()["version"]
+    return {
+        "reviewed_cart_backend": "gadis_http",
+        "expected_cart_version": version,
+        "max_total": 50.0,
+        "delivery": {
+            "shipping_address_id": "addr-1",
+            "shipping_address_owner": "CLIENT",
+            "delivery_date": "2026-08-25",
+            "schedule_range_id": "slot-9",
+        },
+    }
+
+
+def test_http_checkout_sets_schedule_then_creates(tmp_path: Path) -> None:
+    account, http, browser = _account(tmp_path)
+    result = account.create_checkout(_http_checkout_plan(account))
+    assert http.schedule_calls == [("put", "cart-1", "slot-9")]
+    assert http.checkout_calls == 1
+    assert browser.commit_calls == 0
+    assert result["checkout_backend"] == "gadis_http"
+    assert result["order_placed"] is False
+    assert result["checkout_id"] == "checkout-http"
+
+
+def test_http_checkout_rolls_schedule_back_when_creation_fails(
+    tmp_path: Path,
+) -> None:
+    account, http, _ = _account(tmp_path)
+    http.fail_checkout = True
+    with pytest.raises(ProviderError):
+        account.create_checkout(_http_checkout_plan(account))
+    assert http.checkout_calls == 1
+    assert http.delete_schedule_calls == 1
+
+
+def test_http_checkout_rejects_unavailable_slot_before_writes(
+    tmp_path: Path,
+) -> None:
+    account, http, _ = _account(tmp_path)
+    http.calendar[0]["available"] = False
+    with pytest.raises(InvalidRequest, match="not currently available"):
+        account.create_checkout(_http_checkout_plan(account))
+    assert http.schedule_calls == []
+    assert http.checkout_calls == 0
+
+
+def test_http_checkout_refuses_changed_cart_version(tmp_path: Path) -> None:
+    account, http, _ = _account(tmp_path)
+    plan = _http_checkout_plan(account)
+    plan["expected_cart_version"] = plan["expected_cart_version"] + 999
+    with pytest.raises(ConcurrentCartChange):
+        account.create_checkout(plan)
+    assert http.schedule_calls == []
+    assert http.checkout_calls == 0
+
+
+def test_gadis_delivery_prefers_http_and_checkout_stays_gated(tmp_path: Path) -> None:
+    account, http, browser = _account(tmp_path)
+    # Empty HTTP results fall back to the browser delivery backend.
+    assert account.addresses() == [{"id": "browser-address"}]
+    assert browser.address_calls == 1
+    assert http.address_calls == 1
+    status = account.status()
+    assert status["delivery_backend"] == "gadis_http_with_browser_fallback"
+    assert status["checkout_backend"] == "gadis_http_with_browser_fallback"
 
 
 def test_session_replacement_invalidates_cached_http_state(tmp_path: Path) -> None:

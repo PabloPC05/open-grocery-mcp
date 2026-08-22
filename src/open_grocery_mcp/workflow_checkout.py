@@ -18,8 +18,26 @@ class CheckoutWorkflowMixin:
     def delivery_slots(self, store: str, address_id: str | int) -> list[dict[str, Any]]:
         return self._delivery_provider(store).delivery_slots(address_id)
 
-    def prepare_checkout_creation(self, *, store: str, max_total: float, expected_cart_version: int | None) -> dict[str, Any]:
+    def prepare_checkout_creation(
+        self,
+        *,
+        store: str,
+        max_total: float,
+        expected_cart_version: int | None,
+        shipping_address_id: str | int | None = None,
+        delivery_date: str | None = None,
+        schedule_range_id: str | int | None = None,
+    ) -> dict[str, Any]:
         plan = self._checkout_provider(store).preview_checkout(expected_version=expected_cart_version, max_total=as_decimal(max_total))
+        delivery = {
+            'shipping_address_id': shipping_address_id,
+            'delivery_date': (delivery_date or '').strip() or None,
+            'schedule_range_id': schedule_range_id,
+        }
+        if any(value not in (None, '') for value in delivery.values()):
+            if any(value in (None, '') for value in delivery.values()):
+                raise InvalidRequest('checkout creation needs the full delivery triple: address id, delivery date and schedule range')
+            plan['delivery'] = delivery
         total_text = plan['cart']['total_text']
         return self.confirmations.create(action='checkout_create', phrase=f'CREAR CHECKOUT {total_text} EUR', payload={'store': store, 'plan': plan}, summary=self._public_plan(plan))
 

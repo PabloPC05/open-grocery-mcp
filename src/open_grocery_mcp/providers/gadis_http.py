@@ -364,10 +364,6 @@ class GadisHTTPClient:
             "profile_values_exposed": False,
         }
 
-    @staticmethod
-    def _redacted_row(row: Mapping[str, Any]) -> dict[str, Any]:
-        return {"field_names": sorted(str(key) for key in row)}
-
     def addresses(self, cart_id: str) -> list[dict[str, Any]]:
         encoded = str(cart_id).strip()
         payload = self._request(
@@ -377,15 +373,165 @@ class GadisHTTPClient:
         elements = payload.get("elements", []) if isinstance(payload, Mapping) else payload
         if not isinstance(elements, list):
             raise ProviderError("Gadis addresses returned an invalid response")
-        return [
-            self._redacted_row(row)
-            for row in elements
-            if isinstance(row, Mapping)
-        ]
+        result: list[dict[str, Any]] = []
+        for row in elements:
+            if not isinstance(row, Mapping):
+                continue
+            # Only identifiers are exposed; street/personal values stay local.
+            entry = {
+                "id": str(row.get("id", "")).strip() or None,
+                "owner": str(row.get("owner", "")).strip() or None,
+                "field_names": sorted(str(key) for key in row),
+            }
+            result.append(entry)
+        return result
+
+    def update_schedule(
+        self,
+        cart_id: str,
+        store_id: str,
+        *,
+        delivery_date: str,
+        schedule_range_id: str | int,
+    ) -> dict[str, Any]:
+        """Attach a delivery slot to the cart (reversible via delete_schedule).
+
+        The storefront sets schedules through the session-wrapped
+        ``/api/config/updateCart`` route, sending the full reviewed cart
+        context plus the chosen ``delivery_date``/``schedule_range_id``; that
+        route authenticates with the same NextAuth cookies proven by the cart
+        mutations. The direct microservice endpoint stays as fallback.
+        """
+        raw = self.read_cart()
+        body: dict[str, Any] = {
+            "store_id": str(raw.get("store_id") or store_id or "").strip(),
+            "postal_code": str(raw.get("postal_code") or ""),
+            "delivery_type": str(raw.get("delivery_type") or "HOME_DELIVERY"),
+            "comments": str(raw.get("comments") or ""),
+            "shipping_address_id": str(raw.get("shipping_address_id") or ""),
+            "shipping_address_owner": str(raw.get("shipping_address_owner") or ""),
+            "delivery_date": str(delivery_date).strip(),
+            "schedule_range_id": schedule_range_id,
+        }
+        payload = None
+        try:
+            payload = self._config_request(
+                "PUT",
+                "/api/config/updateCart",
+                json_body=body,
+            )
+        except (AuthenticationRequired, ProviderError):
+            payload = None
+        if not isinstance(payload, Mapping):
+            payload = self._request(
+                "PUT",
+                f"{_CART_BASE}/carts/{str(cart_id).strip()}/schedule",
+                json_body={
+                    "delivery_date": str(delivery_date).strip(),
+                    "schedule_range_id": schedule_range_id,
+                },
+            )
+        if not isinstance(payload, Mapping):
+            raise ProviderError("Gadis schedule update returned no cart")
+        return self.normalize_cart(payload)
+
+    def delete_schedule(self, cart_id: str) -> dict[str, Any] | None:
+        """Remove the cart delivery slot; restores the pre-selection state."""
+        try:
+            payload = self._config_request(
+                "DELETE",
+                "/api/config/deleteSchedule",
+                json_body={"summaryCheckout": False},
+            )
+        except (AuthenticationRequired, ProviderError):
+            payload = self._request(
+                "DELETE",
+                f"{_CART_BASE}/carts/{str(cart_id).strip()}/schedule",
+            )
+        if payload is None:
+            return None
+        if not isinstance(payload, Mapping):
+            raise ProviderError("Gadis schedule deletion returned invalid JSON")
+        if not payload.get("products") and not payload.get("id"):
+            return None
+        return self.normalize_cart(payload)
+
+    def create_checkout(
+        self,
+        cart_id: str,
+        store_id: str,
+        *,
+        shipping_address_id: str | int,
+        shipping_address_owner: str | None = None,
+        delivery_date: str,
+        schedule_range_id: str | int,
+        delivery_type: str = "HOME_DELIVERY",
+        terms_and_conditions: bool = True,
+    ) -> dict[str, Any]:
+        """Create a checkout session from the reviewed cart.
+
+        This is the verified contract boundary: it never submits an order and
+        never touches payment, Redsys or 3-D Secure endpoints.
+        """
+        body: dict[str, Any] = {
+            "shipping_address_id": str(shipping_address_id),
+            "shipping_store_address_id": "",
+            "shipping_address_owner": str(shipping_address_owner or ""),
+            "billing_address_id": "",
+            "billing_address_owner": "",
+            "delivery_date": str(delivery_date).strip(),
+            "schedule_range_id": schedule_range_id,
+            "delivery_type": str(delivery_type).strip(),
+            "payment_method_id": "",
+            "credit_card_id": "new",
+            "payment_url_ok": "",
+            "payment_url_ko": "",
+            "terms_and_conditions": bool(terms_and_conditions),
+            "save_card": False,
+            "phone": "",
+            "observations": "",
+            "payment_address_is_billing": False,
+            "nominative_invoice_selected": False,
+            "use_delivery_address": False,
+            "prefix": "+34",
+        }
+        del store_id
+        # The session-wrapped www route authenticates with the NextAuth cookies
+        # already proven by the cart mutations; it wraps the same payload.
+        payload = None
+        try:
+            payload = self._config_request(
+                "POST",
+                "/api/config/checkout",
+                json_body={"checkout": body},
+            )
+        except (AuthenticationRequired, ProviderError):
+            payload = None
+        if not isinstance(payload, Mapping) or not payload:
+            payload = self._request(
+                "POST",
+                f"{_CART_BASE}/carts/{str(cart_id).strip()}/checkout",
+                json_body=body,
+            )
+        if not isinstance(payload, Mapping):
+            raise ProviderError("Gadis checkout creation returned an invalid response")
+        removed = payload.get("removed_products")
+        return {
+            "store": "gadis",
+            "checkout_present": True,
+            "checkout_id": str(payload.get("id", "")).strip() or None,
+            "total": float(as_decimal(payload.get("total_cart_price"))),
+            "total_text": money(as_decimal(payload.get("total_cart_price"))),
+            "currency": "EUR",
+            "removed_products": removed if isinstance(removed, list) else [],
+            "has_product_price_changes": bool(payload.get("has_product_price_changes")),
+            "order_placed": False,
+            "cart_backend": "gadis_http",
+        }
 
     def delivery_slots(
         self,
-        postal_code: str,
+        postal_code: str | None = None,
         *,
         store_id: str | None = None,
         delivery_type: str = "delivery",
@@ -393,10 +539,9 @@ class GadisHTTPClient:
         end_date: str | None = None,
     ) -> list[dict[str, Any]]:
         selected_store = store_id or self._bootstrap()[1]
-        params: dict[str, str] = {
-            "delivery_type": delivery_type,
-            "postal_code": postal_code.strip(),
-        }
+        params: dict[str, str] = {"delivery_type": delivery_type}
+        if postal_code and str(postal_code).strip():
+            params["postal_code"] = str(postal_code).strip()
         if init_date:
             params["init_date"] = init_date
         if end_date:

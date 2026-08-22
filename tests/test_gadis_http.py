@@ -39,6 +39,8 @@ def _router(
     addresses: list[dict] | None = None,
     calendar: list[dict] | None = None,
     token: dict | None = None,
+    schedule_response: dict | None = None,
+    checkout_response: dict | None = None,
 ) -> httpx.MockTransport:
     session_token = token if token is not None else {"accessToken": "keycloak-jwt"}
 
@@ -49,6 +51,16 @@ def _router(
             return httpx.Response(
                 200,
                 json={"expires": "2030-01-01T00:00:00.000Z", "token": session_token},
+            )
+        if host == "www.gadisline.com" and request.url.path == "/":
+            return httpx.Response(
+                200,
+                html='<script id="__NEXT_DATA__" type="application/json">{"buildId":"build-1"}</script>',
+            )
+        if host == "www.gadisline.com" and request.url.path.endswith("/carrito.json"):
+            return httpx.Response(
+                200,
+                json={"pageProps": {"cart": _cart_payload()}},
             )
         if host == "site.gadisline.com":
             return httpx.Response(
@@ -72,6 +84,26 @@ def _router(
             }
             return httpx.Response(200, json=body)
         if host == "cart.gadisline.com":
+            path = request.url.path
+            if path.endswith("/schedule") and request.method == "PUT":
+                body = schedule_response
+                return httpx.Response(200, json=body if body is not None else {})
+            if path.endswith("/schedule") and request.method == "DELETE":
+                return httpx.Response(204)
+            if path.endswith("/checkout"):
+                assert request.method == "POST"
+                body = checkout_response
+                return httpx.Response(
+                    200,
+                    json=body
+                    if body is not None
+                    else {
+                        "id": "checkout-http",
+                        "total_cart_price": 7.19,
+                        "removed_products": [],
+                        "has_product_price_changes": False,
+                    },
+                )
             elements = addresses if addresses is not None else []
             return httpx.Response(200, json={"elements": elements})
         if host == "store.gadisline.com" and request.url.path.endswith("/calendar"):
@@ -134,13 +166,19 @@ def test_gadis_http_addresses_are_redacted(tmp_path: Path) -> None:
     )
     account = GadisHTTPClient(state_path=state_path, client=client)
     result = account.addresses("cart-42")
-    assert result == [{"field_names": ["id", "postal_code", "street"]}]
+    assert result == [
+        {
+            "id": "addr-1",
+            "owner": None,
+            "field_names": ["id", "postal_code", "street"],
+        }
+    ]
     cart = next(r for r in requests if r.url.host == "cart.gadisline.com")
     assert cart.url.path == "/api/v3/carts/cart-42/addresses"
     assert cart.headers["authorization"] == "Bearer keycloak-jwt"
     serialized = json.dumps(result)
     assert "Calle Secreta" not in serialized
-    assert "addr-1" not in serialized
+    assert "28050" not in serialized
     account.close()
 
 
@@ -331,4 +369,77 @@ def test_gadis_http_version_tracks_cart_content() -> None:
     total_changed = _cart_payload()
     total_changed["total_cart_price"] = 9.32
     assert GadisHTTPClient.normalize_cart(total_changed)["version"] != baseline
+
+
+def test_gadis_http_schedule_write_and_delete(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    client = httpx.Client(
+        transport=_router(requests, schedule_response=_cart_payload())
+    )
+    account = GadisHTTPClient(state_path=state_path, client=client)
+
+    updated = account.update_schedule(
+        "cart-1",
+        "store-7",
+        delivery_date="2026-08-25",
+        schedule_range_id="slot-9",
+    )
+    assert updated["cart_id"] == "cart-1"
+    put = next(
+        r
+        for r in requests
+        if r.url.host == "cart.gadisline.com" and r.method == "PUT"
+    )
+    assert put.url.path == "/api/v3/carts/cart-1/schedule"
+    assert json.loads(put.content) == {
+        "delivery_date": "2026-08-25",
+        "schedule_range_id": "slot-9",
+    }
+    assert put.headers["authorization"] == "Bearer keycloak-jwt"
+
+    assert account.delete_schedule("cart-1") is None
+    delete = next(
+        r
+        for r in requests
+        if r.url.host == "cart.gadisline.com" and r.method == "DELETE"
+    )
+    assert delete.url.path == "/api/v3/carts/cart-1/schedule"
+    account.close()
+
+
+def test_gadis_http_checkout_creation_never_touches_orders(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    client = httpx.Client(transport=_router(requests))
+    account = GadisHTTPClient(state_path=state_path, client=client)
+
+    result = account.create_checkout(
+        "cart-1",
+        "store-7",
+        shipping_address_id="addr-1",
+        shipping_address_owner="CLIENT",
+        delivery_date="2026-08-25",
+        schedule_range_id="slot-9",
+    )
+    assert result["checkout_present"] is True
+    assert result["order_placed"] is False
+    post = next(
+        r
+        for r in requests
+        if r.url.host == "cart.gadisline.com" and r.method == "POST"
+    )
+    assert post.url.path == "/api/v3/carts/cart-1/checkout"
+    body = json.loads(post.content)
+    assert body["shipping_address_id"] == "addr-1"
+    assert body["delivery_date"] == "2026-08-25"
+    assert body["schedule_range_id"] == "slot-9"
+    assert body["delivery_type"] == "HOME_DELIVERY"
+    assert body["terms_and_conditions"] is True
+    assert not any("/orders" in r.url.path for r in requests)
+    serialized = json.dumps(result)
+    assert "keycloak-jwt" not in serialized
+    account.close()
 
