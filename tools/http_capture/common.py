@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 from urllib.parse import parse_qsl, urlencode, unquote, urlsplit, urlunsplit
 
+import httpx
+
 from open_grocery_mcp.providers.froiz import FroizProvider
 from open_grocery_mcp.providers.gadis import GadisProvider
 
@@ -140,6 +142,19 @@ STORES = {
         ("eliminar", "quitar", "borrar"),
         "FROIZ_TEST_USERNAME",
         "FROIZ_TEST_PASSWORD",
+    ),
+    "eroski": StoreSpec(
+        "eroski",
+        "Eroski",
+        "https://supermercado.eroski.es",
+        ("/cesta", "/basket", "/cart"),
+        ("iniciar sesión", "acceder", "mi cuenta", "identificarse"),
+        ("cesta", "carrito", "mi compra", "mi cesta"),
+        ("añadir", "agregar", "comprar"),
+        ("tramitar pedido", "finalizar compra", "continuar con la compra", "hacer pedido", "ir al pago"),
+        ("eliminar", "quitar", "borrar"),
+        "EROSKI_TEST_USERNAME",
+        "EROSKI_TEST_PASSWORD",
     ),
 }
 
@@ -313,7 +328,14 @@ def _browser_product_url(store: str, value: str) -> str:
 
 
 def choose_product(store: str) -> dict[str, Any]:
-    provider = GadisProvider() if store == "gadis" else FroizProvider()
+    if store == "gadis":
+        provider = GadisProvider()
+    elif store == "froiz":
+        provider = FroizProvider()
+    else:
+        # Eroski has no catalogue provider yet; drive the storefront search
+        # page directly so the probe can still exercise cart flows.
+        return _eroski_probe_product()
     try:
         for query in ("leche entera 1 l", "arroz 1 kg", "agua mineral"):
             for product in provider.search(query, limit=10):
@@ -327,3 +349,26 @@ def choose_product(store: str) -> dict[str, Any]:
     finally:
         provider.close()
     raise RuntimeError(f"no safe product found for {store}")
+
+
+def _eroski_probe_product() -> dict[str, Any]:
+    """Pick the first product link from the Eroski storefront homepage."""
+    client = httpx.Client(
+        timeout=30.0,
+        follow_redirects=True,
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+    )
+    try:
+        html = client.get("https://supermercado.eroski.es/").text
+    except Exception:
+        html = ""
+    finally:
+        client.close()
+    match = re.search(r'href="(/product/[^"]+)"', html)
+    url = "https://supermercado.eroski.es" + (match.group(1) if match else "")
+    return {
+        "id": "",
+        "name": "Leche entera",
+        "url": url,
+        "price": 1.0,
+    }

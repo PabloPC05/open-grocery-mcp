@@ -134,3 +134,27 @@ FROIZ_BROWSER_CONFIG = BrowserStoreConfig(
         r"ir al pago",
     ),
 )
+
+
+EROSKI_BROWSER_CONFIG = BrowserStoreConfig(
+    key="eroski",
+    label="Eroski",
+    base_url="https://supermercado.eroski.es",
+    # The anonymous/user basket lives under the localized login route with a
+    # basketType selector (ALI = alimentación).
+    cart_paths=(
+        "/es/login/anonymousbasket/?basketType=ALI",
+        "/es/basket",
+        "/cesta",
+    ),
+    account_paths=("/es/login/", "/perfil"),
+    checkout_paths=("/es/checkout", "/finalizar-compra"),
+    cart_patterns=(r"mi cesta", r"cesta", r"carrito", r"mi compra"),
+    checkout_patterns=(
+        r"tramitar pedido",
+        r"finalizar compra",
+        r"continuar con la compra",
+        r"hacer pedido",
+        r"ir al pago",
+    ),
+)

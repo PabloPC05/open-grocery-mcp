@@ -7,7 +7,12 @@ from open_grocery_mcp.registry import ProviderRegistry
 def test_builtin_registry_lists_generic_store_metadata() -> None:
     registry = ProviderRegistry()
     stores = registry.list(country="ES")
-    assert {store["key"] for store in stores} == {"froiz", "gadis", "mercadona"}
+    assert {store["key"] for store in stores} == {
+        "eroski",
+        "froiz",
+        "gadis",
+        "mercadona",
+    }
     assert next(s for s in stores if s["key"] == "mercadona")["requires_postal_code"] is True
     registry.close()
 

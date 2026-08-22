@@ -12,6 +12,7 @@ __all__ = [
     "FroizFullProvider",
     "GadisProvider",
     "GadisFullProvider",
+    "EroskiFullProvider",
     "MercadonaProvider",
     "MercadonaFullProvider",
 ]
@@ -34,6 +35,10 @@ def __getattr__(name: str) -> Any:
         from open_grocery_mcp.providers.gadis_full import GadisFullProvider
 
         return GadisFullProvider
+    if name == "EroskiFullProvider":
+        from open_grocery_mcp.providers.eroski_full import EroskiFullProvider
+
+        return EroskiFullProvider
     if name == "MercadonaProvider":
         from open_grocery_mcp.providers.mercadona import MercadonaProvider
 
