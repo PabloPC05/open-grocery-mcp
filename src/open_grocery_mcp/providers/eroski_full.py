@@ -21,6 +21,8 @@ from open_grocery_mcp.models import Product, StoreInfo
 from open_grocery_mcp.providers.base import GroceryProvider
 from open_grocery_mcp.providers.browser_account import BrowserAccountClient
 from open_grocery_mcp.providers.browser_config import EROSKI_BROWSER_CONFIG
+from open_grocery_mcp.providers.eroski_http import EroskiHTTPClient
+from open_grocery_mcp.providers import eroski_ui
 from open_grocery_mcp.providers.froiz import FroizProvider
 
 
@@ -57,6 +59,7 @@ class EroskiFullProvider(GroceryProvider):
     def __init__(self) -> None:
         self._catalogue = FroizProvider()
         self._account = BrowserAccountClient(EROSKI_BROWSER_CONFIG)
+        self._http = EroskiHTTPClient()
 
     def search(
         self,
@@ -83,7 +86,29 @@ class EroskiFullProvider(GroceryProvider):
         return self._account.login_with_browser(timeout_seconds=timeout_seconds)
 
     def real_cart(self) -> dict[str, Any]:
-        return self._account.cart()
+        try:
+            cart = self._http.read_cart()
+            return {
+                "store": "eroski",
+                "cart_backend": "eroski_http",
+                "browser_driven": False,
+                "version": cart.version,
+                "items": [
+                    {"product_id": i.product_id, "quantity": i.quantity}
+                    for i in cart.items
+                ],
+                "products_count": len(cart.items),
+                "total_text": cart.total_text,
+                "currency": "EUR",
+            }
+        except Exception as exc:
+            fallback = self._account.cart()
+            return {
+                **fallback,
+                "cart_backend": "browser",
+                "browser_driven": True,
+                "http_fallback_reason": type(exc).__name__,
+            }
 
     def preview_cart_update(
         self,
@@ -103,6 +128,29 @@ class EroskiFullProvider(GroceryProvider):
     def commit_cart_update(self, plan: Mapping[str, Any]) -> dict[str, Any]:
         return self._account.commit_cart_update(plan)
 
+    def add_item_via_browser(self, query: str = "leche") -> dict[str, Any]:
+        """UI-driven add while the Tapestry zone binding is replicated."""
+        ui = eroski_ui.ui_context(
+            getattr(self._account, "state_path", "")
+            or str(getattr(self._http, "state_path", ""))
+        )
+        try:
+            return eroski_ui.add_first_result(ui, query)
+        finally:
+            ui["close"]()
+
+    def remove_item_via_browser(self, product_id: str) -> dict[str, Any]:
+        """UI-driven removal of one basket row by product id."""
+        ui = eroski_ui.ui_context(
+            getattr(self._account, "state_path", "")
+            or str(getattr(self._http, "state_path", ""))
+        )
+        try:
+            return eroski_ui.remove_product(ui, product_id)
+        finally:
+            ui["close"]()
+
     def close(self) -> None:
         self._catalogue.close()
+        self._http.close()
         self._account.close()
