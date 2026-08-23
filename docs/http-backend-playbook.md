@@ -222,6 +222,16 @@ Criterios de aceptación: `calendar_read`, `addresses_read`,
   `selectedSlotRef`, `selectedSlotTime`.
 - **Frontera de seguridad**: no existe paso de checkout separado;
   `orders/create` coloca el pedido real ⇒ checkout automatizado prohibido.
+- **BLOQUEO para escrituras headless**: el servidor exige que la sesión tenga
+  un contexto de entrega (tienda + modo + dirección + franja) establecido
+  ANTES de aceptar cualquier `addtocart`. Sin él, el POST devuelve 200 con
+  `{"_tapestry": {"redirectURL": ".../es/login/delivery/"}}` y el carrito
+  permanece vacío. Este contexto se establece mediante el flujo
+  `bookingdelivery` multi-paso (domicilio → dirección → franja obligatoria)
+  que requiere navegación real. Para escrituras headless es necesario
+  implementar primero ese flujo por HTTP; mientras tanto,
+  `EroskiFullProvider` mantiene las escrituras vía navegador (`eroski_ui.py`)
+  y solo las lecturas (`read_cart`) funcionan por HTTP puro.
 
 ## Checklist para replicar en otro supermercado
 

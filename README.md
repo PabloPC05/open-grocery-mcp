@@ -2,7 +2,7 @@
 
 Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y preparar, con confirmaciones explícitas, cambios en el carrito y el checkout de la cuenta del usuario.
 
-> **Alpha `0.5.0`.** Mercadona utiliza HTTP para su flujo autenticado. Gadis ya utiliza HTTP para verificar la sesión, leer el carrito, aplicar mutaciones reversibles de cantidades enteras, consultar direcciones y franjas y crear el checkout; conserva Playwright para login, cantidades fraccionarias y casos en que el bearer de microservicios está caducado. Froiz lee su carrito, aplica mutaciones reversibles sobre un carrito desechable y consulta direcciones y franjas por HTTP (contrato Nuxt verificado en vivo); conserva Playwright para login y checkout, que sigue bloqueado por diseño porque su API salta directamente a crear el pedido real.
+> **Alpha `0.5.0`.** Mercadona utiliza HTTP para su flujo autenticado. Gadis ya utiliza HTTP para verificar la sesión, leer el carrito, aplicar mutaciones reversibles de cantidades enteras, consultar direcciones y franjas y crear el checkout; conserva Playwright para login, cantidades fraccionarias y casos en que el bearer de microservicios está caducado. Froiz lee su carrito, aplica mutaciones reversibles sobre un carrito desechable y consulta direcciones y franjas por HTTP (contrato Nuxt verificado en vivo); conserva Playwright para login y checkout, que sigue bloqueado por diseño porque su API salta directamente a crear el pedido real. Eroski lee su carrito por HTTP; las escrituras requieren navegador porque el servidor exige contexto de entrega por sesión antes de aceptar mutaciones (documentado en `docs/http-backend-playbook.md`).
 
 ## Estado actual
 
@@ -10,6 +10,7 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar 
 |---|---:|---:|---:|---:|---:|---:|
 | Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras | HTTP con fallback a navegador | HTTP con confirmación; navegador como fallback | Experimental y apagado |
 | Froiz | Sí | Sí | HTTP sobre carrito desechable; navegador como fallback | HTTP (direcciones + calendario) con fallback a navegador | Navegador; bloqueado por diseño (su API crea pedidos reales) | Experimental y apagado |
+| Eroski | Sí (Empathy.co) | Sí | Lectura HTTP; escrituras requieren navegador (contexto de entrega por sesión) | Navegador | Navegador; bloqueado por diseño (su API crea pedidos reales) | No implementado |
 | Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | HTTP | Experimental y apagado |
 
 El método para replicar la migración a HTTP con otro supermercado está
