@@ -198,6 +198,31 @@ Criterios de aceptación: `calendar_read`, `addresses_read`,
   el primer día y trata "sin carrito ligado" (`cartId: null`) como carrito
   vacío creable con POST, igual que hace la SPA.
 
+### Lecciones de Eroski (Tapestry 5 server-rendered)
+
+- **Plataforma**: Apache Tapestry 5 con rutas componente`:acción`
+  (`/es/<page>.<layout>.<component>:<event>`), CSRF firmado `t:formdata`
+  por página y sesión `JSESSIONID`. No hay API JSON: todo son submits de
+  formulario URL-encoded.
+- **Sesión**: la cesta exige login (la anónima redirige a identificación).
+  Login con 2FA por SMS en `areacliente.eroski.es`; SSO posterior hacia
+  `areaprivada.eroski.es/es/mis-datos` (direcciones).
+- **Añadir**: `POST /es/search/results.productlist.productlistitem_N.
+  productlistadditem:addtocart?q=<búsqueda>` con `q` + `t:formdata`; el
+  disparador real es un enlace `a.update.toAddProduct` dentro del tile
+  (el `<button>` del form es decorativo). Respuesta 301 + zonas
+  `:notify`/:refreshevent`.
+- **Quitar/cantidad**: `POST /es/mycart.basket.productlist.basketproduct.
+  basketadditemcomponent:addtocart` con `product=<id>` y zonas; se dispara
+  con el enlace «Eliminar item» (`a.remove-item-shopping-btn-cart`).
+- **Entrega**: selector de cabecera «ELIGE TIPO DE ENTREGA» → domicilio →
+  dirección → franja obligatoria; confirmación mediante
+  `POST /es/bookingdelivery.selectdelivery.addressselector.homeaddressselector.
+  homeaddressform` con `selectDeliveryAddress`, `zipCode`,
+  `selectedSlotRef`, `selectedSlotTime`.
+- **Frontera de seguridad**: no existe paso de checkout separado;
+  `orders/create` coloca el pedido real ⇒ checkout automatizado prohibido.
+
 ## Checklist para replicar en otro supermercado
 
 1. Salud de sesión y captura base validadas (Fase 0–1).
