@@ -6,17 +6,18 @@ is no JSON API, so this client drives the same forms the browser uses.
 Verified live contract (value-free):
 
 - session cookies come from the saved Playwright ``storage_state``;
-  a first ``GET /?zipCode=<cp>`` establishes the delivery context;
-- ``GET /es/search/results/?q=<term>`` renders one
-  ``form[action*="productlistadditem"]`` per result carrying the signed
-  ``t:formdata`` CSRF token; submitting it URL-encoded (the ``a.toAddProduct``
-  trigger) adds that tile's product;
+  ``GET /?zipCode=<cp>`` establishes the delivery context;
+- ``GET /es/search/results/?q=<term>`` embeds one
+  ``["common/button/productListItemAddComponent:init", {...}]`` config blob
+  per result tile carrying ``productRef``, ``shopRef``, ``quantityInCart``,
+  the ``onAddToCartEvent`` URL and ``t:formdata`` tokens;
+- adding posts URL-encoded to that event URL with ``q``, ``t:formdata``,
+  ``product=<json>`` (productRef/shopRef/selectionType/unitsToAdd/
+  newQuantity/...) and one ``<zoneName>=<zoneElementId>`` pair per refresh
+  zone present on the page;
 - ``GET /es/mycart/?basketType=ALI`` renders rows
-  ``div.row.shopping-cart-item`` containing ``[class*=basket-product-{pid}]``,
-  a quantity input and an ``a.remove-item-shopping-btn-cart`` removal link
-  backed by ``POST .../basketproduct.basketadditemcomponent:addtocart`` with
-  ``product=<id>`` plus zone fields parsed from the same page;
-- the header total (``.shopping-cart__totalprice .price``) is the basket total.
+  ``div.row.shopping-cart-item`` with ``[class*=basket-product-{pid}]`` and a
+  quantity input; removal repeats the add event with ``newQuantity: 0``.
 
 Order submission is not implemented here by design: Eroski places real orders
 through its order endpoint with no separate checkout step.
@@ -43,36 +44,44 @@ _USER_AGENT = (
     "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
 
-_FORM_RE = re.compile(
-    r'<form[^>]*action="(?P<action>[^"]*productlistadditem[^"]*)"[^>]*>(?P<body>.*?)</form>',
-    re.S,
+_INIT_MARKER = "productListItemAddComponent:init"
+_FORMDATA_RE = re.compile(
+    r'<input[^>]*?name="t:formdata"[^>]*?value="([^"]*)"'
+    r'|<input[^>]*?value="([^"]*)"[^>]*?name="t:formdata"',
+    re.S | re.I,
 )
-_FORMDATA_RE = re.compile(r'name="t:formdata"[^>]*value="([^"]*)"')
-_QTY_RE = re.compile(
-    r'class="[^"]*quantity[^"]*"[^>]*value="([0-9]+)"', re.S
-)
-_ROW_RE = re.compile(
-    r'<div class="row shopping-cart-item".*?</div>\s*</div>\s*</div>', re.S
-)
+_QTY_RE = re.compile(r'class="[^"]*quantity[^"]*"[^>]*value="([0-9]+)"', re.S)
 _PRODUCT_ID_RE = re.compile(r"basket-product-(\d+)")
 _TOTAL_RE = re.compile(
-    r'class="shopping-cart__totalprice[^"]*".*?class="price"[^>]*>\s*([0-9,.]+)', re.S
+    r'class="shopping-cart__totalprice[^"]*".*?class="price"[^>]*>\s*([0-9,.]+)',
+    re.S,
 )
-_REMOVE_LINK_RE = re.compile(
-    r'class="remove-item-shopping-btn[^"]*"', re.S
+_ZONES = (
+    "basketTotalPriceZone",
+    "sectionZoneALI",
+    "sectionZoneELECTRO",
+    "sectionZoneDESCANSO",
+    "sectionZoneMARKETPLACE",
+    "summaryMobileZone",
+    "dontReplaceZoneAll",
+    "summaryZone",
 )
 
 
-def _as_decimal(value: Any) -> Any:
-    from decimal import Decimal, InvalidOperation
+@dataclass
+class TileConfig:
+    """Per-result component config embedded by the storefront."""
 
-    if value is None or isinstance(value, bool):
-        return Decimal("0")
-    try:
-        result = Decimal(str(value).replace(",", ".").strip())
-    except (InvalidOperation, ValueError, AttributeError):
-        return Decimal("0")
-    return result if result.is_finite() else Decimal("0")
+    item_id: str
+    product_ref: str
+    shop_ref: str | None
+    previous_address_ref: str | None
+    quantity_in_cart: int
+    maximum_quantity: int
+    product_units_per_pack: int
+    is_weight_options_available: bool
+    on_add_to_cart_event: str
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -88,7 +97,6 @@ class EroskiCart:
 
     @property
     def version(self) -> int:
-        """Stable content fingerprint (no server-side counter exists)."""
         material = json.dumps(
             {
                 "items": sorted(
@@ -99,8 +107,40 @@ class EroskiCart:
             sort_keys=True,
             separators=(",", ":"),
         ).encode("utf-8")
-        digest = hashlib.sha256(material).digest()
-        return int.from_bytes(digest[:8], "big") >> 1
+        return int.from_bytes(hashlib.sha256(material).digest()[:8], "big") >> 1
+
+
+def _balanced_json(source: str, start: int) -> str | None:
+    depth = 0
+    in_string = False
+    escape = False
+    for index in range(start, len(source)):
+        char = source[index]
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start:index + 1]
+    return None
+
+
+def _extract_zone_fields(html: str) -> dict[str, str]:
+    zones: dict[str, str] = {}
+    for zone in _ZONES:
+        if f'id="{zone}"' in html:
+            zones[zone] = zone
+    return zones
 
 
 class EroskiHTTPClient:
@@ -114,12 +154,10 @@ class EroskiHTTPClient:
         timeout: float = 40.0,
         client: httpx.Client | None = None,
     ) -> None:
-        self.state_path = Path(state_path).expanduser() if state_path else (
-            Path(
-                os.getenv("OPEN_GROCERY_STATE_DIR", "~/.open-grocery-mcp")
-            ).expanduser()
-            / "eroski"
-            / "storage_state.json"
+        self.state_path = (
+            Path(state_path).expanduser()
+            if state_path
+            else _default_state_path()
         )
         self.zip_code = zip_code
         self._owns_client = client is None
@@ -162,7 +200,7 @@ class EroskiHTTPClient:
             return
         for name, value in self._load_session_cookies().items():
             self._client.cookies.set(name, value, domain="supermercado.eroski.es")
-        response = self._client.get(f"{_BASE}/", params={"zipCode": self.zip_code})
+        response = self._client.get(_BASE + "/", params={"zipCode": self.zip_code})
         if response.status_code != 200:
             raise ProviderError(
                 f"Eroski context bootstrap returned HTTP {response.status_code}"
@@ -177,7 +215,7 @@ class EroskiHTTPClient:
     def _get_html(self, path: str, **params: str) -> str:
         self._ensure_context()
         try:
-            response = self._client.get(f"{_BASE}{path}", params=params or None)
+            response = self._client.get(_BASE + path, params=params or None)
         except httpx.HTTPError as exc:
             raise ProviderError(f"Eroski GET failed: {exc}") from exc
         if response.status_code == 401:
@@ -192,17 +230,20 @@ class EroskiHTTPClient:
         self,
         action_url: str,
         data: dict[str, str],
-        *,
-        extra_headers: dict[str, str] | None = None,
+        referer: str | None = None,
     ) -> str:
-        url = action_url if action_url.startswith("http") else f"{_BASE}{action_url}"
-        headers = dict(extra_headers or {})
+        url = urljoin(_BASE + "/", action_url)
+        headers = {"X-Requested-With": "XMLHttpRequest"}
+        if referer:
+            headers["Referer"] = referer
         try:
             response = self._client.post(url, data=data, headers=headers)
         except httpx.HTTPError as exc:
             raise ProviderError(f"Eroski POST failed: {exc}") from exc
         if response.status_code >= 400:
-            raise ProviderError(f"Eroski POST returned HTTP {response.status_code}")
+            raise ProviderError(
+                f"Eroski POST {url[-80:]} returned HTTP {response.status_code}"
+            )
         return response.text
 
     # ---------------------------------------------------------------- parsing
@@ -210,7 +251,9 @@ class EroskiHTTPClient:
     @staticmethod
     def parse_cart(html: str) -> EroskiCart:
         total_match = _TOTAL_RE.search(html)
-        total_text = total_match.group(1) + "€" if total_match else "0,00€"
+        total_text = (
+            total_match.group(1) + "€" if total_match else "0,00€"
+        )
         items: dict[str, EroskiCartItem] = {}
         marker = 'class="row shopping-cart-item"'
         segments = html.split(marker)[1:]
@@ -228,65 +271,149 @@ class EroskiHTTPClient:
         return EroskiCart(items=list(items.values()), total_text=total_text)
 
     @staticmethod
-    def parse_add_forms(html: str) -> list[dict[str, str]]:
-        """Return one entry per result tile: action URL + t:formdata."""
-        forms = []
-        for match in _FORM_RE.finditer(html):
-            action = match.group("action")
-            body = match.group("body")
-            token = _FORMDATA_RE.search(body)
-            forms.append(
-                {
-                    "action": action,
-                    "t_formdata": token.group(1) if token else "",
-                }
+    def parse_tile_configs(html: str) -> list[tuple[TileConfig, dict[str, str]]]:
+        """Extract every tile config plus the page-level t:formdata."""
+        token_match = _FORMDATA_RE.search(html)
+        token = (token_match.group(1) or token_match.group(2)) if token_match else ""
+        configs: list[tuple[TileConfig, dict[str, str]]] = []
+        position = 0
+        while True:
+            idx = html.find(_INIT_MARKER, position)
+            if idx < 0:
+                break
+            brace = html.find("{", idx)
+            if brace < 0:
+                break
+            blob = _balanced_json(html, brace)
+            position = idx + len(_INIT_MARKER)
+            if not blob:
+                continue
+            try:
+                raw = json.loads(blob)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(raw, Mapping):
+                continue
+            ref = str(raw.get("productRef") or "").strip()
+            event = str(raw.get("onAddToCartEvent") or "").strip()
+            if not ref or not event:
+                continue
+            config = TileConfig(
+                item_id=str(raw.get("itemId") or ""),
+                product_ref=ref,
+                shop_ref=str(raw.get("shopRef") or "") or None,
+                previous_address_ref=(
+                    str(raw.get("previousAddressRef") or "") or None
+                ),
+                quantity_in_cart=int(raw.get("quantityInCart") or 0),
+                maximum_quantity=int(raw.get("maximumQuantity") or 99),
+                product_units_per_pack=int(raw.get("productUnitsPerPack") or 1),
+                is_weight_options_available=bool(
+                    raw.get("isWeightOptionsAvailable")
+                ),
+                on_add_to_cart_event=event,
+                raw=dict(raw),
             )
-        return forms
+            configs.append((config, {"t_formdata": token}))
+        return configs
 
     # ------------------------------------------------------------ operations
 
-    def search_add_forms(self, query: str) -> list[dict[str, str]]:
+    def search_tiles(self, query: str) -> list[TileConfig]:
         html = self._get_html("/es/search/results/", q=query)
-        return self.parse_add_forms(html)
-
-    def add_to_cart(self, query: str, tile_index: int = 0) -> EroskiCart:
-        """Submit the Nth result tile's add form for the given search term."""
-        forms = self.search_add_forms(query)
-        if tile_index >= len(forms):
-            raise ProviderError(
-                f"Eroski search {query!r} rendered only {len(forms)} tiles"
-            )
-        chosen = forms[tile_index]
-        action = urljoin(_BASE + "/", chosen["action"])
-        # Tapestry event URLs carry the page's query string (verified live:
-        # the storefront posts to ...:addtocart?q=<term>).
-        separator = "&" if "?" in action else "?"
-        action = f"{action}{separator}q={query}"
-        self._post_form(
-            action,
-            {"q": query, "t:formdata": chosen["t_formdata"]},
-            extra_headers={
-                "Referer": f"{_BASE}/es/search/results/?q={query}",
-                "X-Requested-With": "XMLHttpRequest",
-            },
-        )
-        return self.read_cart()
+        return [config for config, _ in self.parse_tile_configs(html)]
 
     def read_cart(self) -> EroskiCart:
-        html = self._get_html(
-            "/es/mycart/", basketType="ALI"
-        )
+        html = self._get_html("/es/mycart/", basketType="ALI")
         return self.parse_cart(html)
 
-    def remove_item(self, product_id: str) -> EroskiCart:
-        """Remove one item via its basketadditemcomponent:addtocart event."""
-        html = self._get_html("/es/mycart/", basketType="ALI")
-        token_match = _FORMDATA_RE.search(html)
-        if not token_match:
-            raise ProviderError("Eroski mycart exposed no t:formdata token")
-        action = "/es/mycart.basket.productlist.basketproduct.basketadditemcomponent:addtocart"
-        self._post_form(action, {"product": product_id, "t:formdata": token_match.group(1)})
+    def add_to_cart(
+        self,
+        query: str,
+        *,
+        tile_index: int = 0,
+        quantity: int = 1,
+    ) -> EroskiCart:
+        html = self._get_html("/es/search/results/", q=query)
+        parsed = self.parse_tile_configs(html)
+        if tile_index >= len(parsed):
+            raise ProviderError(
+                f"Eroski search {query!r} rendered only {len(parsed)} tiles"
+            )
+        config, page_data = parsed[tile_index]
+        token = page_data.get("t_formdata") or ""
+        if not token:
+            raise ProviderError("search page exposed no t:formdata token")
+
+        new_quantity = min(
+            config.quantity_in_cart + quantity, config.maximum_quantity
+        )
+        product_payload = {
+            "productRef": config.product_ref,
+            "shopRef": config.shop_ref,
+            "previousAddressRef": config.previous_address_ref,
+            "productUnitsPerPack": config.product_units_per_pack,
+            "selectionType": "weight"
+            if config.is_weight_options_available
+            else "ud",
+            "unitsToAdd": new_quantity - config.quantity_in_cart,
+            "newQuantity": new_quantity,
+            "checkedPendingOrder": False,
+            "isPickupChecked": False,
+        }
+        data = {
+            "q": query,
+            "t:formdata": token,
+            "product": json.dumps(product_payload, separators=(",", ":")),
+        }
+        data.update(_extract_zone_fields(html))
+        referer = f"{_BASE}/es/search/results/?q={query}"
+        self._post_form(config.on_add_to_cart_event, data, referer=referer)
         return self.read_cart()
+
+    def set_item_quantity(
+        self, query_or_page: str, product_id: str, quantity: int
+    ) -> EroskiCart:
+        """Set an existing cart item's quantity via its own tile event."""
+        source = (
+            self._get_html("/es/mycart/", basketType="ALI")
+            if query_or_page == "@cart"
+            else self._get_html("/es/search/results/", q=query_or_page)
+        )
+        parsed = self.parse_tile_configs(source)
+        target = next(
+            (cfg for cfg, _ in parsed if cfg.product_ref == product_id),
+            None,
+        )
+        if target is None:
+            raise ProviderError(f"Eroski tile for {product_id} not found")
+        token = next((d.get("t_formdata") or "" for _, d in parsed), "")
+        current = max(target.quantity_in_cart, 0)
+        new_quantity = max(0, min(quantity, target.maximum_quantity))
+        product_payload = {
+            "productRef": target.product_ref,
+            "shopRef": target.shop_ref,
+            "previousAddressRef": target.previous_address_ref,
+            "productUnitsPerPack": target.product_units_per_pack,
+            "selectionType": "weight"
+            if target.is_weight_options_available
+            else "ud",
+            "unitsToAdd": new_quantity - current,
+            "newQuantity": new_quantity,
+            "checkedPendingOrder": False,
+            "isPickupChecked": False,
+        }
+        data = {
+            "q": "",
+            "t:formdata": token,
+            "product": json.dumps(product_payload, separators=(",", ":")),
+        }
+        data.update(_extract_zone_fields(source))
+        self._post_form(target.on_add_to_cart_event, data)
+        return self.read_cart()
+
+    def remove_item(self, product_id: str) -> EroskiCart:
+        return self.set_item_quantity("@cart", product_id, 0)
 
     def status(self) -> dict[str, Any]:
         return {
@@ -302,4 +429,20 @@ class EroskiHTTPClient:
             self._client.close()
 
 
-__all__ = ["EroskiCart", "EroskiCartItem", "EroskiHTTPClient"]
+def _default_state_path() -> Path:
+    configured = os.getenv("OPEN_GROCERY_EROSKI_STATE_PATH")
+    if configured:
+        return Path(configured).expanduser()
+    root = Path(
+        os.getenv("OPEN_GROCERY_STATE_DIR", "~/.open-grocery-mcp")
+    ).expanduser()
+    return root / "eroski" / "storage_state.json"
+
+
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+
+
+__all__ = ["EroskiCart", "EroskiCartItem", "EroskiHTTPClient", "TileConfig"]

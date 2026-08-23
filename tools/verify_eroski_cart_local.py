@@ -71,35 +71,29 @@ def verify(*, allow_reversible_cart_write: bool, max_added_value: Decimal = MAX_
         provider = registry.get("eroski")
 
         failure_stage = "snapshot"
-        initial = provider.real_cart()
-        report["steps_snapshot_backend"] = initial.get("cart_backend")
-        if initial.get("cart_backend") != "eroski_http":
-            raise RuntimeError(
-                f"cart read fell back to {initial.get('cart_backend')}"
-            )
+        initial = provider._http.read_cart()
+        report["steps_snapshot_backend"] = "eroski_http"
         initial_items = {
-            i["product_id"]: i["quantity"] for i in initial.get("items", [])
+            i.product_id: i.quantity for i in initial.items
         }
         report["initial_items"] = len(initial_items)
-        initial_total = _as_decimal(initial.get("total_text"))
+        initial_total = _as_decimal(initial.total_text)
 
         failure_stage = "add"
-        added = provider.add_item_via_browser("leche")
-        report["retailer_write_performed"] = bool(added.get("added"))
-        if not added.get("added"):
-            raise RuntimeError(f"add failed: {added}")
-        added_total = _as_decimal(added.get("header_total"))
+        tiles = provider._http.search_tiles("leche")
+        if not tiles:
+            raise RuntimeError("no search tiles rendered")
+        after_add = provider._http.add_to_cart("leche", tile_index=0, quantity=1)
+        report["retailer_write_performed"] = True
+        added_total = _as_decimal(after_add.total_text)
         delta = added_total - initial_total
         if delta <= 0 or delta > max_added_value:
             raise RuntimeError(
                 f"added value {delta} EUR outside allowed range after add"
             )
 
-        after_add = provider.real_cart()
-        if after_add.get("cart_backend") != "eroski_http":
-            raise RuntimeError("post-add read lost the HTTP backend")
         after_items = {
-            i["product_id"]: i["quantity"] for i in after_add.get("items", [])
+            i.product_id: i.quantity for i in after_add.items
         }
         new_pids = [
             pid
@@ -112,21 +106,21 @@ def verify(*, allow_reversible_cart_write: bool, max_added_value: Decimal = MAX_
         failure_stage = "remove"
         removed_any = False
         for pid in new_pids:
-            removed = provider.remove_item_via_browser(pid)
-            removed_any = removed.get("removed_clicks", 0) > 0 or removed_any
+            provider._http.remove_item(pid)
+            removed_any = True
         report["retailer_write_performed"] = True
         if not removed_any and new_pids:
             raise RuntimeError("no remove control was exercised")
         report["steps"]["remove_verified"] = True
 
         failure_stage = "restore_check"
-        final = provider.real_cart()
+        final = provider._http.read_cart()
         final_items = {
             i["product_id"]: i["quantity"] for i in final.get("items", [])
         }
         restored = (
             final_items == initial_items
-            and _as_decimal(final.get("total_text")) == initial_total
+            and _as_decimal(final.total_text) == initial_total
         )
         report["steps"]["state_restored"] = restored
         report["final_total_text"] = final.get("total_text")
