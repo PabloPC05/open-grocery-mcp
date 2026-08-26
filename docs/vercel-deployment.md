@@ -15,6 +15,10 @@ updates the stable production domain automatically. The running deployment is a
 remote artifact: it does not read this working directory and continues working
 when the owner's computer is off.
 
+The native GitHub integration was verified on 2026-08-27: the Vercel project is
+linked to this repository with `main` as its production branch. The binding
+lives in Vercel and GitHub, so removing a local clone does not disconnect it.
+
 ## Authentication and safety
 
 `OPEN_GROCERY_MCP_ACCESS_TOKEN` is configured as a sensitive Preview and
