@@ -291,7 +291,31 @@ Transporte HTTP local:
 open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-No expongas esta alpha directamente a Internet. No incorpora identidad multiusuario ni aislamiento de sesiones. Los flujos con navegador están pensados para `stdio` en la máquina del propietario.
+## Despliegue remoto
+
+La instancia oficial de solo lectura se publica en Vercel:
+
+```text
+MCP:    https://open-grocery-mcp.vercel.app/mcp
+Salud:  https://open-grocery-mcp.vercel.app/health
+```
+
+`/mcp` exige `Authorization: Bearer ...`; el valor vive como secreto sensible de
+Vercel y nunca se guarda en Git. El adaptador ASGI es stateless y falla cerrado
+si falta el secreto. En este entorno permanecen apagadas
+`OPEN_GROCERY_ENABLE_RETAILER_WRITES`,
+`OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y
+`OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
+
+El proyecto de Vercel está conectado a este repositorio. Cada push a `main`
+construye producción y actualiza el dominio estable; otras ramas crean previews.
+La instancia desplegada no depende de una copia local ni de que el ordenador del
+propietario permanezca encendido.
+
+Las sesiones de supermercados, Playwright y los flujos autenticados siguen siendo
+exclusivamente locales. No subas `storage_state.json`, `.env`, capturas, HAR ni
+perfiles de navegador. Consulta [`docs/vercel-deployment.md`](docs/vercel-deployment.md)
+para despliegue, recuperación, rotación del acceso y verificación.
 
 ## Flujo recomendado
 
@@ -353,7 +377,7 @@ ruff check .
 
 Las pruebas automatizadas usan transportes y navegadores simulados. No realizan compras reales.
 
-Consulta también [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
+Consulta también [el despliegue en Vercel](docs/vercel-deployment.md), [la arquitectura autenticada](docs/authenticated-workflows.md), [los proveedores de navegador](docs/browser-providers.md), [el contrato de proveedores](docs/provider-contract.md) y [la política de seguridad](SECURITY.md).
 
 ## Licencia y procedencia
 

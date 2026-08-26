@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/", "destination": "/api/health" },
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/mcp", "destination": "/api/index" },
+    { "source": "/mcp/:path*", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/**/*.py": {
+      "excludeFiles": "{.venv/**,.git/**,.vercel/**,tests/**,tools/**,docs/**,audit-context/**,captures/**,local-captures/**,diagnostics/**,**/__pycache__/**,**/*.pyc,**/*.har}"
+    }
+  }
+}

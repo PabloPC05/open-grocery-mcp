@@ -67,6 +67,20 @@ Selectors for browser-backed providers, including Gadis, Froiz and Eroski, are a
 
 The browser workflow is intended for a local `stdio` MCP process. A remotely hosted browser would place account sessions on that server and should be avoided unless the operator has deliberately secured and isolated it.
 
+## Remote Vercel boundary
+
+The production Streamable HTTP endpoint is stateless and protected by the
+`OPEN_GROCERY_MCP_ACCESS_TOKEN` Bearer secret. The ASGI entrypoint returns `503`
+when that secret is absent and `401` when a request does not provide the exact
+value. Store it only as a sensitive Vercel environment variable and in an
+operating-system secret environment or password manager; never commit it.
+
+The Vercel deployment must keep all retailer-write and order-submission feature
+flags unset. It contains no retailer storage state, browser profile, address,
+checkout record or payment information. Authenticated/browser workflows remain
+local even though the catalogue MCP can run remotely. `main` is the production
+branch; Git previews inherit the same fail-closed access boundary.
+
 ## Transaction verification
 
 Code and fixture tests are not the same as a real purchase. Do not describe final order placement as live-verified until the owner deliberately completes a low-value order and records only redacted results. Never run order submission in CI.

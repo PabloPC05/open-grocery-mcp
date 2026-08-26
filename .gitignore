@@ -15,10 +15,16 @@ build/
 .vscode/
 .open-grocery-mcp/
 storage_state*.json
+session_storage*.json
+http_token*.json
 checkouts*.json
 captures/
 local-captures/
 *.har
 *.raw.har
+*.pem
 .opencode/
 *.bak
+.vercel/
+.env*
+audit-context/
