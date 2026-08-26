@@ -29,6 +29,7 @@ class MercadonaFullProvider(GroceryProvider):
             "real_cart",
             "delivery",
             "checkout",
+            "human_handoff",
             "order_submission_experimental",
         ),
         requires_postal_code=True,
@@ -57,6 +58,26 @@ class MercadonaFullProvider(GroceryProvider):
             postal_code=postal_code,
             eco=eco,
         )
+
+    def search_page(
+        self,
+        query: str,
+        *,
+        page_size: int = 100,
+        cursor: str | None = None,
+        postal_code: str | None = None,
+        eco: bool = False,
+    ) -> dict[str, Any]:
+        return self._catalogue.search_page(
+            query,
+            page_size=page_size,
+            cursor=cursor,
+            postal_code=postal_code,
+            eco=eco,
+        )
+
+    def catalogue_contract(self) -> dict[str, Any]:
+        return self._catalogue.catalogue_contract()
 
     def product(self, product_id: str, *, postal_code: str | None = None) -> Product:
         return self._catalogue.product(product_id, postal_code=postal_code)
@@ -139,6 +160,19 @@ class MercadonaFullProvider(GroceryProvider):
 
     def submit_order(self, checkout_id: str, *, max_total: Decimal) -> dict[str, Any]:
         return self._account.submit_order(checkout_id, max_total=max_total)
+
+    def open_human_review(
+        self,
+        *,
+        checkout_id: str | None = None,
+        checkout_review: bool = False,
+        timeout_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._account.open_human_review(
+            checkout_id=checkout_id,
+            checkout_review=checkout_review,
+            timeout_seconds=timeout_seconds,
+        )
 
     def close(self) -> None:
         self._catalogue.close()

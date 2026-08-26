@@ -18,6 +18,10 @@ def test_quantity_parser_normalizes_mass_and_volume() -> None:
     assert parse_quantity("arroz 1 kg").value == Decimal("1000")
     assert parse_quantity("leche 100 cl").value == Decimal("1000")
     assert parse_quantity("agua 500 ml").dimension == "volume"
+    assert parse_quantity("atún pack 3x92 g").value == Decimal("276")
+    assert parse_quantity("papel 4+2 rollos").value == Decimal("6")
+    assert parse_quantity("detergente 40 dosis").value == Decimal("40")
+    assert parse_quantity("aceite botella 1 litro").value == Decimal("1000")
 
 
 def test_matching_prefers_requested_format_over_cheapest_unrelated_hit() -> None:

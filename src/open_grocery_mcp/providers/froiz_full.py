@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import threading
+import time
 from typing import Any, Mapping, Sequence
 
-from open_grocery_mcp.models import Product, StoreInfo
+from open_grocery_mcp.errors import AuthenticationRequired, ProviderError
+from open_grocery_mcp.models import Product, StoreInfo, as_decimal
 from open_grocery_mcp.providers.base import GroceryProvider
 from open_grocery_mcp.providers.froiz import FroizProvider
 from open_grocery_mcp.providers.froiz_account import FroizAccountClient
+from open_grocery_mcp.providers.froiz_pricing import normalize_pricing
+
+_AUTH_CATALOGUE_RETRY_SECONDS = 60
 
 
 class FroizFullProvider(GroceryProvider):
@@ -24,8 +30,7 @@ class FroizFullProvider(GroceryProvider):
             "account",
             "real_cart",
             "delivery",
-            "checkout",
-            "order_submission_experimental",
+            "human_handoff",
         ),
         requires_postal_code=False,
         price_scope=(
@@ -33,18 +38,66 @@ class FroizFullProvider(GroceryProvider):
             "Froiz session"
         ),
         notes=(
-            "Catalogue search uses Froiz's public Empathy.co index. Cart reads, "
+            "Search prefers the authenticated, location-aware Nuxt catalogue and "
+            "falls back to Froiz's public Empathy.co index when that session route "
+            "is unavailable. Cart reads, "
             "whole-object reversible mutations, saved addresses and the "
-            "delivery calendar use the verified Nuxt HTTP contract; login and "
-            "checkout keep a local browser session. Checkout stays browser-"
-            "backed because Froiz's API has no separate checkout step: its "
-            "orders/create endpoint places the real order."
+            "delivery calendar use the verified Nuxt HTTP contract. Froiz has "
+            "no separately verified checkout step: orders/create places the "
+            "real order, so checkout and order submission remain unavailable."
         ),
     )
 
-    def __init__(self) -> None:
-        self._catalogue = FroizProvider()
-        self._account = FroizAccountClient()
+    def __init__(
+        self,
+        *,
+        catalogue: FroizProvider | None = None,
+        account: FroizAccountClient | None = None,
+    ) -> None:
+        self._catalogue = catalogue or FroizProvider()
+        self._account = account or FroizAccountClient()
+        self._auth_catalogue_retry_after = 0.0
+        self._auth_catalogue_lock = threading.Lock()
+
+    @staticmethod
+    def _authenticated_product(raw: Mapping[str, Any]) -> Product | None:
+        product_id = str(raw.get("id") or raw.get("product_id") or "").strip()
+        name = str(raw.get("name") or raw.get("title") or "").strip()
+        price_value: Any = (
+            raw.get("order_price")
+            if raw.get("order_price") not in (None, "")
+            else raw.get("base_price")
+            if raw.get("base_price") not in (None, "")
+            else raw.get("price")
+        )
+        if isinstance(price_value, Mapping):
+            price_value = (
+                price_value.get("value")
+                or price_value.get("amount")
+                or price_value.get("price")
+            )
+        price = as_decimal(price_value)
+        if not product_id or not name or price <= 0:
+            return None
+        slug = str(raw.get("slug") or product_id).strip()
+        unit = str(raw.get("unit") or raw.get("measurementUnit") or "").strip()
+        price_per_unit = as_decimal(raw.get("price_per_unit"))
+        return Product(
+            store="froiz",
+            id=product_id,
+            name=name,
+            price=price,
+            currency="EUR",
+            price_per_unit=price_per_unit if price_per_unit > 0 else None,
+            unit=unit or None,
+            available=raw.get("enabled") is not False,
+            url=f"https://supermercado.froiz.com/product/{slug}",
+            metadata={
+                "location_aware": True,
+                "catalogue_backend": "froiz_authenticated",
+                **normalize_pricing(raw, price_source="authenticated.order_price"),
+            },
+        )
 
     def search(
         self,
@@ -54,6 +107,31 @@ class FroizFullProvider(GroceryProvider):
         postal_code: str | None = None,
         eco: bool = False,
     ) -> list[Product]:
+        with self._auth_catalogue_lock:
+            try_authenticated = time.monotonic() >= self._auth_catalogue_retry_after
+        if try_authenticated:
+            try:
+                authenticated_rows = self._account.search_products(
+                    query,
+                    limit=limit,
+                    postal_code=postal_code,
+                )
+                authenticated = [
+                    product
+                    for row in authenticated_rows
+                    if isinstance(row, Mapping)
+                    for product in [self._authenticated_product(row)]
+                    if product is not None
+                ]
+                if authenticated:
+                    with self._auth_catalogue_lock:
+                        self._auth_catalogue_retry_after = 0.0
+                    return authenticated[: max(1, min(limit, 100))]
+            except (AuthenticationRequired, ProviderError):
+                with self._auth_catalogue_lock:
+                    self._auth_catalogue_retry_after = (
+                        time.monotonic() + _AUTH_CATALOGUE_RETRY_SECONDS
+                    )
         return self._catalogue.search(
             query,
             limit=limit,
@@ -61,14 +139,29 @@ class FroizFullProvider(GroceryProvider):
             eco=eco,
         )
 
+    def catalogue_contract(self) -> dict[str, Any]:
+        contract = self._catalogue.catalogue_contract()
+        return {
+            **contract,
+            "geography": "authenticated_session_location_or_public_global_fallback",
+            "cache_safe": False,
+            "cache_reason": "authenticated location can change outside the query parameters",
+        }
+
     def account_status(self) -> dict[str, Any]:
         return self._account.status()
 
     def import_browser_session(self, storage_state_path: str) -> dict[str, Any]:
-        return self._account.import_storage_state(storage_state_path)
+        result = self._account.import_storage_state(storage_state_path)
+        with self._auth_catalogue_lock:
+            self._auth_catalogue_retry_after = 0.0
+        return result
 
     def login_with_browser(self, *, timeout_seconds: int = 300) -> dict[str, Any]:
-        return self._account.login_with_browser(timeout_seconds=timeout_seconds)
+        result = self._account.login_with_browser(timeout_seconds=timeout_seconds)
+        with self._auth_catalogue_lock:
+            self._auth_catalogue_retry_after = 0.0
+        return result
 
     def real_cart(self) -> dict[str, Any]:
         return self._account.real_cart()
@@ -97,45 +190,18 @@ class FroizFullProvider(GroceryProvider):
     def delivery_slots(self, address_id: str | int) -> list[dict[str, Any]]:
         return self._account.slots(address_id)
 
-    def preview_checkout(
+    def open_human_review(
         self,
         *,
-        expected_version: int | None,
-        max_total: Decimal,
+        checkout_id: str | None = None,
+        checkout_review: bool = False,
+        timeout_seconds: int = 300,
     ) -> dict[str, Any]:
-        return self._account.preview_checkout(
-            expected_version=expected_version,
-            max_total=max_total,
+        return self._account.open_human_review(
+            checkout_id=checkout_id,
+            checkout_review=checkout_review,
+            timeout_seconds=timeout_seconds,
         )
-
-    def create_checkout(self, plan: Mapping[str, Any]) -> dict[str, Any]:
-        return self._account.create_checkout(plan)
-
-    def get_checkout(self, checkout_id: str) -> dict[str, Any]:
-        return self._account.get_checkout(checkout_id)
-
-    def set_checkout_delivery(
-        self,
-        checkout_id: str,
-        *,
-        address_id: str | int,
-        slot_id: str,
-        max_total: Decimal,
-    ) -> dict[str, Any]:
-        return self._account.set_checkout_delivery(
-            checkout_id,
-            address_id=address_id,
-            slot_id=slot_id,
-            max_total=max_total,
-        )
-
-    def submit_order(
-        self,
-        checkout_id: str,
-        *,
-        max_total: Decimal,
-    ) -> dict[str, Any]:
-        return self._account.submit_order(checkout_id, max_total=max_total)
 
     def close(self) -> None:
         self._catalogue.close()

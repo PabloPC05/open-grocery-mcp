@@ -22,6 +22,7 @@ from .common import (
     quantity,
     require_http_cart,
     select_safe_product,
+    line_signature,
 )
 
 ProductSelector = Callable[[set[str], Decimal, str | None], dict[str, Any]]
@@ -55,13 +56,16 @@ def _remove_if_present(
     provider: Any,
     product: Mapping[str, Any],
     *,
+    baseline: Mapping[str, Any],
     original_total: Decimal,
 ) -> tuple[dict[str, Any], bool]:
-    """Read first and issue a removal only when the test line still exists."""
-    current = require_http_cart(workflows)
+    """Remove once only when two reads prove the cart is test-state exact."""
+    current = _stable_http_cart(workflows)
     product_id = str(product["product_id"])
     if quantity(current, product_id) <= 0:
         return current, False
+    if not _is_exact_test_state(current, baseline, product):
+        raise RuntimeError("cleanup skipped because the cart state is not test-state exact")
     cleanup_cap = max(original_total, decimal_value(current.get("total")), Decimal("0.01"))
     plan = provider.preview_cart_update(
         [
@@ -77,7 +81,41 @@ def _remove_if_present(
         max_total=cleanup_cap,
     )
     provider.commit_cart_update(plan)
-    return require_http_cart(workflows), True
+    return _stable_http_cart(workflows), True
+
+
+def _stable_http_cart(workflows: RetailerWorkflowService) -> dict[str, Any]:
+    first = require_http_cart(workflows)
+    second = require_http_cart(workflows)
+    if (
+        cart_fingerprint(first) != cart_fingerprint(second)
+        or int(first.get("version") or 0) != int(second.get("version") or 0)
+    ):
+        raise RuntimeError("cart changed while preparing a cleanup")
+    return second
+
+
+def _is_exact_test_state(
+    current: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+    product: Mapping[str, Any],
+) -> bool:
+    product_id = str(product["product_id"])
+    baseline_lines = {
+        key: value for key, value in line_signature(baseline) if key != product_id
+    }
+    current_lines = {
+        key: value for key, value in line_signature(current) if key != product_id
+    }
+    if current_lines != baseline_lines:
+        return False
+    test_quantity = quantity(current, product_id)
+    if test_quantity <= 0:
+        return False
+    expected_total = decimal_value(baseline.get("total")) + (
+        test_quantity * decimal_value(product.get("price"))
+    )
+    return decimal_value(current.get("total")) == expected_total
 
 
 def verify(
@@ -92,6 +130,7 @@ def verify(
         "store": "gadis",
         "backend": "gadis_http",
         "retailer_write_performed": False,
+        "cleanup_skipped": False,
         "order_or_payment_attempted": False,
         "secrets_exposed": False,
         "steps": {
@@ -124,6 +163,7 @@ def verify(
     failure_stage: str | None = "preflight"
     failure_type: str | None = None
     write_attempts = 0
+    removal_attempted = False
 
     try:
         status = workflows.account_status("gadis")
@@ -191,10 +231,12 @@ def verify(
         before = require_http_cart(workflows)
         if quantity(before, str(product["product_id"])) > 0:
             write_attempts += 1
+        removal_attempted = True
         final, removal_written = _remove_if_present(
             workflows,
             provider,
             product,
+            baseline=baseline,
             original_total=original_total,
         )
         if quantity(final, str(product["product_id"])) != 0:
@@ -208,18 +250,26 @@ def verify(
     finally:
         cleanup_error: str | None = None
         final_cart: dict[str, Any] | None = None
-        if baseline is not None and product is not None:
+        if baseline is not None and product is not None and not removal_attempted:
+            removal_attempted = True
             try:
                 final_cart, cleanup_written = _remove_if_present(
                     workflows,
                     provider,
                     product,
+                    baseline=baseline,
                     original_total=decimal_value(baseline.get("total")),
                 )
                 if cleanup_written:
                     write_attempts += 1
             except Exception as exc:
                 cleanup_error = type(exc).__name__
+                report["cleanup_skipped"] = True
+        if baseline is not None and product is not None and final_cart is None:
+            try:
+                final_cart = _stable_http_cart(workflows)
+            except Exception as exc:
+                cleanup_error = cleanup_error or type(exc).__name__
         if baseline is not None and final_cart is not None:
             start = cart_fingerprint(baseline)
             end = cart_fingerprint(final_cart)

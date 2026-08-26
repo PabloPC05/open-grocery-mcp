@@ -294,9 +294,11 @@ def should_record_request(request: Any) -> bool:
     )
 
 
-def should_block_request(phase: str, method: str, url: str) -> bool:
+def should_block_request(
+    phase: str, method: str, url: str, body: str = ""
+) -> bool:
     method = method.upper()
-    if DANGEROUS.search(url):
+    if DANGEROUS.search(url) or DANGEROUS.search(body):
         return True
     return phase == "order_submit_probe" and method not in SAFE_METHODS
 
@@ -392,7 +394,10 @@ class LocalCapture:
 
     def route(self, route: Any) -> None:
         request = route.request
-        blocked = should_block_request(self.phase, request.method, request.url)
+        body = request.post_data or ""
+        blocked = should_block_request(
+            self.phase, request.method, request.url, body
+        )
         if blocked:
             with self._lock:
                 self.blocked.append(
@@ -403,7 +408,7 @@ class LocalCapture:
                         "body": request_body_shape(request),
                         "reason": (
                             "dangerous order/payment route"
-                            if DANGEROUS.search(request.url)
+                            if DANGEROUS.search(request.url) or DANGEROUS.search(body)
                             else "all writes are blocked during order_submit_probe"
                         ),
                     }

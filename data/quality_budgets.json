@@ -1,0 +1,11 @@
+{
+  "version": "2026.08.25",
+  "default": {"minimum_score": 0.58, "maximum_uncertain": 2},
+  "baby_food": {"minimum_score": 0.72, "maximum_uncertain": 0},
+  "pet_food": {"minimum_score": 0.72, "maximum_uncertain": 0},
+  "prepared_meal": {"minimum_score": 0.65, "maximum_uncertain": 1},
+  "meat": {"minimum_score": 0.65, "maximum_uncertain": 1},
+  "fish": {"minimum_score": 0.65, "maximum_uncertain": 1},
+  "seafood": {"minimum_score": 0.65, "maximum_uncertain": 1},
+  "detergent": {"minimum_score": 0.65, "maximum_uncertain": 1}
+}

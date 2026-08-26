@@ -72,7 +72,9 @@ class GadisSessionClient:
                 expires = float(row.get("expires", -1))
             except (TypeError, ValueError):
                 expires = -1
-            if not domain.endswith("gadisline.com") or not name or not value:
+            if not (
+                domain == "gadisline.com" or domain.endswith(".gadisline.com")
+            ) or not name or not value:
                 continue
             if expires > 0 and expires <= now:
                 continue
@@ -159,10 +161,11 @@ class GadisSessionClient:
         bearer_available = bool(
             isinstance(token, Mapping) and str(token.get("accessToken") or "").strip()
         )
-        authenticated = bool(user_fields or payload.get("expires"))
+        authenticated = bearer_available
         base.update(
             {
                 "authenticated": authenticated,
+                "cookie_session_present": bool(user_fields or payload.get("expires")),
                 "user_fields": user_fields,
                 "expiry_present": bool(payload.get("expires")),
                 "bearer_token_available": bearer_available,

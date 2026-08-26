@@ -19,11 +19,17 @@ import os
 import re
 import threading
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
+from urllib.parse import quote
 
 import httpx
 
-from open_grocery_mcp.errors import AuthenticationRequired, ProviderError
+from open_grocery_mcp.errors import (
+    AuthenticationRequired,
+    OrderSubmissionDisabled,
+    ProviderError,
+)
 from open_grocery_mcp.models import as_decimal, money
 from open_grocery_mcp.providers.gadis_session import GadisSessionClient
 
@@ -37,6 +43,13 @@ _USER_AGENT = (
     "open-grocery-mcp/0.4 (+https://github.com/PabloPC05/open-grocery-mcp)"
 )
 _BUILD_ID_RE = re.compile(r'"buildId"\s*:\s*"([^"]+)"')
+_PRIVATE_PATH_SEGMENT = re.compile(
+    r"(?i)(/(?:clients?|addresses?|carts?|checkouts?|orders?|payments?|users?|accounts?))/[^/?#]+"
+)
+
+
+class _ConfigRouteUnavailable(ProviderError):
+    """The www wrapper is definitively absent before any retailer write."""
 
 
 class GadisHTTPClient:
@@ -94,7 +107,7 @@ class GadisHTTPClient:
             if not elements:
                 raise ProviderError("Gadis site lookup returned no storefront")
             first = elements[0]
-            site_id = str(first.get("id", "")).strip()
+            site_id = str(self._configured_site_id or first.get("id", "")).strip()
             store_id = str(
                 self._configured_store_id or first.get("default_assortment_store", "")
             ).strip()
@@ -131,6 +144,8 @@ class GadisHTTPClient:
         params: Mapping[str, Any] | None = None,
         json_body: Any = None,
     ) -> Any:
+        method = method.upper()
+        safe_url = _PRIVATE_PATH_SEGMENT.sub(r"\1/<private>", url)
         try:
             response = self._client.request(
                 method,
@@ -140,7 +155,11 @@ class GadisHTTPClient:
                 headers=self._auth_headers(),
             )
         except httpx.HTTPError as exc:
-            raise ProviderError(f"Gadis request failed: {exc}") from exc
+            raise ProviderError(
+                f"Gadis {method} {safe_url} transport failed "
+                f"({type(exc).__name__})",
+                operation=f"{method} {safe_url}",
+            ) from exc
         if response.status_code == 401:
             self._access_token = None
             raise AuthenticationRequired(
@@ -148,14 +167,20 @@ class GadisHTTPClient:
             )
         if response.status_code < 200 or response.status_code >= 300:
             raise ProviderError(
-                f"Gadis {method} {url} returned HTTP {response.status_code}"
+                f"Gadis {method} {safe_url} returned HTTP {response.status_code}",
+                status_code=response.status_code,
+                operation=f"{method} {safe_url}",
             )
         if not response.content:
             return None
         try:
             return response.json()
         except ValueError as exc:
-            raise ProviderError(f"Gadis {url} returned invalid JSON") from exc
+            raise ProviderError(
+                f"Gadis {safe_url} returned invalid JSON",
+                status_code=response.status_code,
+                operation=f"{method} {safe_url}",
+            ) from exc
 
     def status(self) -> dict[str, Any]:
         return self._session.status()
@@ -206,6 +231,7 @@ class GadisHTTPClient:
         *,
         json_body: Mapping[str, Any],
     ) -> Any:
+        method = method.upper()
         try:
             response = self._client.request(
                 method,
@@ -214,20 +240,35 @@ class GadisHTTPClient:
                 headers=self._config_headers(content_type=True),
             )
         except httpx.HTTPError as exc:
-            raise ProviderError(f"Gadis request failed: {exc}") from exc
+            raise ProviderError(
+                f"Gadis {method} {path} transport failed ({type(exc).__name__})",
+                operation=f"{method} {path}",
+            ) from exc
         if response.status_code == 401:
             self._access_token = None
             raise AuthenticationRequired(
                 "Gadis session is expired or invalid; run login_with_browser"
             )
+        if response.status_code in {404, 405}:
+            raise _ConfigRouteUnavailable(
+                f"Gadis {method} {path} is not available",
+                status_code=response.status_code,
+                operation=f"{method} {path}",
+            )
         if response.status_code < 200 or response.status_code >= 300:
             raise ProviderError(
-                f"Gadis {method} {path} returned HTTP {response.status_code}"
+                f"Gadis {method} {path} returned HTTP {response.status_code}",
+                status_code=response.status_code,
+                operation=f"{method} {path}",
             )
         try:
             return response.json()
         except ValueError as exc:
-            raise ProviderError(f"Gadis {path} returned invalid JSON") from exc
+            raise ProviderError(
+                f"Gadis {path} returned invalid JSON",
+                status_code=response.status_code,
+                operation=f"{method} {path}",
+            ) from exc
 
     def read_cart(self) -> dict[str, Any]:
         build_id = self._get_build_id()
@@ -299,14 +340,53 @@ class GadisHTTPClient:
                     "name": str(raw.get("product_name", "")).strip(),
                     "quantity": float(quantity),
                     "line_price": float(as_decimal(raw.get("line_price"))),
+                    "unit_price": float(as_decimal(raw.get("line_price")) / quantity),
+                    "line_total": float(as_decimal(raw.get("line_price"))),
                 }
             )
         total = as_decimal(cart.get("total_cart_price"))
+        line_total = sum(
+            (
+                as_decimal(line.get("line_price"))
+                for line in lines
+            ),
+            Decimal("0"),
+        )
+        product_total = (
+            as_decimal(cart.get("total_product_price"))
+            if "total_product_price" in cart
+            else line_total
+        )
+        if product_total < 0:
+            raise ProviderError("Gadis cart returned an invalid product total")
+        if "costs" in cart:
+            raw_costs = cart.get("costs")
+            if raw_costs is None:
+                costs = Decimal("0")
+            elif isinstance(raw_costs, (Mapping, list, tuple, bool)):
+                raise ProviderError("Gadis cart returned invalid non-product costs")
+            else:
+                try:
+                    costs = Decimal(str(raw_costs).replace(",", ".").strip())
+                except (InvalidOperation, ValueError, AttributeError):
+                    raise ProviderError(
+                        "Gadis cart returned invalid non-product costs"
+                    ) from None
+                if not costs.is_finite():
+                    raise ProviderError("Gadis cart returned invalid non-product costs")
+        else:
+            costs = total - product_total
+        if costs < 0:
+            raise ProviderError("Gadis cart returned invalid non-product costs")
         return {
             "store": "gadis",
             "cart_id": str(cart.get("id", "")).strip() or None,
             "version": GadisHTTPClient._stable_version(cart),
             "products_count": int(cart.get("total_products") or 0),
+            "total_product_price": float(product_total),
+            "total_product_price_text": money(product_total),
+            "non_product_costs": float(costs),
+            "non_product_costs_text": money(costs),
             "total": float(total),
             "total_text": money(total),
             "currency": "EUR",
@@ -365,8 +445,10 @@ class GadisHTTPClient:
             "profile_values_exposed": False,
         }
 
-    def addresses(self, cart_id: str) -> list[dict[str, Any]]:
-        encoded = str(cart_id).strip()
+    def _addresses(
+        self, cart_id: str, *, include_delivery_context: bool
+    ) -> list[dict[str, Any]]:
+        encoded = quote(str(cart_id).strip(), safe="")
         payload = self._request(
             "GET",
             f"{_CART_BASE}/carts/{encoded}/addresses",
@@ -379,15 +461,28 @@ class GadisHTTPClient:
             if not isinstance(row, Mapping):
                 continue
             # Only identifiers are exposed; street/personal values stay local.
-            entry = {
+            entry: dict[str, Any] = {
                 "id": str(row.get("id", "")).strip() or None,
                 "owner": str(row.get("owner", "")).strip() or None,
                 "field_names": sorted(str(key) for key in row),
             }
+            if include_delivery_context:
+                entry["postal_code"] = str(
+                    row.get("postal_code") or row.get("zip_code") or ""
+                ).strip() or None
             result.append(entry)
         return result
 
-    def client_addresses(self) -> list[dict[str, Any]]:
+    def addresses(self, cart_id: str) -> list[dict[str, Any]]:
+        return self._addresses(cart_id, include_delivery_context=False)
+
+    def address_contexts(self, cart_id: str) -> list[dict[str, Any]]:
+        """Local-only address identifiers plus postal routing context."""
+        return self._addresses(cart_id, include_delivery_context=True)
+
+    def _client_addresses(
+        self, *, include_delivery_context: bool
+    ) -> list[dict[str, Any]]:
         """Saved client addresses from the clients microservice (bearer).
 
         Rows expose only identifiers (`id`, `owner`) and field names; street
@@ -410,14 +505,24 @@ class GadisHTTPClient:
         for row in elements:
             if not isinstance(row, Mapping):
                 continue
-            result.append(
-                {
-                    "id": str(row.get("id", "")).strip() or None,
-                    "owner": str(row.get("owner", "")).strip() or None,
-                    "field_names": sorted(str(key) for key in row),
-                }
-            )
+            entry: dict[str, Any] = {
+                "id": str(row.get("id", "")).strip() or None,
+                "owner": str(row.get("owner", "")).strip() or None,
+                "field_names": sorted(str(key) for key in row),
+            }
+            if include_delivery_context:
+                entry["postal_code"] = str(
+                    row.get("postal_code") or row.get("zip_code") or ""
+                ).strip() or None
+            result.append(entry)
         return result
+
+    def client_addresses(self) -> list[dict[str, Any]]:
+        return self._client_addresses(include_delivery_context=False)
+
+    def client_address_contexts(self) -> list[dict[str, Any]]:
+        """Local-only saved address identifiers plus postal routing context."""
+        return self._client_addresses(include_delivery_context=True)
 
     def update_schedule(
         self,
@@ -426,6 +531,9 @@ class GadisHTTPClient:
         *,
         delivery_date: str,
         schedule_range_id: str | int,
+        postal_code: str | None = None,
+        shipping_address_id: str | int | None = None,
+        shipping_address_owner: str | None = None,
     ) -> dict[str, Any]:
         """Attach a delivery slot to the cart (reversible via delete_schedule).
 
@@ -438,27 +546,32 @@ class GadisHTTPClient:
         raw = self.read_cart()
         body: dict[str, Any] = {
             "store_id": str(raw.get("store_id") or store_id or "").strip(),
-            "postal_code": str(raw.get("postal_code") or ""),
+            "postal_code": str(postal_code or raw.get("postal_code") or ""),
             "delivery_type": str(raw.get("delivery_type") or "HOME_DELIVERY"),
             "comments": str(raw.get("comments") or ""),
-            "shipping_address_id": str(raw.get("shipping_address_id") or ""),
-            "shipping_address_owner": str(raw.get("shipping_address_owner") or ""),
+            "shipping_address_id": str(
+                shipping_address_id
+                if shipping_address_id is not None
+                else raw.get("shipping_address_id") or ""
+            ),
+            "shipping_address_owner": str(
+                shipping_address_owner
+                if shipping_address_owner is not None
+                else raw.get("shipping_address_owner") or ""
+            ),
             "delivery_date": str(delivery_date).strip(),
             "schedule_range_id": schedule_range_id,
         }
-        payload = None
         try:
             payload = self._config_request(
                 "PUT",
                 "/api/config/updateCart",
                 json_body=body,
             )
-        except (AuthenticationRequired, ProviderError):
-            payload = None
-        if not isinstance(payload, Mapping):
+        except _ConfigRouteUnavailable:
             payload = self._request(
                 "PUT",
-                f"{_CART_BASE}/carts/{str(cart_id).strip()}/schedule",
+                f"{_CART_BASE}/carts/{quote(str(cart_id).strip(), safe='')}/schedule",
                 json_body={
                     "delivery_date": str(delivery_date).strip(),
                     "schedule_range_id": schedule_range_id,
@@ -476,10 +589,10 @@ class GadisHTTPClient:
                 "/api/config/deleteSchedule",
                 json_body={"summaryCheckout": False},
             )
-        except (AuthenticationRequired, ProviderError):
+        except _ConfigRouteUnavailable:
             payload = self._request(
                 "DELETE",
-                f"{_CART_BASE}/carts/{str(cart_id).strip()}/schedule",
+                f"{_CART_BASE}/carts/{quote(str(cart_id).strip(), safe='')}/schedule",
             )
         if payload is None:
             return None
@@ -489,7 +602,7 @@ class GadisHTTPClient:
             return None
         return self.normalize_cart(payload)
 
-    def create_checkout(
+    def prepare_checkout_summary(
         self,
         cart_id: str,
         store_id: str,
@@ -498,69 +611,100 @@ class GadisHTTPClient:
         shipping_address_owner: str | None = None,
         delivery_date: str,
         schedule_range_id: str | int,
+        postal_code: str | None = None,
         delivery_type: str = "HOME_DELIVERY",
-        terms_and_conditions: bool = True,
     ) -> dict[str, Any]:
-        """Create a checkout session from the reviewed cart.
+        """Prepare the reversible cart context used by the GET checkout page.
 
-        This is the verified contract boundary: it never submits an order and
-        never touches payment, Redsys or 3-D Secure endpoints.
+        Live browser evidence shows that ``summaryCheckout=true`` is sufficient
+        to navigate to the page that renders delivery and card controls.  The
+        separate ``/api/config/checkout`` POST contains payment and terms fields
+        and therefore stays outside this safe boundary.
         """
         body: dict[str, Any] = {
+            "store_id": str(store_id).strip(),
+            "postal_code": "",
+            "delivery_type": str(delivery_type).strip(),
+            "comments": "",
             "shipping_address_id": str(shipping_address_id),
-            "shipping_store_address_id": "",
             "shipping_address_owner": str(shipping_address_owner or ""),
-            "billing_address_id": "",
-            "billing_address_owner": "",
             "delivery_date": str(delivery_date).strip(),
             "schedule_range_id": schedule_range_id,
-            "delivery_type": str(delivery_type).strip(),
-            "payment_method_id": "",
-            "credit_card_id": "new",
-            "payment_url_ok": "",
-            "payment_url_ko": "",
-            "terms_and_conditions": bool(terms_and_conditions),
-            "save_card": False,
-            "phone": "",
-            "observations": "",
-            "payment_address_is_billing": False,
-            "nominative_invoice_selected": False,
-            "use_delivery_address": False,
-            "prefix": "+34",
+            "save_order_time": True,
+            "summaryCheckout": True,
         }
-        del store_id
-        # The session-wrapped www route authenticates with the NextAuth cookies
-        # already proven by the cart mutations; it wraps the same payload.
-        payload = None
-        try:
-            payload = self._config_request(
-                "POST",
-                "/api/config/checkout",
-                json_body={"checkout": body},
-            )
-        except (AuthenticationRequired, ProviderError):
-            payload = None
-        if not isinstance(payload, Mapping) or not payload:
-            payload = self._request(
-                "POST",
-                f"{_CART_BASE}/carts/{str(cart_id).strip()}/checkout",
-                json_body=body,
-            )
+        raw = self.read_cart()
+        body["store_id"] = str(raw.get("store_id") or store_id or "").strip()
+        body["postal_code"] = str(postal_code or raw.get("postal_code") or "")
+        body["delivery_type"] = str(raw.get("delivery_type") or delivery_type)
+        body["comments"] = str(raw.get("comments") or "")
+        payload = self._config_request(
+            "PUT",
+            "/api/config/updateCart",
+            json_body=body,
+        )
         if not isinstance(payload, Mapping):
-            raise ProviderError("Gadis checkout creation returned an invalid response")
-        removed = payload.get("removed_products")
-        return {
-            "store": "gadis",
-            "checkout_present": True,
-            "checkout_id": str(payload.get("id", "")).strip() or None,
-            "total": float(as_decimal(payload.get("total_cart_price"))),
-            "total_text": money(as_decimal(payload.get("total_cart_price"))),
-            "currency": "EUR",
-            "removed_products": removed if isinstance(removed, list) else [],
-            "has_product_price_changes": bool(payload.get("has_product_price_changes")),
-            "order_placed": False,
-            "cart_backend": "gadis_http",
+            raise ProviderError(
+                "Gadis checkout summary preparation returned an invalid response",
+                operation="checkout_summary_prepare",
+            )
+        result = self.normalize_cart(payload)
+        result["summary_prepared"] = True
+        return result
+
+    def restore_cart_context(
+        self,
+        baseline: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Restore a previously reread delivery context after a safe probe."""
+
+        body: dict[str, Any] = {
+            "store_id": str(baseline.get("store_id") or "").strip(),
+            "postal_code": str(baseline.get("postal_code") or ""),
+            "delivery_type": str(
+                baseline.get("delivery_type") or "HOME_DELIVERY"
+            ),
+            "comments": str(baseline.get("comments") or ""),
+            # The storefront treats JSON null as "leave unchanged" here.
+            # Empty strings are its explicit unassigned-cart representation.
+            "shipping_address_id": str(
+                baseline.get("shipping_address_id") or ""
+            ),
+            "shipping_address_owner": str(
+                baseline.get("shipping_address_owner") or ""
+            ),
+            "save_order_time": False,
+            "summaryCheckout": False,
         }
+        if str(baseline.get("delivery_date") or "").strip():
+            body["delivery_date"] = str(baseline.get("delivery_date"))
+        if str(baseline.get("schedule_range_id") or "").strip():
+            body["schedule_range_id"] = baseline.get("schedule_range_id")
+        payload = self._config_request(
+            "PUT",
+            "/api/config/updateCart",
+            json_body=body,
+        )
+        if not isinstance(payload, Mapping):
+            raise ProviderError(
+                "Gadis cart-context restoration returned an invalid response",
+                operation="checkout_context_restore",
+            )
+        return self.normalize_cart(payload)
+
+    def create_checkout(
+        self,
+        cart_id: str,
+        store_id: str,
+        **_: Any,
+    ) -> dict[str, Any]:
+        """Block the payment-bearing retailer POST at the HTTP boundary."""
+
+        del cart_id, store_id
+        raise OrderSubmissionDisabled(
+            "Gadis /api/config/checkout carries payment and terms fields; "
+            "prepare the reversible checkout summary and finish manually"
+        )
 
     def delivery_slots(
         self,
@@ -595,7 +739,7 @@ class GadisHTTPClient:
             params["postal_code"] = effective_postal_code
         payload = self._request(
             "GET",
-            f"{_STORE_BASE}/stores/{selected_store}/calendar",
+            f"{_STORE_BASE}/stores/{quote(str(selected_store), safe='')}/calendar",
             params=params,
         )
         elements = payload.get("elements", []) if isinstance(payload, Mapping) else payload

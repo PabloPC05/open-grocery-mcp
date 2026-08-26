@@ -51,3 +51,84 @@ def test_mercadona_refuses_location_ambiguous_prices() -> None:
     with pytest.raises(LocationRequired):
         provider.search("leche")
     client.close()
+
+
+def test_mercadona_search_page_exposes_exact_total_and_cursor() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["page"] == 0
+        assert body["hitsPerPage"] == 2
+        return httpx.Response(
+            200,
+            json={
+                "hits": [
+                    {
+                        "id": "1",
+                        "display_name": "Harina de trigo",
+                        "price_instructions": {"unit_price": "1"},
+                    }
+                ],
+                "nbHits": 3,
+                "nbPages": 2,
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = MercadonaProvider(client=client, warehouse="mad1")
+
+    page = provider.search_page("harina", page_size=2)
+
+    assert page["total"] == 3
+    assert page["has_next"] is True
+    assert page["next_cursor"] == "1"
+    client.close()
+
+
+def test_mercadona_does_not_call_reference_price_a_promotion() -> None:
+    provider = MercadonaProvider(warehouse="mad1")
+    product = provider._product_from_raw(
+        {
+            "id": "12",
+            "display_name": "Arroz",
+            "price_instructions": {
+                "unit_price": "1.35",
+                "reference_price": "1.35",
+                "reference_format": "kg",
+            },
+        },
+        "mad1",
+    )
+
+    assert product.metadata["promotion"] == {
+        "available": False,
+        "current_price": 1.35,
+        "previous_price": None,
+        "offer_price": None,
+        "source": "not_observed",
+    }
+    provider.close()
+
+
+def test_mercadona_uses_explicit_promotion_fields_only() -> None:
+    provider = MercadonaProvider(warehouse="mad1")
+    product = provider._product_from_raw(
+        {
+            "id": "12",
+            "display_name": "Arroz",
+            "price_instructions": {
+                "unit_price": "1.35",
+                "reference_price": "1.00",
+                "offer_price": "0.99",
+                "previous_price": "1.50",
+            },
+        },
+        "mad1",
+    )
+
+    promotion = product.metadata["promotion"]
+    assert promotion["available"] is True
+    assert promotion["current_price"] == 1.35
+    assert promotion["offer_price"] == 0.99
+    assert promotion["previous_price"] == 1.5
+    assert promotion["source"] == "offer_price_field"
+    provider.close()

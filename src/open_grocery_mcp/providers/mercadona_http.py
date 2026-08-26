@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Mapping
 
 import httpx
@@ -15,6 +16,16 @@ from open_grocery_mcp.providers.mercadona_state import (
 
 
 class MercadonaHTTPMixin:
+
+    _PRIVATE_PATH_SEGMENT = re.compile(
+        r"(?i)(/(?:customers?|addresses?|carts?|checkouts?|orders?|payments?|users?|accounts?))/[^/?#]+"
+    )
+
+    @classmethod
+    def _safe_request_path(cls, path: str) -> str:
+        """Keep endpoint diagnostics useful without exposing private route ids."""
+
+        return cls._PRIVATE_PATH_SEGMENT.sub(r"\1/<private>", path)
 
     def _refresh(self, session: MercadonaSession) -> MercadonaSession:
         if not session.refresh_token:
@@ -43,9 +54,17 @@ class MercadonaHTTPMixin:
 
     def _request(self, method: str, path: str, *, json_body: Any = None, params: Mapping[str, Any] | None = None, warehouse: str | None = None, retry_auth: bool = True) -> tuple[Any, httpx.Response]:
         with self._lock:
+            method = method.upper()
+            safe_path = self._safe_request_path(path)
             session = self._load_session()
-            if not session.access_token_valid and session.refresh_token:
-                session = self._refresh(session)
+            if not session.access_token_valid:
+                if session.refresh_token:
+                    session = self._refresh(session)
+                else:
+                    raise AuthenticationRequired(
+                        'Mercadona access token is expired or has no verifiable expiry; '
+                        'run login_with_browser'
+                    )
             headers = {'Authorization': f'Bearer {session.access_token}', 'Accept': 'application/json'}
             if json_body is not None:
                 headers['Content-Type'] = 'application/json'
@@ -57,23 +76,47 @@ class MercadonaHTTPMixin:
             try:
                 response = self._client.request(method, f'{_BASE_URL}/api{path}', headers=headers, json=json_body, params=params)
             except httpx.HTTPError as exc:
-                raise ProviderError(f'Mercadona request failed: {exc}') from exc
+                raise ProviderError(
+                    f'Mercadona {method} {safe_path} transport failed '
+                    f'({type(exc).__name__})',
+                    operation=f'{method} {safe_path}',
+                ) from exc
             discovered = response.headers.get('x-customer-wh', '').strip()
             if discovered:
                 self._warehouse = discovered
-            if response.status_code == 401 and retry_auth and session.refresh_token:
+            if (
+                response.status_code == 401
+                and retry_auth
+                and session.refresh_token
+                and method in {'GET', 'HEAD', 'OPTIONS'}
+            ):
                 self._refresh(session)
                 return self._request(method, path, json_body=json_body, params=params, warehouse=warehouse, retry_auth=False)
             if response.status_code == 401:
-                raise AuthenticationRequired('Mercadona session is expired or invalid')
+                detail = (
+                    'Mercadona rejected a write with HTTP 401; the mutation was not '
+                    'retried because its remote result may be ambiguous'
+                    if method not in {'GET', 'HEAD', 'OPTIONS'}
+                    else 'Mercadona session is expired or invalid'
+                )
+                raise AuthenticationRequired(detail)
             if response.status_code < 200 or response.status_code >= 300:
-                raise ProviderError(f'Mercadona {method} {path} returned HTTP {response.status_code}')
+                raise ProviderError(
+                    f'Mercadona {method} {safe_path} returned HTTP '
+                    f'{response.status_code}',
+                    status_code=response.status_code,
+                    operation=f'{method} {safe_path}',
+                )
             if not response.content:
                 return ({}, response)
             try:
                 return (response.json(), response)
             except ValueError as exc:
-                raise ProviderError(f'Mercadona {path} returned invalid JSON') from exc
+                raise ProviderError(
+                    f'Mercadona {safe_path} returned invalid JSON',
+                    status_code=response.status_code,
+                    operation=f'{method} {safe_path}',
+                ) from exc
 
     def _customer_id(self) -> str:
         return self._load_session().customer_id

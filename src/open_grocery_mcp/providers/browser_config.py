@@ -107,7 +107,11 @@ GADIS_BROWSER_CONFIG = BrowserStoreConfig(
     base_url="https://www.gadisline.com",
     cart_paths=("/cart", "/carrito", "/cesta", "/checkout/cart"),
     account_paths=("/account", "/mi-cuenta", "/perfil"),
-    checkout_paths=("/checkout", "/finalizar-compra"),
+    checkout_paths=(
+        "/pag/proceso-de-compra/compra-segura",
+        "/checkout",
+        "/finalizar-compra",
+    ),
     checkout_patterns=(
         r"tramitar pedido",
         r"finalizar compra",
@@ -124,7 +128,11 @@ FROIZ_BROWSER_CONFIG = BrowserStoreConfig(
     base_url="https://supermercado.froiz.com",
     cart_paths=("/cart", "/cesta", "/basket", "/checkout/cart"),
     account_paths=("/account", "/mi-cuenta", "/perfil"),
-    checkout_paths=("/checkout", "/finalizar-compra"),
+    checkout_paths=(
+        "/es/pag/proceso-de-compra/checkout",
+        "/checkout",
+        "/finalizar-compra",
+    ),
     cart_patterns=(r"tu cesta", r"cesta", r"carrito", r"mi compra"),
     checkout_patterns=(
         r"tramitar pedido",
@@ -143,6 +151,7 @@ EROSKI_BROWSER_CONFIG = BrowserStoreConfig(
     # The anonymous/user basket lives under the localized login route with a
     # basketType selector (ALI = alimentación).
     cart_paths=(
+        "/es/mycart/?basketType=ALI",
         "/es/login/anonymousbasket/?basketType=ALI",
         "/es/basket",
         "/cesta",
@@ -157,4 +166,14 @@ EROSKI_BROWSER_CONFIG = BrowserStoreConfig(
         r"hacer pedido",
         r"ir al pago",
     ),
+)
+
+
+MERCADONA_BROWSER_CONFIG = BrowserStoreConfig(
+    key="mercadona",
+    label="Mercadona",
+    base_url="https://tienda.mercadona.es",
+    cart_paths=("/cart/", "/cart"),
+    account_paths=("/profile/", "/account/"),
+    checkout_paths=("/checkout/", "/checkout", "/cart/"),
 )

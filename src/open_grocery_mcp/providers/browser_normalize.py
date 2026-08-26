@@ -20,7 +20,9 @@ from open_grocery_mcp.models import as_decimal, money
 _MONEY_RE = re.compile(r"(?<!\d)(\d{1,6}(?:[.,]\d{1,2})?)\s*€", re.I)
 _RESTRICTED_RE = re.compile(
     r"\b(?:cerveza|vino|whisk(?:y|ey)|vodka|ginebra|ron|licor|brandy|cava|sidra|"
-    r"champagne|tabaco|cigarr(?:o|os|illo|illos)|vape|nicotina)\b",
+    r"champagne|tequila|mezcal|vermut|vermouth|bourbon|co(?:ñ|n)ac|aguardiente|"
+    r"pachar(?:a|á)n|sangr(?:i|í)a|alcohol(?:ico|ica|icos|icas)?|tabaco|"
+    r"cigarr(?:o|os|illo|illos)|vape|nicotina)\b",
     re.I,
 )
 

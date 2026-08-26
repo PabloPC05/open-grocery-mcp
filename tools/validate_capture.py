@@ -102,6 +102,21 @@ def main() -> int:
         action="store_true",
         help="require at least one captured response in addition to a request",
     )
+    parser.add_argument(
+        "--require-restored-cart",
+        action="store_true",
+        help="require the probe to have reread and verified the original cart state",
+    )
+    parser.add_argument(
+        "--require-cart-write",
+        action="store_true",
+        help="require a captured non-GET retailer cart endpoint",
+    )
+    parser.add_argument(
+        "--fail-on-reported-errors",
+        action="store_true",
+        help="reject a capture whose probe reported any action errors",
+    )
     args = parser.parse_args()
 
     failures: list[str] = []
@@ -145,6 +160,31 @@ def main() -> int:
         if phases.get(required, 0) <= 0:
             failures.append(f"required phase {required!r} has no captured events")
 
+    if args.require_restored_cart:
+        safety = payload.get("safety")
+        if not isinstance(safety, Mapping) or safety.get(
+            "original_cart_restored"
+        ) is not True:
+            failures.append("original cart restoration was not verified")
+
+    if args.require_cart_write:
+        manifest = payload.get("retailer_endpoint_manifest")
+        has_cart_write = isinstance(manifest, list) and any(
+            isinstance(row, Mapping)
+            and str(row.get("method") or "").upper()
+            in {"POST", "PUT", "PATCH", "DELETE"}
+            and row.get("operation_hint") == "cart"
+            for row in manifest
+        )
+        if not has_cart_write:
+            failures.append("no retailer cart write endpoint was captured")
+
+    reported_errors = payload.get("errors", [])
+    if args.fail_on_reported_errors and (
+        not isinstance(reported_errors, list) or reported_errors
+    ):
+        failures.append("the probe reported action errors")
+
     failures.extend(_sensitive_header_errors(events))
     failures.extend(_email_errors(payload))
 
@@ -160,7 +200,7 @@ def main() -> int:
         if isinstance(payload.get("blocked", []), list)
         else 0,
         "phases": dict(sorted(phases.items())),
-        "reported_errors": payload.get("errors", []),
+        "reported_errors": reported_errors,
         "warnings": warnings,
         "failures": failures,
     }

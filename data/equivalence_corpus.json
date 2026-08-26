@@ -1,0 +1,28 @@
+{
+  "version": "2026.08.25",
+  "privacy": "synthetic descriptions derived from public catalogue wording; no user data",
+  "classification_cases": [
+    {"store": "mercadona", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Harina de trigo de fuerza", "family": "flour"},
+    {"store": "froiz", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Sal marina fina yodada", "family": "salt"},
+    {"store": "gadis", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Salsa de soja con menos sal", "family": "sauce"},
+    {"store": "eroski", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Croquetas de jamón congeladas", "family": "prepared_meal"},
+    {"store": "mercadona", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Detergente ropa líquido", "family": "detergent"},
+    {"store": "froiz", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Lavavajillas a mano", "family": "detergent"},
+    {"store": "gadis", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Lejía lavadora", "family": "bleach"},
+    {"store": "eroski", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Champú anticaspa", "family": "shampoo"},
+    {"store": "mercadona", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Dentífrico blanqueador", "family": "toothpaste"},
+    {"store": "froiz", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Potito pollo +6 meses", "family": "baby_food"},
+    {"store": "gadis", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Pienso gato esterilizado", "family": "pet_food"},
+    {"store": "eroski", "observed_on": "2026-08-25", "source": "public_catalogue", "name": "Lomos de salmón congelados", "family": "salmon"}
+  ],
+  "pair_cases": [
+    {"stores": ["mercadona", "froiz"], "observed_on": "2026-08-25", "left": "Harina de trigo", "right": "Harina de garbanzo", "verdict": "different"},
+    {"stores": ["gadis", "eroski"], "observed_on": "2026-08-25", "left": "Sal fina", "right": "Sal gruesa", "verdict": "different"},
+    {"stores": ["froiz", "eroski"], "observed_on": "2026-08-25", "left": "Croquetas de jamón", "right": "Croquetas de bacalao", "verdict": "different"},
+    {"stores": ["mercadona", "gadis"], "observed_on": "2026-08-25", "left": "Detergente ropa", "right": "Lavavajillas a mano", "verdict": "different"},
+    {"stores": ["eroski", "mercadona"], "observed_on": "2026-08-25", "left": "Champú hidratante", "right": "Gel de ducha hidratante", "verdict": "different"},
+    {"stores": ["gadis", "froiz"], "observed_on": "2026-08-25", "left": "Comida perro adulto", "right": "Comida gato adulto", "verdict": "different"},
+    {"stores": ["mercadona", "eroski"], "observed_on": "2026-08-25", "left": "Pizza jamón y queso", "right": "Pizza jamón y queso", "verdict": "equivalent_or_compatible"},
+    {"stores": ["froiz", "gadis"], "observed_on": "2026-08-25", "left": "Pan integral de centeno", "right": "Pan integral de centeno", "verdict": "equivalent_or_compatible"}
+  ]
+}

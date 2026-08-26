@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture sanitized Gadis/Froiz HTTP contracts without submitting an order."""
+"""Capture sanitized retailer HTTP contracts without submitting an order."""
 from __future__ import annotations
 
 import argparse
@@ -81,8 +81,16 @@ class ContractProbe(Probe):
         if "javascript" not in content_type and not path.endswith((".js", ".mjs")):
             return
         host = (urlsplit(response.url).hostname or "").casefold()
-        suffix = "gadisline.com" if self.spec.key == "gadis" else "froiz.com"
-        if not (host == suffix or host.endswith("." + suffix)):
+        suffixes = {
+            "gadis": ("gadisline.com",),
+            "froiz": ("froiz.com",),
+            "eroski": ("eroski.es",),
+            "mercadona": ("mercadona.es", "mercadona.com"),
+        }.get(self.spec.key, ())
+        if not any(
+            host == suffix or host.endswith("." + suffix)
+            for suffix in suffixes
+        ):
             return
         source = safe_url(response.url)
         if source in self._scanned_bundles or len(self._scanned_bundles) >= 80:
@@ -91,6 +99,13 @@ class ContractProbe(Probe):
         try:
             candidates = endpoint_literals(response.text(), response.url)
         except Exception as exc:
+            message = str(exc).casefold()
+            if "getresponsebody" in message or "response body is not available" in message:
+                self.skip(
+                    "bundle_scan",
+                    "bundle response body became unavailable after navigation",
+                )
+                return
             self.record_error("bundle_scan", exc)
             return
         if candidates:
@@ -118,7 +133,7 @@ class ContractProbe(Probe):
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Capture a value-free Gadis/Froiz HTTP contract. Final order and "
+            "Capture a value-free retailer HTTP contract. Final order and "
             "payment requests are blocked before leaving the browser."
         )
     )

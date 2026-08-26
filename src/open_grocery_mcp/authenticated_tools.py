@@ -94,6 +94,51 @@ def register_authenticated_tools(mcp, workflows):
         return workflows.get_checkout(store, checkout_id)
 
     @mcp.tool()
+    def prepare_human_handoff(
+        store: str,
+        max_total: float,
+        checkout_id: str | None = None,
+        address_id: str | None = None,
+        slot_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Revalidate the final safe boundary without opening a browser.
+
+        Mercadona/Gadis require a completed checkout id. Froiz/Eroski stop at
+        a verified cart because no separate pre-order checkout is available.
+        This tool never changes retailer state or submits an order.
+        """
+        return workflows.prepare_human_handoff(
+            store=store,
+            max_total=max_total,
+            checkout_id=checkout_id,
+            address_id=address_id,
+            slot_id=slot_id,
+        )
+
+    @mcp.tool()
+    def open_human_review(
+        store: str,
+        max_total: float,
+        checkout_id: str | None = None,
+        address_id: str | None = None,
+        slot_id: str | None = None,
+        timeout_seconds: int = 300,
+    ) -> dict[str, Any]:
+        """Open the authenticated cart/checkout for the human's final review.
+
+        The MCP revalidates total and delivery first, navigates only with GET,
+        performs no clicks and never observes or certifies an order outcome.
+        """
+        return workflows.open_human_review(
+            store=store,
+            max_total=max_total,
+            checkout_id=checkout_id,
+            address_id=address_id,
+            slot_id=slot_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @mcp.tool()
     def prepare_delivery_selection(store: str, checkout_id: str, address_id: str, slot_id: str, max_total: float) -> dict[str, Any]:
         """Preview attaching an address and delivery slot to a checkout."""
         return workflows.prepare_delivery_selection(store=store, checkout_id=checkout_id, address_id=address_id, slot_id=slot_id, max_total=max_total)

@@ -14,11 +14,25 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Iterable
 
+from open_grocery_mcp.equivalence import assess_query_candidate
 from open_grocery_mcp.models import Match, Product
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 _QUANTITY_RE = re.compile(
-    r"(?P<value>\d+(?:[.,]\d+)?)\s*(?P<unit>kg|g|l|ml|cl|ud(?:s)?|u|unidades?|unidad)\b",
+    r"(?P<value>\d+(?:[.,]\d+)?)\s*"
+    r"(?P<unit>kg|kilos?|g|gramos?|l|litros?|ml|cl|ud(?:s)?|u|unidades?|"
+    r"unidad|rollos?|dosis|capsulas?|lavados?|sobres?|cacitos?)\b",
+    re.IGNORECASE,
+)
+_MULTIPACK_RE = re.compile(
+    r"(?P<count>\d+)\s*[x×]\s*(?P<value>\d+(?:[.,]\d+)?)\s*"
+    r"(?P<unit>kg|g|l|ml|cl)\b",
+    re.IGNORECASE,
+)
+_BONUS_COUNT_RE = re.compile(
+    r"(?P<paid>\d+)\s*\+\s*(?P<bonus>\d+)\s*"
+    r"(?:ud(?:s)?|u|unidades?|unidad|rollos?|dosis|capsulas?|lavados?|"
+    r"sobres?|cacitos?)\b",
     re.IGNORECASE,
 )
 _STOPWORDS = {
@@ -59,16 +73,37 @@ def tokens(value: str) -> tuple[str, ...]:
 
 
 def parse_quantity(value: str) -> ParsedQuantity | None:
-    match = _QUANTITY_RE.search(normalize_text(value))
+    normalized = normalize_text(value)
+    multipack = _MULTIPACK_RE.search(normalized)
+    if multipack:
+        count = Decimal(multipack.group("count"))
+        amount = Decimal(multipack.group("value").replace(",", ".")) * count
+        unit = multipack.group("unit").lower()
+        if unit == "kg":
+            return ParsedQuantity("mass", amount * 1000)
+        if unit == "g":
+            return ParsedQuantity("mass", amount)
+        if unit == "l":
+            return ParsedQuantity("volume", amount * 1000)
+        if unit == "cl":
+            return ParsedQuantity("volume", amount * 10)
+        return ParsedQuantity("volume", amount)
+    bonus = _BONUS_COUNT_RE.search(normalized)
+    if bonus:
+        return ParsedQuantity(
+            "count",
+            Decimal(bonus.group("paid")) + Decimal(bonus.group("bonus")),
+        )
+    match = _QUANTITY_RE.search(normalized)
     if not match:
         return None
     amount = Decimal(match.group("value").replace(",", "."))
     unit = match.group("unit").lower()
-    if unit == "kg":
+    if unit in {"kg", "kilo", "kilos"}:
         return ParsedQuantity("mass", amount * 1000)
-    if unit == "g":
+    if unit in {"g", "gramo", "gramos"}:
         return ParsedQuantity("mass", amount)
-    if unit == "l":
+    if unit in {"l", "litro", "litros"}:
         return ParsedQuantity("volume", amount * 1000)
     if unit == "cl":
         return ParsedQuantity("volume", amount * 10)
@@ -101,6 +136,17 @@ def score_product(query: str, product: Product, *, position: int = 0) -> tuple[f
     precision = len(intersection) / len(product_tokens)
     score = 0.72 * coverage + 0.18 * precision
     rationale: list[str] = [f"token coverage {coverage:.0%}"]
+
+    semantic = assess_query_candidate(query, product)
+    if semantic["verdict"] == "different":
+        conflicts = ", ".join(semantic["conflicts"]) or "product family"
+        return 0.0, tuple(rationale + [f"semantic conflict: {conflicts}"])
+    if semantic["verdict"] == "equivalent":
+        score += 0.08
+        rationale.append("semantic family and observed variants agree")
+    elif semantic["verdict"] == "compatible":
+        score += 0.03
+        rationale.append("semantic family is compatible; some variants are unspecified")
 
     normalized_query = normalize_text(query).strip()
     normalized_name = normalize_text(product.name).strip()

@@ -5,9 +5,10 @@ import json
 import os
 import re
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Page, Request, Response, Route, sync_playwright
 
@@ -19,6 +20,7 @@ from .common import (
     click_words,
     first_visible,
     safe_headers,
+    safe_message,
     safe_url,
     shape,
 )
@@ -38,17 +40,21 @@ class Probe:
         self.blocked: list[dict[str, Any]] = []
         self.errors: list[dict[str, str]] = []
         self.skipped: list[dict[str, str]] = []
+        self.original_quantity: int | None = None
+        self.last_verified_quantity: int | None = None
+        self.restoration_verified = False
         # Product discovery performs live catalogue I/O. It must happen inside
         # run(), after diagnostics have been initialized, so a catalogue outage
         # cannot prevent a useful capture report from being written.
         self.product: dict[str, Any] | None = None
+        self._warehouse: str | None = None
 
     def record_error(self, phase: str, exc: BaseException) -> None:
         self.errors.append(
             {
                 "phase": phase,
                 "type": type(exc).__name__,
-                "message": str(exc)[:800],
+                "message": safe_message(str(exc)),
             }
         )
 
@@ -82,15 +88,23 @@ class Probe:
 
     def route(self, route: Route, request: Request) -> None:
         body = request.post_data or ""
-        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and (
-            DANGEROUS.search(request.url) or DANGEROUS.search(body)
-        ):
+        dangerous = DANGEROUS.search(request.url) or DANGEROUS.search(body)
+        order_probe_write = self.phase == "order_submit_probe" and request.method not in {
+            "GET",
+            "HEAD",
+            "OPTIONS",
+        }
+        if dangerous or order_probe_write:
             self.blocked.append(
                 {
                     "phase": self.phase,
                     "method": request.method,
                     "url": safe_url(request.url),
-                    "reason": "potential order/payment request",
+                    "reason": (
+                        "all writes are blocked during order_submit_probe"
+                        if order_probe_write and not dangerous
+                        else "potential order/payment request"
+                    ),
                 }
             )
             route.abort("blockedbyclient")
@@ -179,6 +193,9 @@ class Probe:
 
     def discover_product(self) -> None:
         self.product = choose_product(self.spec.key)
+        if self.spec.key == "mercadona" and self.product:
+            warehouse = str(self.product.pop("_warehouse", "")).strip()
+            self._warehouse = warehouse or None
 
     def _state_path(self) -> Path:
         configured = os.getenv(f"OPEN_GROCERY_{self.spec.key.upper()}_STATE_PATH")
@@ -188,6 +205,17 @@ class Probe:
             os.getenv("OPEN_GROCERY_STATE_DIR", "~/.open-grocery-mcp")
         ).expanduser()
         return root / self.spec.key / "storage_state.json"
+
+    def _setup_page(self, page: Page) -> None:
+        """Attach listeners before a page's first navigation.
+
+        Mercadona may open a new tab for account/session flows.  Registering
+        the context-level listener before bootstrap keeps those requests in
+        the same sanitized report instead of silently losing them.
+        """
+        page.set_default_timeout(15000)
+        page.on("request", self.on_request)
+        page.on("response", self.on_response)
 
     def login(self, page: Page) -> None:
         if self.mode != "authenticated":
@@ -327,23 +355,107 @@ class Probe:
         target.click()
         page.wait_for_timeout(700)
 
+    def product_quantity(self, page: Page) -> int:
+        """Read the probe product quantity without changing retailer state."""
+        row = self.row(page)
+        if row is None:
+            return 0
+        field = first_visible(
+            row.locator(
+                "input[type=number],input[name*='quantity' i],"
+                "input[name*='cantidad' i]"
+            )
+        )
+        if field is None:
+            raise RuntimeError(
+                "existing probe product has no unambiguous quantity control"
+            )
+        try:
+            quantity = Decimal(str(field.input_value()).replace(",", ".").strip())
+        except (InvalidOperation, ValueError, AttributeError):
+            raise RuntimeError("probe product quantity could not be read safely") from None
+        if (
+            not quantity.is_finite()
+            or quantity < 0
+            or quantity > 1000
+            or quantity != quantity.to_integral_value()
+        ):
+            raise RuntimeError("probe product quantity is outside safe whole units")
+        return int(quantity)
+
+    def snapshot_cart(self, page: Page) -> None:
+        self.goto_cart(page)
+        self.original_quantity = self.product_quantity(page)
+        self.last_verified_quantity = self.original_quantity
+
+    def _expect_quantity(self, page: Page, expected: int) -> None:
+        observed = self.product_quantity(page)
+        if observed != expected:
+            raise RuntimeError(
+                f"probe product quantity is {observed}, expected {expected}"
+            )
+        self.last_verified_quantity = observed
+
+    def _read_after_add(self, page: Page) -> None:
+        if self.original_quantity is None:
+            raise RuntimeError("cart add was not preceded by a safe snapshot")
+        self.goto_cart(page)
+        self._expect_quantity(page, self.original_quantity + 1)
+
+    def _set_and_verify_quantity(self, page: Page, value: int) -> None:
+        self.quantity(page, value)
+        self.goto_cart(page)
+        self._expect_quantity(page, value)
+
     def checkout(self, page: Page) -> None:
         self.goto_cart(page)
-        if not click_words(page, self.spec.checkout_words):
-            target = first_visible(
-                page.locator(
-                    "a[href*='checkout' i],button[data-testid*='checkout' i]"
-                )
+        # Only follow a navigational link. Labels such as "tramitar pedido"
+        # are not safe enough for a generic probe because some storefronts
+        # bind them directly to the order-creation request.
+        target = first_visible(
+            page.locator(
+                "a[href*='checkout' i],a[href*='proceso-de-compra' i]"
             )
-            if target is None:
-                raise RuntimeError("checkout control not found")
-            target.click()
+        )
+        if target is None:
+            raise RuntimeError("safe checkout navigation link not found")
+        href = str(target.get_attribute("href") or "").strip()
+        destination = urljoin(page.url or self.spec.base_url, href)
+        destination_parts = urlsplit(destination)
+        base_parts = urlsplit(self.spec.base_url)
+        if (
+            not href
+            or destination_parts.scheme not in {"http", "https"}
+            or destination_parts.hostname != base_parts.hostname
+            or DANGEROUS.search(destination)
+        ):
+            raise RuntimeError("checkout link did not resolve to a safe retailer URL")
+        page.goto(destination, wait_until="domcontentloaded")
         page.wait_for_timeout(1200)
 
     def cleanup(self, page: Page) -> None:
         self.goto_cart(page)
+        if self.original_quantity is None or self.last_verified_quantity is None:
+            raise RuntimeError("cart mutation was not preceded by a safe snapshot")
+        current_quantity = self.product_quantity(page)
+        if current_quantity != self.last_verified_quantity:
+            raise RuntimeError(
+                "probe product changed since the last verified read; automatic "
+                "restoration was refused"
+            )
+        if current_quantity == self.original_quantity:
+            self.restoration_verified = True
+            return
+        if self.original_quantity > 0:
+            self.quantity(page, self.original_quantity)
+            self.goto_cart(page)
+            if self.product_quantity(page) != self.original_quantity:
+                raise RuntimeError("original cart quantity was not restored")
+            self.restoration_verified = True
+            return
         row = self.row(page)
         if row is None:
+            self.restoration_verified = True
             return
         pattern = re.compile(
             "(?:" + "|".join(re.escape(item) for item in self.spec.remove_words) + ")",
@@ -364,8 +476,18 @@ class Probe:
         if target:
             target.click()
             page.wait_for_timeout(600)
+        self.goto_cart(page)
+        if self.product_quantity(page) != 0:
+            raise RuntimeError("probe product removal was not verified")
+        self.restoration_verified = True
 
     def _write_report(self) -> None:
+        product = None
+        if self.product is not None:
+            product = {
+                **self.product,
+                "url": safe_url(str(self.product.get("url") or "")),
+            }
         self.output.write_text(
             json.dumps(
                 {
@@ -373,7 +495,7 @@ class Probe:
                     "store": self.spec.key,
                     "mode": self.mode,
                     "captured_at": now(),
-                    "product": self.product,
+                    "product": product,
                     "events": self.events,
                     "blocked": self.blocked,
                     "errors": self.errors,
@@ -382,6 +504,7 @@ class Probe:
                         "order_clicked": False,
                         "credentials_recorded": False,
                         "values_sanitized": True,
+                        "original_cart_restored": self.restoration_verified,
                     },
                 },
                 indent=2,
@@ -395,12 +518,14 @@ class Probe:
         self,
         phase: str,
         action: Callable[[], Any],
-    ) -> None:
+    ) -> bool:
         self.phase = phase
         try:
             action()
         except Exception as exc:
             self.record_error(phase, exc)
+            return False
+        return True
 
     def run(self) -> int:
         self.output.parent.mkdir(parents=True, exist_ok=True)
@@ -416,6 +541,10 @@ class Probe:
                         "locale": "es-ES",
                         "viewport": {"width": 1440, "height": 1000},
                     }
+                    if self.spec.key == "mercadona" and self._warehouse:
+                        context_args["extra_http_headers"] = {
+                            "x-customer-wh": self._warehouse,
+                        }
                     if self.mode == "authenticated":
                         state_path = self._state_path()
                         if state_path.exists():
@@ -423,9 +552,8 @@ class Probe:
                     context = browser.new_context(**context_args)
                     context.route("**/*", self.route)
                     page = context.new_page()
-                    page.set_default_timeout(15000)
-                    page.on("request", self.on_request)
-                    page.on("response", self.on_response)
+                    self._setup_page(page)
+                    context.on("page", self._setup_page)
 
                     self._run_action(
                         "bootstrap",
@@ -435,9 +563,9 @@ class Probe:
                         ),
                     )
                     self._run_action("login", lambda: self.login(page))
-                    self._run_action("cart_initial", lambda: self.goto_cart(page))
+                    self._run_action("cart_initial", lambda: self.snapshot_cart(page))
 
-                    if self.product is None:
+                    if self.product is None or self.original_quantity is None:
                         for phase in (
                             "add",
                             "cart_after_add",
@@ -448,23 +576,52 @@ class Probe:
                         ):
                             self.skip(
                                 phase,
-                                "diagnostic product discovery failed; bootstrap and cart traffic were still captured",
+                                "diagnostic product discovery or safe cart snapshot failed; "
+                                "bootstrap and cart traffic were still captured",
                             )
                     else:
-                        self._run_action("add", lambda: self.add(page))
-                        self._run_action(
+                        add_ok = self._run_action("add", lambda: self.add(page))
+                        add_verified = add_ok and self._run_action(
                             "cart_after_add",
-                            lambda: self.goto_cart(page),
+                            lambda: self._read_after_add(page),
                         )
-                        self._run_action(
-                            "quantity_2",
-                            lambda: self.quantity(page, 2),
-                        )
-                        self._run_action(
-                            "quantity_1",
-                            lambda: self.quantity(page, 1),
-                        )
-                        self._run_action("checkout", lambda: self.checkout(page))
+                        if add_verified:
+                            second_quantity = self.original_quantity + 2
+                            first_quantity = self.original_quantity + 1
+                            quantity_2_ok = self._run_action(
+                                "quantity_2",
+                                lambda: self._set_and_verify_quantity(
+                                    page, second_quantity
+                                ),
+                            )
+                            if quantity_2_ok:
+                                quantity_1_ok = self._run_action(
+                                    "quantity_1",
+                                    lambda: self._set_and_verify_quantity(
+                                        page, first_quantity
+                                    ),
+                                )
+                            else:
+                                quantity_1_ok = False
+                                self.skip(
+                                    "quantity_1",
+                                    "the preceding quantity mutation was not verified",
+                                )
+                            if quantity_1_ok:
+                                self._run_action(
+                                    "checkout", lambda: self.checkout(page)
+                                )
+                            else:
+                                self.skip(
+                                    "checkout",
+                                    "cart mutations were not fully verified",
+                                )
+                        else:
+                            for phase in ("quantity_2", "quantity_1", "checkout"):
+                                self.skip(
+                                    phase,
+                                    "the add mutation was not verified",
+                                )
                         self._run_action("cleanup", lambda: self.cleanup(page))
                 finally:
                     browser.close()

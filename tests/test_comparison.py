@@ -1,6 +1,9 @@
 from decimal import Decimal
 
+import pytest
+
 from open_grocery_mcp.comparison import compare_baskets, parse_basket, price_basket
+from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.models import Product, StoreInfo
 from open_grocery_mcp.providers.base import GroceryProvider
 from open_grocery_mcp.registry import ProviderRegistry
@@ -51,6 +54,12 @@ def test_price_basket_multiplies_requested_quantity() -> None:
     assert result["total_text"] == "3.30"
     assert result["complete"] is True
     assert result["checkout_eligible"] is None
+
+
+@pytest.mark.parametrize("quantity", ["not-a-number", "NaN", True])
+def test_parse_basket_rejects_invalid_quantities(quantity) -> None:
+    with pytest.raises(InvalidRequest, match="finite number"):
+        parse_basket([{"query": "leche", "quantity": quantity}])
 
 
 def test_price_basket_includes_verified_delivery_policy() -> None:
@@ -176,3 +185,31 @@ def test_optional_missing_item_does_not_make_basket_incomplete() -> None:
     result = price_basket(provider, items)
     assert result["complete"] is True
     assert result["coverage"] == 0
+
+
+def test_price_basket_applies_explicit_quantity_promotion() -> None:
+    promoted = Product(
+        store="alpha",
+        id="1",
+        name="Leche entera",
+        price=Decimal("1.00"),
+        metadata={
+            "promotions": [
+                {
+                    "type": "bundle_price",
+                    "required_quantity": 3,
+                    "bundle_price": 2,
+                }
+            ]
+        },
+    )
+    provider = NoDeliveryProvider("alpha", {"leche": [promoted]})
+
+    result = price_basket(
+        provider,
+        parse_basket([{"query": "leche", "quantity": 4}]),
+    )
+
+    assert result["total_text"] == "3.00"
+    assert result["details"][0]["promotion_applied"] is True
+    assert result["details"][0]["promotion_pricing"]["savings_text"] == "1.00"

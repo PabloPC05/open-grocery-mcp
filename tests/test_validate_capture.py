@@ -104,3 +104,99 @@ def test_validator_rejects_unredacted_sensitive_header(tmp_path: Path) -> None:
     assert result.returncode == 1
     summary = json.loads(result.stdout)
     assert any("was not redacted" in item for item in summary["failures"])
+
+
+def test_validator_requires_verified_cart_restoration_when_requested(
+    tmp_path: Path,
+) -> None:
+    capture = tmp_path / "mutation.json"
+    capture.write_text(
+        json.dumps(
+            {
+                "store": "froiz",
+                "events": [
+                    {
+                        "kind": "request",
+                        "phase": "cleanup",
+                        "method": "DELETE",
+                        "url": "https://example.invalid/api/cart/<id>",
+                        "headers": {},
+                    }
+                ],
+                "safety": {"original_cart_restored": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    failed = run_validator(capture, "--require-restored-cart")
+    assert failed.returncode == 1
+    assert "original cart restoration was not verified" in json.loads(
+        failed.stdout
+    )["failures"]
+
+    payload = json.loads(capture.read_text(encoding="utf-8"))
+    payload["safety"]["original_cart_restored"] = True
+    capture.write_text(json.dumps(payload), encoding="utf-8")
+    passed = run_validator(capture, "--require-restored-cart")
+    assert passed.returncode == 0
+
+
+def test_validator_requires_an_observed_retailer_cart_write(tmp_path: Path) -> None:
+    capture = tmp_path / "cart-write.json"
+    payload = {
+        "store": "froiz",
+        "events": [
+            {
+                "kind": "request",
+                "phase": "add",
+                "method": "GET",
+                "url": "https://supermercado.froiz.com/cart",
+                "headers": {},
+            }
+        ],
+        "retailer_endpoint_manifest": [
+            {"method": "GET", "operation_hint": "cart"}
+        ],
+    }
+    capture.write_text(json.dumps(payload), encoding="utf-8")
+
+    failed = run_validator(capture, "--require-cart-write")
+    assert failed.returncode == 1
+    assert "no retailer cart write endpoint was captured" in json.loads(
+        failed.stdout
+    )["failures"]
+
+    payload["retailer_endpoint_manifest"].append(
+        {"method": "PUT", "operation_hint": "cart"}
+    )
+    capture.write_text(json.dumps(payload), encoding="utf-8")
+    passed = run_validator(capture, "--require-cart-write")
+    assert passed.returncode == 0
+
+
+def test_validator_can_fail_on_probe_errors(tmp_path: Path) -> None:
+    capture = tmp_path / "errors.json"
+    capture.write_text(
+        json.dumps(
+            {
+                "store": "froiz",
+                "events": [
+                    {
+                        "kind": "request",
+                        "phase": "cart_initial",
+                        "method": "GET",
+                        "url": "https://supermercado.froiz.com/cart",
+                        "headers": {},
+                    }
+                ],
+                "errors": [{"phase": "add", "message": "failed"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = run_validator(capture, "--fail-on-reported-errors")
+    assert result.returncode == 1
+    assert "the probe reported action errors" in json.loads(result.stdout)[
+        "failures"
+    ]

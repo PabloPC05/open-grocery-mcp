@@ -11,6 +11,7 @@ from open_grocery_mcp.confirmations import ConfirmationStore
 from open_grocery_mcp.errors import (
     InvalidRequest,
     OrderApprovalRequired,
+    OrderSubmissionDisabled,
     RetailerWritesDisabled,
     UnsupportedOperation,
 )
@@ -19,6 +20,7 @@ from open_grocery_mcp.providers.base import (
     AuthenticatedCartProvider,
     CheckoutProvider,
     DeliveryProvider,
+    HumanHandoffProvider,
 )
 from open_grocery_mcp.providers.browser_normalize import is_restricted_product, sanitize_url
 
@@ -45,6 +47,14 @@ def _require_order_approval(approval_code: str) -> None:
         raise OrderApprovalRequired("local order approval code is incorrect")
 
 
+def _require_order_submission_enabled() -> None:
+    if not _enabled("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION"):
+        raise OrderSubmissionDisabled(
+            "order submission is disabled; set OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=1 "
+            "only on the user's own local MCP process"
+        )
+
+
 class WorkflowBase:
     """Shared workflow dependencies and policy checks."""
 
@@ -55,26 +65,67 @@ class WorkflowBase:
 
     def _cart_provider(self, store: str) -> AuthenticatedCartProvider:
         provider = self.registry.get(store)
-        if not isinstance(provider, AuthenticatedCartProvider):
+        if (
+            "real_cart" not in provider.info.capabilities
+            or not isinstance(provider, AuthenticatedCartProvider)
+        ):
             raise UnsupportedOperation(f"{provider.info.label} has no authenticated cart support")
         return provider
 
     def _delivery_provider(self, store: str) -> DeliveryProvider:
         provider = self.registry.get(store)
-        if not isinstance(provider, DeliveryProvider):
+        if (
+            "delivery" not in provider.info.capabilities
+            or not isinstance(provider, DeliveryProvider)
+        ):
             raise UnsupportedOperation(f"{provider.info.label} has no delivery-slot support")
         return provider
 
     def _checkout_provider(self, store: str) -> CheckoutProvider:
         provider = self.registry.get(store)
-        if not isinstance(provider, CheckoutProvider):
+        if (
+            "checkout" not in provider.info.capabilities
+            or not isinstance(provider, CheckoutProvider)
+        ):
             raise UnsupportedOperation(f"{provider.info.label} has no checkout support")
+        return provider
+
+    def _handoff_provider(self, store: str) -> HumanHandoffProvider:
+        provider = self.registry.get(store)
+        if (
+            "human_handoff" not in provider.info.capabilities
+            or not isinstance(provider, HumanHandoffProvider)
+        ):
+            raise UnsupportedOperation(
+                f"{provider.info.label} has no visible human handoff support"
+            )
         return provider
 
     @staticmethod
     def _public_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
-        private = {"desired_lines", "previous_lines", "cart_payload"}
-        return {key: deepcopy(value) for key, value in plan.items() if key not in private}
+        private = {
+            "desired_items",
+            "desired_lines",
+            "previous_items",
+            "previous_lines",
+            "cart_payload",
+        }
+
+        def public_value(value: Any, *, key: str = "") -> Any:
+            if isinstance(value, Mapping):
+                return {
+                    str(child_key): public_value(child_value, key=str(child_key))
+                    for child_key, child_value in value.items()
+                    if str(child_key) not in private
+                    and not str(child_key).startswith("_")
+                }
+            if isinstance(value, list):
+                return [public_value(item) for item in value]
+            if key.casefold().endswith("url"):
+                return sanitize_url(value)
+            return deepcopy(value)
+
+        return public_value(plan)
 
     @staticmethod
     def _draft_changes(draft: Mapping[str, Any], store: str) -> list[dict[str, Any]]:
@@ -97,7 +148,11 @@ class WorkflowBase:
             product_id = str(product.get("id", "")).strip()
             name = str(product.get("name", "")).strip()
             category = str(product.get("category", "")).strip()
-            quantity = as_decimal(request.get("quantity"), default="1")
+            quantity = as_decimal(request.get("quantity", 1))
+            if quantity <= 0:
+                raise InvalidRequest(
+                    f"draft contains an invalid quantity for {name or product_id!r}"
+                )
             unit_price = as_decimal(product.get("price"))
             url = sanitize_url(product.get("url"))
             if is_restricted_product(name, category):

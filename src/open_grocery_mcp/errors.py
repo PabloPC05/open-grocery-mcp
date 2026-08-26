@@ -22,6 +22,17 @@ class UnsupportedOperation(OpenGroceryError):
 class ProviderError(OpenGroceryError):
     """A retailer endpoint returned an unexpected response."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        operation: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.operation = operation
+
 
 class LocationRequired(OpenGroceryError):
     """A provider needs a location before it can return honest prices."""

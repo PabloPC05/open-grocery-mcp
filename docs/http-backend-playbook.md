@@ -4,7 +4,9 @@ Este documento resume, paso a paso, el método que se siguió para llevar a
 Gadis de un backend 100 % Playwright al actual híbrido (HTTP para sesión,
 carrito, mutaciones, franjas y creación de checkout; navegador solo para
 login, cantidades fraccionarias y casos raros). Sirve como receta replicable
-para cualquier otro supermercado (Froiz es el siguiente candidato).
+para cualquier otro supermercado. Froiz ya dispone de cliente HTTP para
+carrito y entrega; Eroski conserva navegador donde su contrato Tapestry no
+ofrece una transición HTTP segura y reproducible.
 
 La regla de oro: **derivar el contrato desde evidencia real y sanitizada,
 implementar fail-closed, probar con mocks y verificar en vivo solo lo
@@ -44,12 +46,19 @@ python .\tools\capture_http_contract.py `
 
 python .\tools\validate_capture.py `
   .\local-captures\<store>-auth.json `
-  --minimum-events 10 --require-response
+  --minimum-events 10 `
+  --require-response `
+  --require-cart-write `
+  --require-restored-cart `
+  --fail-on-reported-errors
 ```
 
 El probe registra peticiones/respuestas con `shape()`: claves JSON y tipos,
 valores privados sustituidos por `<redacted>`/`<id>`. Las rutas de pedido/pago
 que encajan con `DANGEROUS` se abortan antes de salir del navegador.
+Los tres últimos requisitos son obligatorios para afirmar que una mutación
+reversible quedó validada; una secuencia visual verde sin un write HTTP
+observable se considera una captura fallida.
 
 Para flujos profundos (checkout) existe una variante extensible:
 `tools/capture_gadis_delivery_contract.py`, que añade fases
@@ -126,8 +135,9 @@ Reglas fail-closed innegociables (ver `docs/provider-contract.md`):
 - tope de gasto verificado tras escribir;
 - rollback reversible si la fase posterior falla
   (`_create_http_checkout`: schedule→create→`delete_schedule` en except);
-- creación de checkout y envío de pedido permanecen separados; no existe
-  ningún método que llame a `/orders`.
+- creación de checkout y envío de pedido permanecen separados; el adaptador
+  de checkout seguro no llama a `/orders`. Los métodos de pedido final son
+  independientes, experimentales y quedan apagados durante pruebas y capturas.
 
 ## Fase 5 · Tests con mocks
 
@@ -137,7 +147,8 @@ Patrones ya usados en `tests/test_gadis_http.py` y `tests/test_gadis_account.py`
   afirmando path, cabecera Authorization y cuerpo exacto.
 - Fakes a nivel mixin para simular timestamp volátil, cambio concurrente,
   fallo de servidor y rollback.
-- Un test que afirma que **ninguna** petición toca `/orders`.
+- Un test que afirma que el flujo de carrito/checkout seguro **nunca** toca
+  `/orders`.
 - Tests de workflow: el trío de entrega queda embebido en la confirmación
   de una sola frase; el triple incompleto se rechaza.
 
@@ -156,14 +167,14 @@ Solo en la máquina con sesión válida, con doble autorización:
 $env:OPEN_GROCERY_ENABLE_RETAILER_WRITES = "1"
 python .\tools\verify_gadis_delivery_local.py `
   --allow-reversible-schedule-write
-# variante completa (crea un checkout una vez; jamás envía pedido):
+# variante completa (prepara/restaura el resumen; jamás llama a pago/pedido):
 python .\tools\verify_gadis_delivery_local.py `
   --allow-reversible-schedule-write `
-  --allow-checkout-create
+  --allow-checkout-summary
 ```
 
 Criterios de aceptación: `calendar_read`, `addresses_read`,
-`schedule_applied`, `schedule_removed`, `state_restored=true`,
+`schedule_applied`, `checkout_summary_prepared`, `schedule_removed`, `state_restored=true`,
 `order_or_payment_attempted=false`. Una restauración fallida detiene todo.
 
 ## Diagnóstico rápido de fallos comunes
@@ -186,17 +197,26 @@ Criterios de aceptación: `calendar_read`, `addresses_read`,
   captura el header `Authorization` fresco para el cliente HTTP puro.
 - **Cookies URL-codificadas**: el valor de `auth._token.*` llega
   percent-encoded; aplicar `urllib.parse.unquote` antes de usarlo.
+- **Caché local ligada a la sesión**: el bearer cacheado lleva una huella del
+  `storage_state`, caduca y se guarda con permisos del propietario. Un cambio
+  de sesión invalida la caché. Los `401` solo permiten refresh/retry en lecturas;
+  una escritura nunca se repite automáticamente.
 - **Descubrir el host real**: el axios del SPA define `browserBaseURL`
   (aquí `https://servicios.froiz.com`, distinto del host web). Búscalo en el
   bundle antes de probar rutas contra el dominio equivocado (respondería el
   fallback SSR con HTML).
 - **Carrito desechable**: si la API permite crear y borrar carritos enteros
-  (`POST`/`DELETE /api/cart`), verifica las mutaciones sobre un carrito
-  desechable propio: cero contacto con el carrito real del usuario y limpieza
-  garantizada (`channel_cart_untouched=true` como criterio).
+  (`POST /api/cart` y `DELETE /api/cart/{id}`), verifica las mutaciones sobre
+  un carrito desechable propio: cero contacto con el carrito real del usuario.
+  La limpieza solo se intenta tras relecturas estables que demuestren identidad
+  y estado exactos; si no, se detiene para revisión manual. Usa
+  `channel_cart_untouched=true` como criterio.
 - **Sin contador de versiones**: usa huella determinista del contenido desde
   el primer día y trata "sin carrito ligado" (`cartId: null`) como carrito
   vacío creable con POST, igual que hace la SPA.
+- **Frontera de checkout**: `orders/create` coloca el pedido real. Por tanto,
+  Froiz anuncia carrito y entrega, pero no checkout ni pedido; los métodos
+  internos fallan explícitamente sin abrir el navegador.
 
 ### Lecciones de Eroski (Tapestry 5 server-rendered)
 
@@ -215,23 +235,33 @@ Criterios de aceptación: `calendar_read`, `addresses_read`,
 - **Quitar/cantidad**: `POST /es/mycart.basket.productlist.basketproduct.
   basketadditemcomponent:addtocart` con `product=<id>` y zonas; se dispara
   con el enlace «Eliminar item» (`a.remove-item-shopping-btn-cart`).
-- **Entrega**: selector de cabecera «ELIGE TIPO DE ENTREGA» → domicilio →
-  dirección → franja obligatoria; confirmación mediante
-  `POST /es/bookingdelivery.selectdelivery.addressselector.homeaddressselector.
-  homeaddressform` con `selectDeliveryAddress`, `zipCode`,
-  `selectedSlotRef`, `selectedSlotTime`.
+- **Entrega**: el flujo autenticado de recogida quedó capturado y validado
+  hasta seleccionar tienda y franja. La tienda usa los eventos Tapestry
+  `addresslistselector:update_map` y `addresslistselector:address_select`;
+  la franja se confirma con `POST ...pickupaddressselector.slotform` y los
+  campos firmados `selectedAddressRef`, `selectedSlotRef_0`,
+  `selectedSlotTime_0` y `t:formdata`. Los identificadores concretos no se
+  conservan fuera de la captura local sanitizada.
 - **Frontera de seguridad**: no existe paso de checkout separado;
   `orders/create` coloca el pedido real ⇒ checkout automatizado prohibido.
-- **BLOQUEO para escrituras headless**: el servidor exige que la sesión tenga
+- **Capabilities honestas**: Eroski anuncia un `delivery` GET-only que puede
+  describir direcciones y franjas únicamente para el contexto ya seleccionado.
+  Pedir slots de otra dirección falla cerrado porque seleccionarla exige POST
+  Tapestry con estado firmado; no anuncia `checkout`.
+- **Condición previa para escrituras headless**: el servidor exige que la sesión tenga
   un contexto de entrega (tienda + modo + dirección + franja) establecido
   ANTES de aceptar cualquier `addtocart`. Sin él, el POST devuelve 200 con
   `{"_tapestry": {"redirectURL": ".../es/login/delivery/"}}` y el carrito
   permanece vacío. Este contexto se establece mediante el flujo
-  `bookingdelivery` multi-paso (domicilio → dirección → franja obligatoria)
-  que requiere navegación real. Para escrituras headless es necesario
-  implementar primero ese flujo por HTTP; mientras tanto,
-  `EroskiFullProvider` mantiene las escrituras vía navegador (`eroski_ui.py`)
-  y solo las lecturas (`read_cart`) funcionan por HTTP puro.
+  `bookingdelivery` multi-paso, que por contrato requiere navegación real. La
+  captura autenticada de recogida validó 329 eventos (236 peticiones y 93
+  respuestas). Con ese contexto, el alta HTTP directa quedó verificada; la
+  retirada HTTP no, porque el HTML vivo del carrito no expone el config de
+  componente que necesita `set_item_quantity`. El flujo público del MCP se
+  verificó de extremo a extremo con fallback de navegador: preparar → añadir
+  → releer por HTTP → retirar → comprobar restauración. La navegación para
+  establecer entrega y la retirada por navegador son decisiones de backend
+  explícitas, no tareas HTTP abiertas; el envío de pedido permanece bloqueado.
 
 ## Checklist para replicar en otro supermercado
 

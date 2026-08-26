@@ -18,6 +18,7 @@ import httpx
 from open_grocery_mcp.errors import ProviderError
 from open_grocery_mcp.models import Product, StoreInfo, as_decimal
 from open_grocery_mcp.providers.base import GroceryProvider
+from open_grocery_mcp.providers.froiz_pricing import public_pricing_metadata
 
 _SEARCH_URL = "https://api.empathy.co/search/v1/query/froiz/search"
 _SHOP_BASE = "https://supermercado.froiz.com"
@@ -31,10 +32,11 @@ class FroizProvider(GroceryProvider):
         languages=("es",),
         capabilities=("search", "compare", "draft_cart"),
         requires_postal_code=False,
-        price_scope="Froiz online search catalogue (not yet delivery-area-aware)",
+        price_scope="Froiz public online search catalogue (not delivery-area-aware)",
         notes=(
             "Search is read-only. Delivery coverage, store-specific assortment, "
-            "product detail, categories and cart operations are not implemented yet."
+            "product detail and categories are outside this catalogue-only provider; "
+            "the composite Froiz provider supplies authenticated cart and delivery."
         ),
     )
 
@@ -106,6 +108,7 @@ class FroizProvider(GroceryProvider):
                 "measurement_unit": raw.get("measurementUnit"),
                 "measurement_unit_ratio": raw.get("measurementUnitRatio"),
                 "location_aware": False,
+                **public_pricing_metadata(raw),
             },
         )
 
@@ -165,6 +168,17 @@ class FroizProvider(GroceryProvider):
             if products:
                 return products[:requested]
         return []
+
+    def catalogue_contract(self) -> dict[str, Any]:
+        return {
+            "pagination": "empathy_start_fixed_zero",
+            "maximum_page_size": 100,
+            "exact_total": False,
+            "category_search": False,
+            "geography": "public_global_catalogue",
+            "cache_safe": True,
+            "hard_limit": "first 100 search hits; no verified next-page contract",
+        }
 
     def close(self) -> None:
         if self._owns_client:

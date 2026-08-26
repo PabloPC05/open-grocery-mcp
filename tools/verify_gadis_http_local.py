@@ -45,6 +45,7 @@ def _safe_cart(value: Mapping[str, Any]) -> dict[str, Any]:
 
 def verify(*, allow_browser_fallback: bool = False) -> tuple[int, dict[str, Any]]:
     provider = GadisFullProvider()
+    stage = "account_status"
     try:
         status = provider.account_status()
         public_status = _safe_status(status)
@@ -57,6 +58,7 @@ def verify(*, allow_browser_fallback: bool = False) -> tuple[int, dict[str, Any]
                 "order_or_payment_attempted": False,
             }
 
+        stage = "cart_read"
         cart = provider.real_cart()
         public_cart = _safe_cart(cart)
         backend = str(public_cart.get("cart_backend") or "")
@@ -83,7 +85,9 @@ def verify(*, allow_browser_fallback: bool = False) -> tuple[int, dict[str, Any]
     except Exception as exc:
         return 1, {
             "ok": False,
-            "reason": f"{type(exc).__name__}: {exc}",
+            "reason": "Gadis read-only verification failed",
+            "failure_stage": stage,
+            "failure_type": type(exc).__name__,
             "retailer_write_performed": False,
             "order_or_payment_attempted": False,
         }

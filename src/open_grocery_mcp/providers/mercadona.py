@@ -18,6 +18,7 @@ _BASE_URL = "https://tienda.mercadona.es"
 _DEFAULT_ALGOLIA_APP = "7UZJKL1DJ0"
 _DEFAULT_ALGOLIA_KEY = "9d8f2e39e90df472b4f2e559a116fe17"
 _POSTAL_RE = re.compile(r"^\d{5}$")
+_WAREHOUSE_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 class MercadonaProvider(GroceryProvider):
@@ -100,7 +101,7 @@ class MercadonaProvider(GroceryProvider):
         except httpx.HTTPError as exc:
             raise ProviderError(f"Could not resolve Mercadona delivery area: {exc}") from exc
         warehouse = response.headers.get("x-customer-wh", "").strip()
-        if not warehouse:
+        if not _WAREHOUSE_RE.fullmatch(warehouse):
             raise CoverageError(
                 f"Mercadona did not return an online warehouse for postal code {postal_code!r}"
             )
@@ -112,7 +113,12 @@ class MercadonaProvider(GroceryProvider):
         if postal_code:
             return self.resolve_warehouse(postal_code)
         if self._configured_warehouse:
-            return self._configured_warehouse.strip()
+            warehouse = self._configured_warehouse.strip()
+            if not _WAREHOUSE_RE.fullmatch(warehouse):
+                raise LocationRequired(
+                    'OPEN_GROCERY_MERCADONA_WAREHOUSE is not a valid warehouse id'
+                )
+            return warehouse
         raise LocationRequired(
             "Mercadona prices are warehouse-specific; pass postal_code or set "
             "OPEN_GROCERY_MERCADONA_WAREHOUSE"
@@ -129,6 +135,55 @@ class MercadonaProvider(GroceryProvider):
             return "u"
         return None
 
+    @staticmethod
+    def _promotion_metadata(
+        pricing: Mapping[str, Any], current_price: Any
+    ) -> dict[str, Any]:
+        """Expose promotion state without mislabelling Mercadona references.
+
+        Mercadona's captured ``reference_price`` is a unit/reference price,
+        not a previous or promotional price, so it is deliberately excluded
+        from this metadata.  Only an explicit discounted/previous field can
+        produce a promotion here.
+        """
+
+        current = as_decimal(current_price)
+        offer = as_decimal(
+            next(
+                (
+                    pricing.get(key)
+                    for key in ("offer_price", "discounted_price", "sale_price")
+                    if pricing.get(key) not in (None, "")
+                ),
+                None,
+            )
+        )
+        previous = as_decimal(
+            next(
+                (
+                    pricing.get(key)
+                    for key in ("previous_price", "original_price", "price_before")
+                    if pricing.get(key) not in (None, "")
+                ),
+                None,
+            )
+        )
+        valid_offer = offer > 0 and current > 0 and offer < current
+        valid_previous = previous > current and previous > 0
+        return {
+            "available": bool(valid_offer or valid_previous),
+            "current_price": float(current) if current > 0 else None,
+            "previous_price": float(previous) if valid_previous else None,
+            "offer_price": float(offer) if valid_offer else None,
+            "source": (
+                "offer_price_field"
+                if valid_offer
+                else "previous_price_field"
+                if valid_previous
+                else "not_observed"
+            ),
+        }
+
     def _product_from_raw(self, raw: Mapping[str, Any], warehouse: str) -> Product:
         pricing = raw.get("price_instructions", {})
         if not isinstance(pricing, Mapping):
@@ -138,11 +193,12 @@ class MercadonaProvider(GroceryProvider):
         if not url and raw.get("slug") and product_id:
             url = f"{_BASE_URL}/product/{product_id}/{str(raw['slug']).strip('/')}"
         reference = as_decimal(pricing.get("reference_price"))
+        current_price = as_decimal(pricing.get("unit_price"))
         return Product(
             store=self.info.key,
             id=product_id,
             name=str(raw.get("display_name", "")).strip(),
-            price=as_decimal(pricing.get("unit_price")),
+            price=current_price,
             currency="EUR",
             price_per_unit=reference if reference > 0 else None,
             unit=self._unit(pricing.get("reference_format")),
@@ -151,21 +207,31 @@ class MercadonaProvider(GroceryProvider):
             url=url,
             ean=str(raw.get("ean", "")).strip() or None,
             origin=str(raw.get("origin", "")).strip() or None,
-            metadata={"warehouse": warehouse},
+            metadata={
+                "warehouse": warehouse,
+                "promotion": self._promotion_metadata(pricing, current_price),
+            },
         )
 
-    def search(
+    def search_page(
         self,
         query: str,
         *,
-        limit: int = 10,
+        page_size: int = 100,
+        cursor: str | None = None,
         postal_code: str | None = None,
         eco: bool = False,
-    ) -> list[Product]:
+    ) -> dict[str, Any]:
         del eco  # Mercadona's search index has no stable ecological facet.
         query = query.strip()
         if not query:
-            return []
+            return {"products": [], "next_cursor": None, "has_next": False, "total": 0, "pagination": "algolia_page"}
+        try:
+            page = 0 if cursor is None else int(cursor)
+        except ValueError as exc:
+            raise ProviderError("Mercadona search cursor must be a page number") from exc
+        if page < 0:
+            raise ProviderError("Mercadona search cursor cannot be negative")
         warehouse = self._warehouse(postal_code)
         index = f"products_prod_{warehouse}_es"
         url = f"https://{self._algolia_app}-dsn.algolia.net/1/indexes/{index}/query"
@@ -178,7 +244,11 @@ class MercadonaProvider(GroceryProvider):
             response = self._client.post(
                 url,
                 headers=headers,
-                json={"query": query, "hitsPerPage": max(1, min(limit, 100))},
+                json={
+                    "query": query,
+                    "hitsPerPage": max(1, min(page_size, 100)),
+                    "page": page,
+                },
             )
             response.raise_for_status()
             payload = response.json()
@@ -195,9 +265,44 @@ class MercadonaProvider(GroceryProvider):
             if not isinstance(raw, Mapping):
                 continue
             product = self._product_from_raw(raw, warehouse)
-            if product.id and product.name:
+            if product.id and product.name and product.price > 0 and product.available:
                 result.append(product)
-        return result
+        total = int(payload.get("nbHits", len(result)))
+        pages = int(payload.get("nbPages", 1))
+        has_next = page + 1 < pages
+        return {
+            "products": result,
+            "next_cursor": str(page + 1) if has_next else None,
+            "has_next": has_next,
+            "total": total,
+            "pagination": "algolia_page",
+        }
+
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+        postal_code: str | None = None,
+        eco: bool = False,
+    ) -> list[Product]:
+        page = self.search_page(
+            query,
+            page_size=limit,
+            postal_code=postal_code,
+            eco=eco,
+        )
+        return list(page["products"])
+
+    def catalogue_contract(self) -> dict[str, Any]:
+        return {
+            "pagination": "algolia_page",
+            "maximum_page_size": 100,
+            "exact_total": True,
+            "category_search": True,
+            "geography": "warehouse_by_postal_code",
+            "cache_safe": True,
+        }
 
     def _api_json(self, path: str, warehouse: str) -> Any:
         try:
@@ -222,7 +327,12 @@ class MercadonaProvider(GroceryProvider):
         )
         if not isinstance(payload, Mapping) or not payload.get("id"):
             raise ProviderError(f"Mercadona product {product_id!r} was not found")
-        return self._product_from_raw(payload, warehouse)
+        product = self._product_from_raw(payload, warehouse)
+        if product.price <= 0 or not product.available:
+            raise ProviderError(
+                f"Mercadona product {product_id!r} has no available positive price"
+            )
+        return product
 
     @classmethod
     def _map_categories(cls, raw_categories: Any, depth: int) -> list[dict[str, Any]]:

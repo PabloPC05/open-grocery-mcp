@@ -1,4 +1,6 @@
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from pathlib import Path
 
@@ -8,6 +10,7 @@ from open_grocery_mcp.errors import (
     BudgetExceeded,
     ConcurrentCartChange,
     InvalidRequest,
+    OrderSubmissionDisabled,
     ProviderError,
 )
 from open_grocery_mcp.providers.browser_account import BrowserAccountClient
@@ -109,6 +112,62 @@ def test_preview_and_commit_replace_cart(account):
     assert updated["lines"][0]["quantity"] == 2.0
 
 
+def test_external_checkout_snapshot_is_private_minimal_and_persistent(
+    account,
+) -> None:
+    account.remember_external_checkout(
+        "external-1",
+        {
+            "store": "demo",
+            "checkout_id": "external-1",
+            "total": 4,
+            "total_text": "4.00",
+            "address_id": "address-1",
+            "slot_id": "slot-1",
+            "url": "https://demo.test/checkout?token=must-not-persist",
+            "bearer_token": "must-not-persist",
+            "_reviewed_lines": [{"product_id": "p1", "quantity": 1}],
+        },
+        backend="demo_http",
+    )
+
+    stored = account.external_checkout_snapshot(
+        "external-1",
+        backend="demo_http",
+    )
+    assert stored is not None
+    assert stored["total_text"] == "4.00"
+    assert stored["_reviewed_lines"] == [{"product_id": "p1", "quantity": 1}]
+    assert "url" not in stored
+    assert "bearer_token" not in stored
+    raw = account.checkout_path.read_text(encoding="utf-8")
+    assert "must-not-persist" not in raw
+
+
+def test_commit_rejects_a_tampered_browser_plan_before_writing(account):
+    cart = account.cart()
+    plan = account.preview_cart_update(
+        [
+            {
+                "product_id": "milk",
+                "name": "Leche",
+                "url": "https://demo.test/product/milk",
+                "quantity": 1,
+                "unit_price": 1.25,
+            }
+        ],
+        mode="replace",
+        expected_version=cart["version"],
+        max_total=Decimal("5"),
+    )
+    plan["desired_lines"][0]["quantity"] = -1
+
+    with pytest.raises(InvalidRequest, match="invalid"):
+        account.commit_cart_update(plan)
+
+    assert FakeDriver.shared["lines"][0]["product_id"] == "old"
+
+
 def test_concurrent_change_is_rejected(account):
     cart = account.cart()
     plan = account.preview_cart_update([
@@ -132,7 +191,9 @@ def test_restricted_products_and_budget_are_rejected(account):
 
 
 def test_checkout_delivery_and_submission(account, monkeypatch):
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
     monkeypatch.setenv("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION", "1")
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION", "1")
     cart = account.cart()
     plan = account.preview_checkout(expected_version=cart["version"], max_total=Decimal("10"))
     checkout = account.create_checkout(plan)
@@ -158,9 +219,32 @@ def test_checkout_private_url_is_not_exposed(account):
     assert "_private_url" not in checkout
     stored = account._checkout_record(checkout["checkout_id"])
     assert stored["url"].endswith("?token=secret")
+    reread = account.get_checkout(checkout["checkout_id"])
+    assert "_private_url" not in reread
+    assert "token=secret" not in str(reread)
 
 
-def test_commit_rejects_unverifiable_total_and_rolls_back(account):
+def test_browser_order_submission_needs_browser_specific_opt_in(account, monkeypatch):
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION", "1")
+    monkeypatch.delenv("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION", raising=False)
+    cart = account.cart()
+    plan = account.preview_checkout(
+        expected_version=cart["version"], max_total=Decimal("10")
+    )
+    checkout = account.create_checkout(plan)
+    account.set_checkout_delivery(
+        checkout["checkout_id"],
+        address_id="a1",
+        slot_id="s1",
+        max_total=Decimal("10"),
+    )
+    with pytest.raises(OrderSubmissionDisabled, match="browser order submission"):
+        account.submit_order(checkout["checkout_id"], max_total=Decimal("10"))
+    assert FakeDriver.shared["submit_count"] == 0
+
+
+def test_commit_resolves_ambiguous_response_with_independent_read(account):
     cart = account.cart()
     plan = account.preview_cart_update([
         {"product_id": "milk", "name": "Leche", "url": "https://demo.test/product/milk", "quantity": 1, "unit_price": 1.25}
@@ -176,8 +260,8 @@ def test_commit_rejects_unverifiable_total_and_rolls_back(account):
 
     FakeDriver.apply_cart = zero_total
     try:
-        with pytest.raises(BudgetExceeded, match="positive Demo cart total"):
-            account.commit_cart_update(plan)
+        result = account.commit_cart_update(plan)
+        assert result["write_response_ambiguous_but_state_verified"] is True
     finally:
         FakeDriver.apply_cart = original_apply
 
@@ -188,7 +272,9 @@ def test_delivery_slots_require_a_confirmed_checkout(account):
 
 
 def test_order_submission_refuses_automatic_retry(account, monkeypatch):
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
     monkeypatch.setenv("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION", "1")
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION", "1")
     cart = account.cart()
     plan = account.preview_checkout(expected_version=cart["version"], max_total=Decimal("10"))
     checkout = account.create_checkout(plan)
@@ -206,7 +292,9 @@ def test_order_submission_refuses_automatic_retry(account, monkeypatch):
 
 
 def test_ambiguous_submission_is_recorded_and_not_retried(account, monkeypatch):
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
     monkeypatch.setenv("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION", "1")
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION", "1")
     cart = account.cart()
     plan = account.preview_checkout(
         expected_version=cart["version"],
@@ -227,6 +315,46 @@ def test_ambiguous_submission_is_recorded_and_not_retried(account, monkeypatch):
     assert FakeDriver.shared["submit_count"] == 1
 
 
+def test_concurrent_order_submission_claims_checkout_once(account, monkeypatch):
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_RETAILER_WRITES", "1")
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_ORDER_SUBMISSION", "1")
+    monkeypatch.setenv("OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION", "1")
+    cart = account.cart()
+    plan = account.preview_checkout(expected_version=cart["version"], max_total=Decimal("10"))
+    checkout = account.create_checkout(plan)
+    account.set_checkout_delivery(
+        checkout["checkout_id"],
+        address_id="a1",
+        slot_id="s1",
+        max_total=Decimal("10"),
+    )
+
+    checkout_barrier = threading.Barrier(2)
+    original_checkout = FakeDriver.checkout
+
+    def synchronized_checkout(self, url):
+        result = original_checkout(self, url)
+        checkout_barrier.wait(timeout=5)
+        return result
+
+    def submit_once():
+        try:
+            return account.submit_order(
+                checkout["checkout_id"], max_total=Decimal("10")
+            )
+        except Exception as exc:  # noqa: BLE001 - collect both concurrent outcomes
+            return exc
+
+    monkeypatch.setattr(FakeDriver, "checkout", synchronized_checkout)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submit_once) for _ in range(2)]
+        results = [future.result() for future in futures]
+
+    assert sum(isinstance(result, dict) for result in results) == 1
+    assert sum(isinstance(result, InvalidRequest) for result in results) == 1
+    assert FakeDriver.shared["submit_count"] == 1
+
+
 def test_quantity_safety_limit(account):
     cart = account.cart()
     with pytest.raises(InvalidRequest, match="safety limit of 1000"):
@@ -244,6 +372,118 @@ def test_quantity_safety_limit(account):
             expected_version=cart["version"],
             max_total=Decimal("2000"),
         )
+
+
+@pytest.mark.parametrize("quantity", [-1, "bad", True])
+def test_invalid_browser_quantities_are_not_treated_as_removals(account, quantity):
+    cart = account.cart()
+    with pytest.raises(InvalidRequest, match="invalid quantity"):
+        account.preview_cart_update(
+            [
+                {
+                    "product_id": "water",
+                    "name": "Agua",
+                    "quantity": quantity,
+                    "unit_price": 1,
+                }
+            ],
+            mode="replace",
+            expected_version=cart["version"],
+            max_total=Decimal("10"),
+        )
+
+
+def test_duplicate_browser_changes_are_rejected(account):
+    cart = account.cart()
+    with pytest.raises(InvalidRequest, match="duplicate"):
+        account.preview_cart_update(
+            [
+                {"product_id": "milk", "name": "Leche", "quantity": 1, "unit_price": 1},
+                {"product_id": "milk", "name": "Otra leche", "quantity": 2, "unit_price": 1},
+            ],
+            mode="merge",
+            expected_version=cart["version"],
+            max_total=Decimal("10"),
+        )
+
+
+def test_partial_browser_mutation_is_left_for_manual_inspection(account):
+    cart = account.cart()
+    plan = account.preview_cart_update(
+        [{"product_id": "milk", "name": "Leche", "quantity": 1, "unit_price": 1.25}],
+        mode="replace",
+        expected_version=cart["version"],
+        max_total=Decimal("5"),
+    )
+    original_apply = FakeDriver.apply_cart
+    apply_calls = []
+
+    def partial_once(self, desired):
+        apply_calls.append(desired)
+        if desired and desired[0].get("product_id") == "milk":
+            self.shared["lines"] = [
+                {"product_id": "rogue", "name": "Rogue", "quantity": 1, "unit_price": 9}
+            ]
+            raise ProviderError("partial mutation")
+        return original_apply(self, desired)
+
+    FakeDriver.apply_cart = partial_once
+    try:
+        with pytest.raises(ProviderError, match="matches neither.*inspect the retailer cart"):
+            account.commit_cart_update(plan)
+        assert account.cart()["lines"][0]["product_id"] == "rogue"
+        assert len(apply_calls) == 1
+    finally:
+        FakeDriver.apply_cart = original_apply
+
+
+def test_failed_browser_write_keeps_proven_unchanged_cart(account):
+    cart = account.cart()
+    plan = account.preview_cart_update(
+        [{"product_id": "milk", "name": "Leche", "quantity": 1, "unit_price": 1.25}],
+        mode="replace",
+        expected_version=cart["version"],
+        max_total=Decimal("5"),
+    )
+    original_apply = FakeDriver.apply_cart
+    apply_calls = []
+
+    def fail_before_write(self, desired):
+        apply_calls.append(desired)
+        raise ProviderError("write failed before mutation")
+
+    FakeDriver.apply_cart = fail_before_write
+    try:
+        with pytest.raises(ProviderError, match="write failed before mutation"):
+            account.commit_cart_update(plan)
+        assert account.cart()["lines"][0]["product_id"] == "old"
+        assert len(apply_calls) == 1
+    finally:
+        FakeDriver.apply_cart = original_apply
+
+
+def test_failed_browser_rollback_requires_manual_inspection(account):
+    cart = account.cart()
+    plan = account.preview_cart_update(
+        [{"product_id": "milk", "name": "Leche", "quantity": 1, "unit_price": 1.25}],
+        mode="replace",
+        expected_version=cart["version"],
+        max_total=Decimal("5"),
+    )
+    original_apply = FakeDriver.apply_cart
+
+    def always_partial(self, desired):
+        self.shared["lines"] = [
+            {"product_id": "rogue", "name": "Rogue", "quantity": 1, "unit_price": 9}
+        ]
+        raise ProviderError("partial mutation")
+
+    FakeDriver.apply_cart = always_partial
+    try:
+        with pytest.raises(ProviderError, match="inspect the retailer cart"):
+            account.commit_cart_update(plan)
+    finally:
+        FakeDriver.apply_cart = original_apply
 
 
 def test_default_state_root_matches_canonical_session_dir(monkeypatch):

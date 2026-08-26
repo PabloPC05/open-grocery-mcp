@@ -17,7 +17,12 @@ class FakeGadisProvider:
         capabilities=("account", "real_cart"),
     )
 
-    def __init__(self, *, fail_after_apply_on: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        fail_after_apply_on: int | None = None,
+        mutate_after_ambiguous: bool = False,
+    ) -> None:
         self.version = 10
         self.lines: dict[str, dict[str, Any]] = {
             "existing": {
@@ -29,6 +34,7 @@ class FakeGadisProvider:
         }
         self.commit_calls = 0
         self.fail_after_apply_on = fail_after_apply_on
+        self.mutate_after_ambiguous = mutate_after_ambiguous
 
     def _cart(self) -> dict[str, Any]:
         lines = [deepcopy(line) for line in self.lines.values()]
@@ -115,6 +121,13 @@ class FakeGadisProvider:
         }
         self.version += 1
         if self.fail_after_apply_on == self.commit_calls:
+            if self.mutate_after_ambiguous:
+                self.lines["unexpected"] = {
+                    "product_id": "unexpected",
+                    "name": "unexpected",
+                    "quantity": 1.0,
+                    "unit_price": 0.5,
+                }
             raise RuntimeError("simulated lost response")
         return self._cart()
 
@@ -183,6 +196,42 @@ def test_failure_after_an_ambiguous_write_still_removes_test_product(monkeypatch
     assert report["failure_type"] == "RuntimeError"
     assert report["cart_restored"] is True
     assert set(provider.lines) == {"existing"}
+
+
+def test_ambiguous_write_with_unexpected_cart_change_skips_cleanup(monkeypatch) -> None:
+    _safe_environment(monkeypatch)
+    provider = FakeGadisProvider(fail_after_apply_on=2, mutate_after_ambiguous=True)
+
+    code, report = verify(
+        allow_reversible_cart_write=True,
+        registry=FakeRegistry(provider),
+        product_selector=selected_product,
+    )
+
+    assert code == 1
+    assert report["cart_restored"] is False
+    assert report["cleanup_failure_type"] == "RuntimeError"
+    assert report["cleanup_skipped"] is True
+    assert provider.commit_calls == 2
+    assert set(provider.lines) == {"existing", "test-product", "unexpected"}
+
+
+def test_ambiguous_remove_is_not_retried(monkeypatch) -> None:
+    _safe_environment(monkeypatch)
+    provider = FakeGadisProvider(fail_after_apply_on=4)
+
+    code, report = verify(
+        allow_reversible_cart_write=True,
+        registry=FakeRegistry(provider),
+        product_selector=selected_product,
+    )
+
+    assert code == 1
+    assert report["failure_stage"] == "remove"
+    assert report["cart_restored"] is True
+    # The failed remove applied once; finally only rereads the cart and does
+    # not issue a second remove request.
+    assert provider.commit_calls == 4
 
 
 def test_explicit_flag_and_write_environment_are_both_required(monkeypatch) -> None:

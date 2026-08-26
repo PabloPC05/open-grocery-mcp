@@ -11,6 +11,8 @@ from urllib.parse import parse_qsl, urlsplit
 RETAILER_SUFFIXES = {
     "gadis": ("gadisline.com",),
     "froiz": ("froiz.com", "empathy.co"),
+    "eroski": ("eroski.es",),
+    "mercadona": ("mercadona.es", "mercadona.com"),
 }
 STATIC_PATH = re.compile(
     r"(?i)(?:^|/)(?:_next/static|static|assets|fonts|images?)(?:/|$)|"
@@ -44,7 +46,17 @@ def _operation_hint(method: str, host: str, path: str) -> str:
         return "addresses"
     if any(token in text for token in ("slot", "delivery", "entrega", "franja")):
         return "delivery"
-    if any(token in text for token in ("cart", "basket", "cesta", "carrito")):
+    if any(
+        token in text
+        for token in (
+            "cart",
+            "basket",
+            "cesta",
+            "carrito",
+            "updateproduct",
+            "clearproduct",
+        )
+    ):
         return "cart"
     if any(token in text for token in ("postal", "/stores", "/store")):
         return "location"

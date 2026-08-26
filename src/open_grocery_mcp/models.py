@@ -109,7 +109,17 @@ class BasketItem:
         query = str(value.get("query", "")).strip()
         if not query:
             raise ValueError("each basket item needs a non-empty 'query'")
-        quantity = as_decimal(value.get("quantity", 1), default="1")
+        raw_quantity = value.get("quantity", 1)
+        if isinstance(raw_quantity, bool):
+            raise ValueError(f"quantity for {query!r} must be a finite number")
+        try:
+            quantity = Decimal(str(raw_quantity).replace(",", ".").strip())
+        except (InvalidOperation, ValueError, AttributeError):
+            raise ValueError(
+                f"quantity for {query!r} must be a finite number"
+            ) from None
+        if not quantity.is_finite():
+            raise ValueError(f"quantity for {query!r} must be a finite number")
         if quantity <= 0:
             raise ValueError(f"quantity for {query!r} must be greater than zero")
         maximum = value.get("max_unit_price")

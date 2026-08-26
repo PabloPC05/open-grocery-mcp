@@ -2,9 +2,9 @@
 
 ## Current boundary
 
-Open Grocery MCP `0.3.x` can use authenticated accounts for Mercadona, Gadis and Froiz. The default process remains read-only: retailer writes and order submission require separate local opt-ins.
+Open Grocery MCP `0.5.x` can use authenticated accounts for Mercadona, Gadis, Froiz and Eroski. The default process remains read-only: retailer writes and order submission require separate local opt-ins.
 
-Mercadona uses authenticated HTTP calls. Gadis and Froiz use a local Playwright browser and visible storefront controls. Browser automation does not weaken the confirmation or spending-limit requirements.
+Mercadona uses authenticated HTTP calls. Gadis and Froiz use HTTP clients with local Playwright for login and explicit fallbacks. Eroski uses HTTP reads and browser cart writes that are verified again over HTTP. Browser automation does not weaken the confirmation or spending-limit requirements.
 
 ## Sensitive files
 
@@ -15,6 +15,7 @@ Default locations include:
 ```text
 ~/.open-grocery-mcp/gadis/storage_state.json
 ~/.open-grocery-mcp/froiz/storage_state.json
+~/.open-grocery-mcp/eroski/storage_state.json
 ~/.open-grocery-mcp/mercadona/storage_state.json
 ```
 
@@ -23,6 +24,12 @@ Default locations include:
 - Do not paste tokens, cookies, passwords, addresses or card data into MCP tools.
 - Revoke the retailer session if a file is exposed.
 - Do not run one process/session for multiple unrelated users.
+
+Session, token-cache and private checkout files are written through unique
+same-directory temporary files, protected for the operating-system owner before
+publication, and cleaned if serialization or atomic replacement fails. Browser
+login reuses a structurally valid local state when available without exposing
+its contents.
 
 Checkout records may contain a private URL with a short-lived token. It is stored locally with owner-only permissions and never returned by an MCP tool.
 
@@ -56,7 +63,7 @@ No provider automates bank authentication, PSD2, 3-D Secure, SMS codes or biomet
 
 ## Browser-specific boundary
 
-Gadis/Froiz selectors are adaptive but cannot be proved stable against every future storefront release. When the page cannot be read, a control is ambiguous or the resulting total cannot be verified, the provider fails closed. It must never convert a missing selector into a successful purchase.
+Selectors for browser-backed providers, including Gadis, Froiz and Eroski, are adaptive but cannot be proved stable against every future storefront release. When the page cannot be read, a control is ambiguous or the resulting total cannot be verified, the provider fails closed. It must never convert a missing selector into a successful purchase.
 
 The browser workflow is intended for a local `stdio` MCP process. A remotely hosted browser would place account sessions on that server and should be avoided unless the operator has deliberately secured and isolated it.
 

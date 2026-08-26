@@ -6,7 +6,11 @@ from pathlib import Path
 import httpx
 import pytest
 
-from open_grocery_mcp.errors import AuthenticationRequired
+from open_grocery_mcp.errors import (
+    AuthenticationRequired,
+    OrderSubmissionDisabled,
+    ProviderError,
+)
 from open_grocery_mcp.providers.gadis_http import GadisHTTPClient
 
 SESSION_URL = "https://www.gadisline.com/api/auth/session"
@@ -137,6 +141,26 @@ def test_gadis_http_profile_uses_bearer_and_context_headers(tmp_path: Path) -> N
     account.close()
 
 
+def test_gadis_http_honors_explicit_site_and_store_context(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    client = httpx.Client(transport=_router(requests))
+    account = GadisHTTPClient(
+        state_path=state_path,
+        site_id="site-explicit",
+        store_id="store-explicit",
+        client=client,
+    )
+
+    account.profile()
+
+    me = next(r for r in requests if r.url.host == "clients.gadisline.com")
+    assert me.headers["site-id"] == "site-explicit"
+    assert me.headers["store-id"] == "store-explicit"
+    account.close()
+
+
 def test_gadis_http_status_is_value_free(tmp_path: Path) -> None:
     state_path = tmp_path / "storage_state.json"
     _state(state_path)
@@ -179,6 +203,20 @@ def test_gadis_http_addresses_are_redacted(tmp_path: Path) -> None:
     serialized = json.dumps(result)
     assert "Calle Secreta" not in serialized
     assert "28050" not in serialized
+    account.close()
+
+
+def test_gadis_http_encodes_cart_identity_as_one_path_segment(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    client = httpx.Client(transport=_router(requests))
+    account = GadisHTTPClient(state_path=state_path, client=client)
+
+    account.addresses("cart/42 ?")
+
+    cart = next(r for r in requests if r.url.host == "cart.gadisline.com")
+    assert cart.url.raw_path == b"/api/v3/carts/cart%2F42%20%3F/addresses"
     account.close()
 
 
@@ -233,6 +271,22 @@ def test_gadis_http_delivery_slots_normalize_calendar(tmp_path: Path) -> None:
     account.close()
 
 
+def test_gadis_http_encodes_selected_store_identity(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    client = httpx.Client(transport=_router(requests))
+    account = GadisHTTPClient(state_path=state_path, client=client)
+
+    account.delivery_slots("28050", store_id="store/7 ?")
+
+    calendar = next(r for r in requests if r.url.host == "store.gadisline.com")
+    assert calendar.url.raw_path.split(b"?")[0] == (
+        b"/api/v3/stores/store%2F7%20%3F/calendar"
+    )
+    account.close()
+
+
 def test_gadis_http_unauthorized_session_raises(tmp_path: Path) -> None:
     state_path = tmp_path / "storage_state.json"
     _state(state_path)
@@ -271,13 +325,32 @@ def _cart_payload() -> dict:
                 "product_id": "p-milk",
                 "product_name": "Leche entera",
                 "amount": 2,
-                "line_price": 1.06,
+                "line_price": 2.12,
             },
         ],
         "total_cart_price": 9.31,
         "total_products": 2,
         "last_modified_date": 1710000000000,
     }
+
+
+def test_gadis_http_normalization_preserves_non_product_costs() -> None:
+    payload = _cart_payload()
+    payload.update({"total_product_price": 2.85, "costs": 4.50, "total_cart_price": 7.35})
+
+    normalized = GadisHTTPClient.normalize_cart(payload)
+
+    assert normalized["total_product_price"] == 2.85
+    assert normalized["non_product_costs"] == 4.5
+    assert normalized["total"] == 7.35
+
+
+def test_gadis_http_rejects_malformed_non_product_costs() -> None:
+    payload = _cart_payload()
+    payload["costs"] = "not-a-price"
+
+    with pytest.raises(ProviderError, match="non-product costs"):
+        GadisHTTPClient.normalize_cart(payload)
 
 
 def _cart_router(requests: list[httpx.Request]) -> httpx.MockTransport:
@@ -342,7 +415,9 @@ def test_gadis_http_normalize_cart_is_value_free() -> None:
     normalized = GadisHTTPClient.normalize_cart(_cart_payload())
     assert normalized["cart_id"] == "cart-1"
     assert normalized["lines"][1]["quantity"] == 2.0
-    assert normalized["lines"][1]["line_price"] == 1.06
+    assert normalized["lines"][1]["line_price"] == 2.12
+    assert normalized["lines"][1]["unit_price"] == 1.06
+    assert normalized["lines"][1]["line_total"] == 2.12
 
 
 def test_gadis_http_version_is_stable_across_reads_with_volatile_timestamp() -> None:
@@ -360,6 +435,7 @@ def test_gadis_http_version_tracks_cart_content() -> None:
 
     quantity_changed = _cart_payload()
     quantity_changed["products"][1]["amount"] = 3
+    quantity_changed["products"][1]["line_price"] = 3.18
     quantity_changed["total_products"] = 3
     quantity_changed["total_cart_price"] = 11.43
     assert (
@@ -409,37 +485,180 @@ def test_gadis_http_schedule_write_and_delete(tmp_path: Path) -> None:
     account.close()
 
 
-def test_gadis_http_checkout_creation_never_touches_orders(tmp_path: Path) -> None:
+def test_gadis_schedule_does_not_fallback_after_ambiguous_config_failure(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    base = _router(requests)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/config/updateCart":
+            requests.append(request)
+            return httpx.Response(500)
+        return base.handle_request(request)
+
+    account = GadisHTTPClient(
+        state_path=state_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(ProviderError, match="HTTP 500"):
+        account.update_schedule(
+            "cart-1",
+            "store-7",
+            delivery_date="2026-08-25",
+            schedule_range_id="slot-9",
+        )
+    assert not any(
+        request.url.host == "cart.gadisline.com"
+        and request.url.path.endswith("/schedule")
+        for request in requests
+    )
+
+
+def test_gadis_payment_bearing_checkout_route_is_blocked_before_network(
+    tmp_path: Path,
+) -> None:
     state_path = tmp_path / "storage_state.json"
     _state(state_path)
     requests: list[httpx.Request] = []
     client = httpx.Client(transport=_router(requests))
     account = GadisHTTPClient(state_path=state_path, client=client)
 
-    result = account.create_checkout(
+    with pytest.raises(OrderSubmissionDisabled, match="payment and terms"):
+        account.create_checkout("cart-1", "store-7")
+    assert requests == []
+    account.close()
+
+
+def test_gadis_prepares_and_restores_checkout_summary_without_payment_post(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    base = _router(requests)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/config/updateCart":
+            requests.append(request)
+            body = json.loads(request.content)
+            payload = _cart_payload()
+            payload.update(
+                {
+                    "store_id": body["store_id"],
+                    "postal_code": body["postal_code"],
+                    "delivery_type": body["delivery_type"],
+                    "comments": body["comments"],
+                    "shipping_address_id": body["shipping_address_id"],
+                    "shipping_address_owner": body["shipping_address_owner"],
+                    "delivery_date": body.get("delivery_date"),
+                    "schedule_range_id": body.get("schedule_range_id"),
+                }
+            )
+            return httpx.Response(200, json=payload)
+        return base.handle_request(request)
+
+    account = GadisHTTPClient(
+        state_path=state_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    prepared = account.prepare_checkout_summary(
         "cart-1",
         "store-7",
         shipping_address_id="addr-1",
         shipping_address_owner="CLIENT",
         delivery_date="2026-08-25",
         schedule_range_id="slot-9",
+        postal_code="28050",
     )
-    assert result["checkout_present"] is True
-    assert result["order_placed"] is False
-    post = next(
-        r
-        for r in requests
-        if r.url.host == "cart.gadisline.com" and r.method == "POST"
+    assert prepared["summary_prepared"] is True
+
+    baseline = _cart_payload()
+    baseline.update(
+        {
+            "store_id": "store-7",
+            "postal_code": "28050",
+            "delivery_type": "HOME_DELIVERY",
+            "comments": "",
+            "shipping_address_id": None,
+            "shipping_address_owner": None,
+        }
     )
-    assert post.url.path == "/api/v3/carts/cart-1/checkout"
-    body = json.loads(post.content)
-    assert body["shipping_address_id"] == "addr-1"
-    assert body["delivery_date"] == "2026-08-25"
-    assert body["schedule_range_id"] == "slot-9"
-    assert body["delivery_type"] == "HOME_DELIVERY"
-    assert body["terms_and_conditions"] is True
-    assert not any("/orders" in r.url.path for r in requests)
-    serialized = json.dumps(result)
-    assert "keycloak-jwt" not in serialized
+    account.restore_cart_context(baseline)
+
+    writes = [r for r in requests if r.url.path == "/api/config/updateCart"]
+    assert len(writes) == 2
+    prepare_body = json.loads(writes[0].content)
+    assert prepare_body == {
+        "store_id": "store-7",
+        "postal_code": "28050",
+        "delivery_type": "HOME_DELIVERY",
+        "comments": "",
+        "shipping_address_id": "addr-1",
+        "shipping_address_owner": "CLIENT",
+        "delivery_date": "2026-08-25",
+        "schedule_range_id": "slot-9",
+        "save_order_time": True,
+        "summaryCheckout": True,
+    }
+    restore_body = json.loads(writes[1].content)
+    assert restore_body["summaryCheckout"] is False
+    assert restore_body["save_order_time"] is False
+    assert restore_body["shipping_address_id"] == ""
+    assert restore_body["shipping_address_owner"] == ""
+    unsafe_words = ("checkout", "order", "payment", "redsys")
+    assert not any(
+        request.method == "POST"
+        and any(word in request.url.path.casefold() for word in unsafe_words)
+        for request in requests
+    )
     account.close()
+
+
+def test_gadis_checkout_post_stays_blocked_regardless_of_terms(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    requests: list[httpx.Request] = []
+    account = GadisHTTPClient(
+        state_path=state_path,
+        client=httpx.Client(transport=_router(requests)),
+    )
+    with pytest.raises(OrderSubmissionDisabled):
+        account.create_checkout(
+            "cart-1",
+            "store-7",
+            shipping_address_id="addr-1",
+            delivery_date="2026-08-25",
+            schedule_range_id="slot-9",
+            terms_and_conditions=False,
+        )
+    assert requests == []
+
+
+def test_gadis_request_errors_redact_private_route_ids(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    account = GadisHTTPClient(
+        state_path=state_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    account._site_id = "site-1"
+    account._store_id = "store-7"
+    account._access_token = "private-token"
+    with pytest.raises(ProviderError) as raised:
+        account._request(
+            "GET",
+            "https://cart.gadisline.com/api/v3/carts/private-cart/checkout",
+        )
+    message = str(raised.value)
+    assert "private-cart" not in message
+    assert "private-token" not in message
+    assert "/carts/<private>/checkout" in message
+    assert raised.value.status_code == 500
 

@@ -1,6 +1,6 @@
 # Delegar la parte local a un agente
 
-La mayor parte del proyecto puede desarrollarse sin acceso a tu ordenador. La excepción son las pruebas que dependen de tu conexión, navegador y sesión autenticada de Gadis o Froiz. Estas instrucciones permiten delegar también esa parte a un agente local con acceso a terminal y, preferiblemente, automatización de navegador.
+La mayor parte del proyecto puede desarrollarse sin acceso a tu ordenador. La excepción son las pruebas que dependen de tu conexión, navegador y sesión autenticada. Esta guía conserva ejemplos de Gadis/Froiz, pero el capturador también admite Mercadona y Eroski. Estas instrucciones permiten delegar esa parte a un agente local con acceso a terminal y, preferiblemente, automatización de navegador.
 
 ## Qué agente sirve
 
@@ -38,6 +38,44 @@ No imprimas secretos ni abras archivos de sesión en el chat. Solo puedes pedirm
 ```
 
 Para Froiz basta con sustituir `Gadis` y `gadis` por `Froiz` y `froiz`.
+
+## Cierre local de Mercadona
+
+Mercadona puede comprobarse sin navegador si ya existe una sesión local válida:
+
+```powershell
+Remove-Item Env:OPEN_GROCERY_ENABLE_ORDER_SUBMISSION -ErrorAction SilentlyContinue
+Remove-Item Env:OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION -ErrorAction SilentlyContinue
+python .\tools\verify_mercadona_local.py
+```
+
+Este recorrido solo lee sesión, carrito, direcciones y franjas. Debe terminar
+con `ok: true`, `retailer_write_performed: false` y
+`order_or_payment_attempted: false`. Nunca crea checkout ni llama a pedido,
+pago, Redsys o 3-D Secure.
+
+La prueba reversible es opcional y requiere dos consentimientos locales: el
+argumento `--allow-reversible-cart-write` y
+`OPEN_GROCERY_ENABLE_RETAILER_WRITES=1`. Añade un producto ordinario ausente
+por un máximo temporal de 5 EUR, relee el carrito y restaura exactamente las
+líneas y el total originales. Una respuesta ambigua o una restauración no
+verificable detiene el proceso: no se reintenta ni se ejecuta limpieza
+automática. Los opt-ins de pedido deben permanecer desactivados.
+
+Solo el propietario puede habilitar esta comprobación reversible en su proceso
+local:
+
+```powershell
+$env:OPEN_GROCERY_ENABLE_RETAILER_WRITES = "1"
+python .\tools\verify_mercadona_local.py --allow-reversible-cart-write
+Remove-Item Env:OPEN_GROCERY_ENABLE_RETAILER_WRITES -ErrorAction SilentlyContinue
+```
+
+La única parte humana es iniciar sesión en una ventana visible de Mercadona si
+no hay `~/.open-grocery-mcp/mercadona/storage_state.json` reutilizable: el
+propietario introduce allí la contraseña y completa CAPTCHA/2FA si aparecen.
+El agente no debe recibir esos valores; tras esa intervención continúa con la
+lectura y el verificador automáticamente.
 
 ## Comandos que debería ejecutar el agente
 

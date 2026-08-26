@@ -11,18 +11,22 @@ DOM_CART_SCRIPT = r"""
     return match ? Number(match[0]) : fallback;
   };
   const closestRow = (node) => {
+    const explicit = node.closest(
+      '.shopping-cart-item,[class*="cart-item" i],[class*="basket-item" i],tr'
+    ) || node.closest('li,article');
+    if (explicit && explicit !== document.body) return explicit;
     let current = node;
     for (let i = 0; current && i < 8; i += 1, current = current.parentElement) {
       if (!current || current === document.body) break;
       const text = clean(current.innerText);
       const productLinks = current.querySelectorAll('a[href*="product"],a[href*="producto"],a[href*="gadisline.com/"]').length;
-      const controls = current.querySelectorAll('input[type="number"],button[aria-label*="cantidad" i],button[aria-label*="eliminar" i],button[aria-label*="quitar" i]').length;
+      const controls = current.querySelectorAll('input[type="number"],input[class*="quantity" i],button[aria-label*="cantidad" i],button[aria-label*="eliminar" i],button[aria-label*="quitar" i]').length;
       if (text.length > 3 && text.length < 1500 && (productLinks || controls)) return current;
     }
     return node.parentElement || node;
   };
   const seed = Array.from(document.querySelectorAll(
-    'input[type="number"], input[name*="quantity" i], input[name*="cantidad" i], [data-testid*="quantity" i], button[aria-label*="eliminar" i], button[aria-label*="quitar" i], button[aria-label*="aumentar" i], button[aria-label*="incrementar" i], button[aria-label*="disminuir" i], button[aria-label*="reducir" i]'
+    'input[type="number"], input[name*="quantity" i], input[name*="cantidad" i], input[class*="quantity" i], [data-testid*="quantity" i], button[aria-label*="eliminar" i], button[aria-label*="quitar" i], button[aria-label*="aumentar" i], button[aria-label*="incrementar" i], button[aria-label*="disminuir" i], button[aria-label*="reducir" i]'
   ));
   const rows = [];
   const seen = new Set();
@@ -37,8 +41,11 @@ DOM_CART_SCRIPT = r"""
     const link = row.querySelector('a[href*="product"],a[href*="producto"],a[href]');
     const href = link ? link.href : '';
     const dataset = {...row.dataset, ...(link ? link.dataset : {})};
-    const productId = String(dataset.productId || dataset.productid || dataset.sku || dataset.id || '').trim();
-    const input = row.querySelector('input[type="number"],input[name*="quantity" i],input[name*="cantidad" i]');
+    const marker = row.innerHTML.match(/basket-product-(\d+)/i);
+    const productId = marker
+      ? marker[1]
+      : String(dataset.productId || dataset.productid || dataset.sku || dataset.id || '').trim();
+    const input = row.querySelector('input[type="number"],input[name*="quantity" i],input[name*="cantidad" i],input[class*="quantity" i]');
     let quantity = input ? number(input.value, 1) : 1;
     if (!input) {
       const quantityNode = row.querySelector('[data-testid*="quantity" i],[class*="quantity" i],[class*="cantidad" i]');

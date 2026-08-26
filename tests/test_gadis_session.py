@@ -53,6 +53,7 @@ def test_gadis_http_session_status_is_value_free(tmp_path: Path) -> None:
                     "customer_id": "private-id",
                 },
                 "expires": "2030-01-01T00:00:00.000Z",
+                "token": {"accessToken": "private-bearer-value"},
             },
         )
 
@@ -67,7 +68,62 @@ def test_gadis_http_session_status_is_value_free(tmp_path: Path) -> None:
     assert "Private Name" not in serialized
     assert "private@example.com" not in serialized
     assert "private-cookie-value" not in serialized
+    assert "private-bearer-value" not in serialized
     assert len(seen) == 1
+    client.close()
+
+
+def test_gadis_cookie_only_session_is_not_reported_as_authenticated(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "storage_state.json"
+    _state(state_path)
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={"user": {"name": "Private"}, "expires": "2030-01-01"},
+            )
+        )
+    )
+
+    status = GadisSessionClient(state_path=state_path, client=client).status()
+
+    assert status["authenticated"] is False
+    assert status["cookie_session_present"] is True
+    assert status["bearer_token_available"] is False
+    client.close()
+
+
+def test_gadis_cookie_jar_rejects_lookalike_domain(tmp_path: Path) -> None:
+    state_path = tmp_path / "storage_state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "cookies": [
+                    {
+                        "domain": "evilgadisline.com",
+                        "name": "next-auth.session-token",
+                        "value": "must-not-be-used",
+                        "expires": -1,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    status = GadisSessionClient(state_path=state_path, client=client).status()
+    assert status["authenticated"] is False
+    assert status["cookie_names"] == []
+    assert calls == 0
     client.close()
 
 

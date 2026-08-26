@@ -45,6 +45,11 @@ class FakeProvider:
         self.closed = True
 
 
+class FailingProvider(FakeProvider):
+    def account_status(self):
+        raise RuntimeError("private response body must not escape")
+
+
 def test_read_only_verifier_accepts_authenticated_http_cart(monkeypatch) -> None:
     provider = FakeProvider()
     monkeypatch.setattr(verifier, "GadisFullProvider", lambda: provider)
@@ -84,4 +89,18 @@ def test_read_only_verifier_reports_missing_authentication(monkeypatch) -> None:
     assert code == 1
     assert payload["ok"] is False
     assert "not authenticated" in payload["reason"]
+    assert provider.closed is True
+
+
+def test_read_only_verifier_redacts_exception_messages(monkeypatch) -> None:
+    provider = FailingProvider()
+    monkeypatch.setattr(verifier, "GadisFullProvider", lambda: provider)
+
+    code, payload = verifier.verify()
+
+    assert code == 1
+    assert payload["reason"] == "Gadis read-only verification failed"
+    assert payload["failure_stage"] == "account_status"
+    assert payload["failure_type"] == "RuntimeError"
+    assert "private response body" not in json.dumps(payload)
     assert provider.closed is True

@@ -24,7 +24,6 @@ from playwright.sync_api import Page, Request, Route, sync_playwright
 
 from capture_http_contract import ContractProbe
 from http_capture.common import (
-    click_words,
     first_visible,
     safe_url,
 )
@@ -91,16 +90,15 @@ class GadisDeliveryProbe(ContractProbe):
 
     def open_checkout(self, page: Page) -> None:
         self.goto_cart(page)
-        # Only the checkout entry point; never "hacer pedido"/"ir al pago".
-        if not click_words(page, ("tramitar pedido",)):
-            target = first_visible(
-                page.locator(
-                    "a[href*='checkout' i],a[href*='proceso-de-compra' i]"
-                )
-            )
-            if target is None:
-                raise RuntimeError("checkout entry control not found")
-            target.click()
+        # Follow only a navigational checkout link. Generic controls labelled
+        # "tramitar pedido" are deliberately excluded because some storefront
+        # versions bind them directly to an order-creation POST.
+        target = first_visible(
+            page.locator("a[href*='checkout' i],a[href*='proceso-de-compra' i]")
+        )
+        if target is None:
+            raise RuntimeError("safe checkout navigation link not found")
+        target.click()
         # The storefront may bootstrap a silent NextAuth/Keycloak round-trip
         # before rendering the checkout; wait for the process page itself.
         try:

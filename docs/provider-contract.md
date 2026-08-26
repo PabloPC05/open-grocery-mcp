@@ -21,7 +21,7 @@ Only use this capability when the retailer exposes a verified public source. The
 - minimum order amount;
 - free-delivery threshold.
 
-`compare_basket` may include these values in its estimated checkout total, but must continue to distinguish the product subtotal from the estimate. Personal coupons, loyalty discounts and checkout-time substitutions remain excluded.
+`compare_basket` may include these values in its estimated checkout total, but must continue to distinguish the product subtotal from the estimate. Loyalty discounts remain opt-in. Personal coupons are reported as a separate non-actionable scenario and never reduce a total; checkout-time substitutions remain excluded.
 
 ## Optional authenticated contracts
 
@@ -86,3 +86,13 @@ A sanitized capture may be used to replace browser cart/checkout operations with
 - error and expiration behavior.
 
 Endpoint strings extracted from JavaScript bundles are leads, not sufficient evidence for enabling writes. Fixture tests must be based on an observed, sanitized request/response contract.
+
+## Human review handoff
+
+An authenticated provider may advertise `human_handoff` independently from
+`checkout`. The common workflow must re-read and cap either the authoritative
+checkout (when a safe checkout boundary exists) or the authoritative cart
+(otherwise) before opening a visible window. The opener may navigate directly
+to a trusted retailer URL, but must not click controls, expose private URL
+parameters, claim that the human placed an order, or silently upgrade a
+cart-only provider to checkout support.

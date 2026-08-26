@@ -73,10 +73,11 @@ Al terminar la sesión de pruebas puede desactivar las escrituras:
 Remove-Item Env:OPEN_GROCERY_ENABLE_RETAILER_WRITES -ErrorAction SilentlyContinue
 ```
 
-## 3. Direcciones, franjas y creación de checkout por HTTP
+## 3. Direcciones, franjas y resumen seguro de checkout por HTTP
 
-Lecturas y escritura reversible de franja; la creación de checkout es una
-segunda autorización explícita y jamás envía un pedido:
+Lecturas, escritura reversible de franja y preparación del contexto que usa la
+página GET de checkout. El endpoint `/api/config/checkout` contiene campos de
+pago y aceptación de condiciones, por lo que está bloqueado antes de la red:
 
 ```powershell
 $env:OPEN_GROCERY_ENABLE_RETAILER_WRITES = "1"
@@ -85,15 +86,16 @@ Remove-Item Env:OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION -ErrorAction Silent
 
 python .\tools\verify_gadis_delivery_local.py --allow-reversible-schedule-write
 
-# crea además un checkout real una sola vez (nunca llega a pedido/pago):
+# prepara y restaura el resumen que permite abrir la pantalla de tarjeta:
 python .\tools\verify_gadis_delivery_local.py `
   --allow-reversible-schedule-write `
-  --allow-checkout-create
+  --allow-checkout-summary
 ```
 
 Resultado válido: `calendar_read`, `addresses_read`, `schedule_applied`,
-`schedule_removed` y `state_restored=true`; con checkout:
-`checkout_created=true` y `checkout_order_placed=false`.
+`schedule_removed`, `checkout_summary_prepared` y `state_restored=true`.
+`checkout_created=false` y `order_or_payment_attempted=false` son garantías
+deliberadas: esta prueba nunca llama al POST que contiene pago/condiciones.
 
 Si los microservicios devuelven `AuthenticationRequired`, el bearer Keycloak
 de la sesión está caducado: pide al propietario un `login_with_browser`

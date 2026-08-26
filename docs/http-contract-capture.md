@@ -1,4 +1,4 @@
-# HTTP contract capture for Gadis and Froiz
+# HTTP contract capture for Gadis, Froiz, Mercadona and Eroski
 
 This diagnostic is the migration path from Playwright-driven shopping to the lighter Mercadona-style architecture:
 

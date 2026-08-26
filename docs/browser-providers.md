@@ -1,16 +1,21 @@
 # Proveedores controlados por navegador
 
-Gadis y Froiz conservan sus lecturas de catálogo estructuradas, pero ejecutan las
-operaciones autenticadas sobre la interfaz visible de la tienda mediante
-Playwright. Esto evita inventar o acoplar el proyecto a endpoints privados de
-escritura que pueden cambiar sin aviso.
+Playwright permanece como backend de login y fallback para operaciones que un
+contrato HTTP no puede representar con seguridad. Gadis y Froiz prefieren sus
+clientes HTTP autenticados; Eroski usa HTTP para leer, navegador para las
+escrituras de carrito verificadas y GET-only para el contexto de entrega ya
+seleccionado.
 
 ## Sesión
 
 `login_with_browser` abre Chromium o Chrome en modo visible. El usuario inicia
-sesión directamente en la tienda y pulsa **Open Grocery: guardar sesión**. El MCP
-guarda un `storage_state.json` local con permisos restringidos; contraseñas,
-códigos de verificación, cookies y tokens no se aceptan como argumentos MCP.
+sesión directamente en la tienda. Froiz y Eroski abren su entrada de acceso y
+guardan automáticamente solo después de detectar un control exacto de
+logout/desconexión; Mercadona exige además lecturas 2xx de cliente y carrito.
+El control auxiliar heredado se conserva donde no hay una prueba automática
+específica. El MCP guarda un `storage_state.json` local con permisos
+restringidos; contraseñas, códigos de verificación, cookies y tokens no se
+aceptan como argumentos MCP.
 
 También se puede importar un `storage_state.json` existente. El archivo se
 valida, se limita a 5 MiB y debe contener cookies u orígenes pertenecientes al
@@ -32,9 +37,11 @@ respuesta MCP.
 
 El plan de carrito contiene el conjunto exacto de productos y cantidades
 revisados. Antes de escribir se vuelve a leer una huella determinista del
-carrito. Después de escribir se comprueban de nuevo líneas, cantidades y total.
-Un total no verificable en una cesta no vacía se trata como error y se intenta
-restaurar el estado anterior.
+carrito. Después de escribir se comprueban de nuevo líneas, cantidades, precios
+y total.
+Un total no verificable en una cesta no vacía se trata como error. Primero se
+relee la cesta para diagnosticar una respuesta ambigua; solo después se intenta
+restaurar el estado anterior, y el rollback también debe quedar verificado.
 
 Las operaciones siguen el flujo común de dos fases:
 
@@ -45,7 +52,8 @@ Las operaciones siguen el flujo común de dos fases:
 
 ## Pedido definitivo
 
-El clic final de un proveedor de navegador necesita todas estas barreras:
+El clic final de un proveedor de navegador que anuncie esa capacidad necesita
+todas estas barreras:
 
 ```text
 OPEN_GROCERY_ENABLE_RETAILER_WRITES=1
@@ -65,7 +73,7 @@ Las pruebas automatizadas cubren normalización, aislamiento de sesión, límite
 control de concurrencia, rollback, protección de URLs, rechazo de productos
 restringidos y política de no reintento. No realizan compras reales.
 
-La implementación está completa como backend de navegador. La compatibilidad en
-vivo debe validarse al menos una vez con la cuenta del propietario porque la
-interfaz de cada tienda puede cambiar; un selector ausente provoca un fallo
-cerrado, nunca un éxito supuesto.
+La compatibilidad en vivo debe validarse con la cuenta del propietario porque la
+interfaz puede cambiar; un selector ausente provoca un fallo cerrado. Froiz y
+Eroski no anuncian checkout/order: en ambos casos la frontera observada puede
+crear directamente un pedido real.

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from pathlib import Path
+
+import pytest
 
 from tools.capture_http_local import request_body_shape, should_block_request
 from tools.http_capture.bundle_scan import endpoint_literals
@@ -15,6 +18,7 @@ from tools.http_capture.common import (
     shape,
 )
 from tools.http_capture.manifest import add_manifest
+from tools.http_capture.probe import Probe
 
 
 def test_safe_url_keeps_route_but_removes_values() -> None:
@@ -51,6 +55,57 @@ def test_gadis_capture_uses_current_resolvable_storefront() -> None:
     # The live cart lives under the Spanish catch-all route, not the generic
     # "/cart" guess used by other storefronts.
     assert "/pag/proceso-de-compra/carrito" in STORES["gadis"].cart_paths
+
+
+def test_mercadona_capture_uses_location_aware_storefront() -> None:
+    spec = STORES["mercadona"]
+    assert spec.base_url == "https://tienda.mercadona.es"
+    assert "/cart/" in spec.cart_paths
+
+
+def test_mercadona_product_discovery_requires_local_location(monkeypatch) -> None:
+    from tools.http_capture import common
+
+    monkeypatch.delenv("OPEN_GROCERY_MERCADONA_WAREHOUSE", raising=False)
+    monkeypatch.delenv("OPEN_GROCERY_MERCADONA_POSTAL_CODE", raising=False)
+    monkeypatch.delenv("OPEN_GROCERY_CAPTURE_POSTAL_CODE", raising=False)
+
+    with pytest.raises(RuntimeError, match="local warehouse or postal code"):
+        common.choose_product("mercadona")
+
+
+def test_mercadona_product_discovery_passes_postal_context(monkeypatch) -> None:
+    from tools.http_capture import common
+
+    calls: list[dict[str, object]] = []
+
+    class FakeProvider:
+        def __init__(self, **kwargs) -> None:
+            calls.append({"init": kwargs})
+
+        def search(self, query, **kwargs):
+            calls.append({"query": query, **kwargs})
+            return [
+                SimpleNamespace(
+                    id="123",
+                    name="Arroz redondo",
+                    url="https://tienda.mercadona.es/product/123/arroz",
+                    price=1.25,
+                    metadata={"warehouse": "mad1"},
+                )
+            ]
+
+        def close(self) -> None:
+            calls.append({"close": True})
+
+    monkeypatch.setattr(common, "MercadonaProvider", FakeProvider)
+    monkeypatch.setenv("OPEN_GROCERY_MERCADONA_POSTAL_CODE", "28050")
+    product = common.choose_product("mercadona")
+
+    assert product["id"] == "123"
+    assert product["_warehouse"] == "mad1"
+    assert any(call.get("postal_code") == "28050" for call in calls)
+    assert calls[-1] == {"close": True}
 
 
 def test_bundle_scanner_extracts_only_relevant_value_free_routes() -> None:
@@ -117,6 +172,20 @@ def test_headers_and_messages_never_keep_secrets(monkeypatch) -> None:
     assert "disposable-password" not in message
     assert "person@example.com" not in message
     assert "abc.def.ghi" not in message
+    assert (
+        safe_message("failed at https://supermercado.froiz.com/cart")
+        == "failed at https://supermercado.froiz.com/cart"
+    )
+
+
+def test_messages_redact_private_urls_postal_codes_and_addresses() -> None:
+    message = safe_message(
+        "failed at https://shop.test/api/orders/create?token=abc123 "
+        "for postal 28050 Calle Mayor 12"
+    )
+    assert "abc123" not in message
+    assert "28050" not in message
+    assert "Mayor 12" not in message
 
 
 def test_manifest_associates_endpoint_with_capture_phase(tmp_path: Path) -> None:
@@ -209,9 +278,69 @@ def test_manifest_publishes_a_retailer_only_view(tmp_path: Path) -> None:
     assert result["manifest_summary"]["operation_counts"] == {"cart": 1}
 
 
+def test_manifest_recognizes_eroski_tapestry_cart_endpoints(tmp_path: Path) -> None:
+    path = tmp_path / "eroski.json"
+    path.write_text(
+        json.dumps(
+            {
+                "store": "eroski",
+                "events": [
+                    {
+                        "kind": "request",
+                        "phase": "cart_add",
+                        "method": "POST",
+                        "url": (
+                            "https://supermercado.eroski.es/es/search/"
+                            "results.productlist:addtocart"
+                        ),
+                        "headers": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = add_manifest(path)
+    assert result["manifest_summary"]["retailer_endpoint_count"] == 1
+    assert result["retailer_endpoint_manifest"][0]["operation_hint"] == "cart"
+
+
+def test_manifest_recognizes_gadis_update_product_as_cart_write(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "gadis.json"
+    path.write_text(
+        json.dumps(
+            {
+                "store": "gadis",
+                "events": [
+                    {
+                        "kind": "request",
+                        "phase": "quantity_2",
+                        "method": "PUT",
+                        "url": "https://www.gadisline.com/api/config/updateProduct",
+                        "headers": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = add_manifest(path)
+
+    assert result["retailer_endpoint_manifest"][0]["operation_hint"] == "cart"
+
+
 def test_final_order_patterns_are_blocked_but_cart_is_not() -> None:
     assert DANGEROUS.search("https://shop.test/api/checkouts/c1/orders/")
+    assert DANGEROUS.search("https://shop.test/api/checkouts/c1/confirm/")
+    assert DANGEROUS.search("https://shop.test/api/checkouts/c1/confirm?step=1")
+    assert DANGEROUS.search("https://shop.test/api/orders/create")
+    assert DANGEROUS.search("https://shop.test/api/order/create")
     assert DANGEROUS.search("https://shop.test/api/payment")
+    assert DANGEROUS.search("https://shop.test/api/checkout/confirm")
+    assert DANGEROUS.search("https://shop.test/api/checkout/confirmation")
     assert not DANGEROUS.search("https://shop.test/api/cart/items")
     assert not DANGEROUS.search("https://shop.test/api/checkouts/c1/delivery")
 
@@ -243,6 +372,95 @@ def test_local_order_probe_blocks_writes_before_they_leave_browser() -> None:
     assert should_block_request(
         "checkout_open", "POST", "https://shop.test/api/orders"
     )
+    assert should_block_request(
+        "checkout_open", "POST", "https://shop.test/api/orders/create"
+    )
+    assert should_block_request(
+        "checkout_open", "POST", "https://shop.test/api/checkouts/c1/confirm/"
+    )
+    assert should_block_request(
+        "checkout_open",
+        "POST",
+        "https://shop.test/api/action",
+        '{"operation":"submitOrder"}',
+    )
     assert not should_block_request(
         "cart_add", "POST", "https://shop.test/api/cart/lines"
     )
+
+
+def test_probe_cleanup_never_overwrites_an_unrecognized_cart_state(
+    tmp_path: Path,
+) -> None:
+    probe = Probe("froiz", "authenticated", tmp_path / "capture.json")
+    probe.original_quantity = 0
+    probe.last_verified_quantity = 1
+    writes = {"count": 0}
+
+    def goto_cart(_page) -> None:
+        return None
+
+    def product_quantity(_page) -> int:
+        return 2
+
+    def quantity(_page, _value) -> None:
+        writes["count"] += 1
+
+    probe.goto_cart = goto_cart
+    probe.product_quantity = product_quantity
+    probe.quantity = quantity
+
+    with pytest.raises(RuntimeError, match="automatic restoration was refused"):
+        probe.cleanup(object())
+
+    assert writes["count"] == 0
+
+
+def test_probe_order_submit_phase_blocks_every_write_before_navigation(
+    tmp_path: Path,
+) -> None:
+    probe = Probe("mercadona", "authenticated", tmp_path / "capture.json")
+    probe.phase = "order_submit_probe"
+
+    class Request:
+        method = "PUT"
+        url = "https://tienda.mercadona.es/api/customers/<id>/cart/"
+        post_data = '{"items": []}'
+
+    class Route:
+        request = Request()
+        aborted = False
+
+        def abort(self, _reason: str) -> None:
+            self.aborted = True
+
+        def continue_(self) -> None:
+            raise AssertionError("order probe write escaped the route guard")
+
+    route = Route()
+    probe.route(route, route.request)
+    assert route.aborted is True
+    assert probe.blocked[0]["reason"] == "all writes are blocked during order_submit_probe"
+
+
+def test_probe_blocks_dangerous_read_routes_too(tmp_path: Path) -> None:
+    probe = Probe("mercadona", "guest", tmp_path / "capture.json")
+
+    class Request:
+        method = "GET"
+        url = "https://tienda.mercadona.es/api/checkout/confirm"
+        post_data = None
+
+    class Route:
+        request = Request()
+        aborted = False
+
+        def abort(self, _reason: str) -> None:
+            self.aborted = True
+
+        def continue_(self) -> None:
+            raise AssertionError("dangerous route escaped the guard")
+
+    route = Route()
+    probe.route(route, route.request)
+    assert route.aborted is True

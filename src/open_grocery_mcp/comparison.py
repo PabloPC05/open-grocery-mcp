@@ -9,6 +9,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.matching import select_best
 from open_grocery_mcp.models import BasketItem, as_decimal, money
+from open_grocery_mcp.promotions import price_product_quantity
 from open_grocery_mcp.providers.base import GroceryProvider
 from open_grocery_mcp.registry import ProviderRegistry
 
@@ -76,6 +77,7 @@ def price_basket(
     postal_code: str | None = None,
     search_limit: int = 10,
     eco: bool = False,
+    include_loyalty: bool = False,
 ) -> dict[str, Any]:
     details: list[dict[str, Any]] = []
     total = Decimal("0")
@@ -112,7 +114,12 @@ def price_basket(
             continue
 
         found += 1
-        line_total = selected.product.price * item.quantity
+        promotion_pricing = price_product_quantity(
+            selected.product,
+            item.quantity,
+            include_loyalty=include_loyalty,
+        )
+        line_total = as_decimal(promotion_pricing["effective_total"])
         total += line_total
         detail = {
             "request": item.to_dict(),
@@ -120,7 +127,12 @@ def price_basket(
             **selected.to_dict(),
             "line_total": float(line_total),
             "line_total_text": money(line_total),
+            "promotion_pricing": promotion_pricing,
         }
+        if promotion_pricing["applied_promotion"] is not None:
+            detail["promotion_applied"] = True
+        for warning in promotion_pricing["warnings"]:
+            warnings.append(f"{selected.product.name}: {warning}")
         if selected.score < 0.55:
             detail["review_recommended"] = True
             warnings.append(
@@ -141,9 +153,16 @@ def price_basket(
     estimated_checkout_total_text: str | None = None
     exclusions = [
         "account-specific coupons",
-        "loyalty-card discounts",
         "checkout substitutions",
     ]
+    exclusions.insert(
+        1,
+        (
+            "unverified loyalty eligibility"
+            if include_loyalty
+            else "loyalty-card discounts"
+        ),
+    )
     if delivery is None:
         exclusions[0:0] = ["delivery fees", "minimum-order rules"]
     else:
@@ -175,6 +194,7 @@ def price_basket(
         "details": details,
         "warnings": warnings,
         "comparison_excludes": exclusions,
+        "loyalty_promotions_included": include_loyalty,
     }
     if delivery is not None:
         result["delivery"] = delivery
@@ -201,6 +221,7 @@ def compare_baskets(
     postal_code: str | None = None,
     search_limit: int = 10,
     eco: bool = False,
+    include_loyalty: bool = False,
 ) -> dict[str, Any]:
     parsed = parse_basket(items)
     keys = list(stores or registry.keys())
@@ -220,6 +241,7 @@ def compare_baskets(
                 postal_code=postal_code,
                 search_limit=search_limit,
                 eco=eco,
+                include_loyalty=include_loyalty,
             ): key
             for key in keys
         }
@@ -273,6 +295,7 @@ def compare_baskets(
         "ranking": results,
         "best_complete_store": best_complete,
         "best_estimated_checkout_store": best_checkout,
+        "loyalty_promotions_included": include_loyalty,
         "note": (
             "This compares normalized product matches, not guaranteed identical SKUs. "
             "Where a provider exposes a public delivery policy, ranking uses its "

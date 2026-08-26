@@ -145,16 +145,31 @@ class BrowserAccountStateMixin:
                 f"storage state contains no {self.config.label} cookies or local storage"
             )
         self._protect_root()
-        with NamedTemporaryFile("w", encoding="utf-8", dir=self.root, delete=False) as handle:
-            json.dump(payload, handle, ensure_ascii=False)
-            temporary = Path(handle.name)
-        temporary.replace(self.state_path)
-        self._protect(self.state_path)
+        temporary: Path | None = None
+        try:
+            with NamedTemporaryFile(
+                "w", encoding="utf-8", dir=self.root, delete=False
+            ) as handle:
+                temporary = Path(handle.name)
+                json.dump(payload, handle, ensure_ascii=False)
+            self._protect(temporary)
+            temporary.replace(self.state_path)
+            self._protect(self.state_path)
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
         return self.status()
 
     def login_with_browser(self, *, timeout_seconds: int = 300) -> dict[str, Any]:
         self._protect_root()
         result = self._driver().login(timeout_seconds=timeout_seconds)
+        if self.config.key.casefold() in {"froiz", "eroski"}:
+            # Keep the driver's live, read-only validation marker.  A static
+            # storage-file inspection must not overwrite this stronger result.
+            return {**self.status(), **result}
         return {**result, **self.status()}
 
     def cart(self) -> dict[str, Any]:

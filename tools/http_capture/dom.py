@@ -60,6 +60,14 @@ def _clean_control(raw: dict[str, Any], *, authenticated: bool) -> dict[str, Any
     return result
 
 
+def _state_path(store: str) -> Path:
+    configured = os.getenv(f"OPEN_GROCERY_{store.upper()}_STATE_PATH")
+    if configured:
+        return Path(configured).expanduser()
+    root = Path(os.getenv("OPEN_GROCERY_STATE_DIR", "~/.open-grocery-mcp")).expanduser()
+    return root / store / "storage_state.json"
+
+
 def collect_dom_inventory(store: str, mode: str, output: Path) -> dict[str, Any]:
     """Append safe home/product DOM observations to an existing capture JSON."""
     payload = json.loads(output.read_text(encoding="utf-8"))
@@ -96,15 +104,19 @@ def collect_dom_inventory(store: str, mode: str, output: Path) -> dict[str, Any]
                 args=["--disable-blink-features=AutomationControlled"],
             )
             try:
-                context = browser.new_context(
-                    locale="es-ES",
-                    viewport={"width": 1440, "height": 1000},
-                    user_agent=(
+                context_args: dict[str, Any] = {
+                    "locale": "es-ES",
+                    "viewport": {"width": 1440, "height": 1000},
+                    "user_agent": (
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                         "AppleWebKit/537.36 (KHTML, like Gecko) "
                         "Chrome/131.0.0.0 Safari/537.36"
                     ),
-                )
+                }
+                state_path = _state_path(store)
+                if mode == "authenticated" and state_path.exists():
+                    context_args["storage_state"] = str(state_path)
+                context = browser.new_context(**context_args)
                 page = context.new_page()
                 page.set_default_timeout(15_000)
                 for label, url in targets:

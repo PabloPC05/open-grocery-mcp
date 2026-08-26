@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping, Sequence
 
 from open_grocery_mcp.errors import (
@@ -39,13 +39,100 @@ class BrowserAccountCartMixin:
         actual_lines = [item for item in actual.get("lines", []) if isinstance(item, Mapping)]
         if len(actual_lines) != len(desired_lines):
             return False
+        unmatched = list(actual_lines)
         for desired in desired_lines:
-            actual_line = cls._match_line(desired, actual_lines)
-            if actual_line is None:
+            match_index = next(
+                (
+                    index
+                    for index, candidate in enumerate(unmatched)
+                    if same_line_identity(desired, candidate)
+                    and as_decimal(candidate.get("quantity"))
+                    == as_decimal(desired.get("quantity"))
+                ),
+                None,
+            )
+            if match_index is None:
                 return False
-            if as_decimal(actual_line.get("quantity")) != as_decimal(desired.get("quantity")):
+            unmatched.pop(match_index)
+        return not unmatched
+
+    @staticmethod
+    def _validated_quantity(value: Any, *, label: str) -> Decimal:
+        if isinstance(value, bool):
+            raise InvalidRequest(f"invalid quantity for {label!r}")
+        try:
+            quantity = Decimal(str(value).replace(",", ".").strip())
+        except (InvalidOperation, ValueError, AttributeError):
+            raise InvalidRequest(f"invalid quantity for {label!r}") from None
+        if not quantity.is_finite() or quantity < 0:
+            raise InvalidRequest(f"invalid quantity for {label!r}")
+        if quantity > 1000:
+            raise InvalidRequest(
+                f"quantity for {label!r} exceeds the safety limit of 1000"
+            )
+        return quantity
+
+    @classmethod
+    def _validated_plan_lines(
+        cls,
+        value: Any,
+        *,
+        label: str,
+        reject_restricted: bool,
+    ) -> list[dict[str, Any]]:
+        if not isinstance(value, list) or any(
+            not isinstance(item, Mapping) for item in value
+        ):
+            raise InvalidRequest(f"browser cart plan contains malformed {label}")
+        if len(value) > 100:
+            raise InvalidRequest("browser cart plan exceeds the 100-line safety limit")
+        lines: list[dict[str, Any]] = []
+        for item in value:
+            line = dict(item)
+            product_id = str(line.get("product_id") or "").strip()
+            name = str(line.get("name") or "").strip()
+            url = sanitize_url(line.get("url"))
+            if not any((product_id, name, url)):
+                raise InvalidRequest(f"browser cart plan contains an unidentified {label}")
+            quantity = cls._validated_quantity(
+                line.get("quantity"), label=name or product_id or str(url)
+            )
+            if quantity <= 0 or as_decimal(line.get("unit_price")) <= 0:
+                raise InvalidRequest(f"browser cart plan contains an invalid {label}")
+            if reject_restricted and is_restricted_product(
+                name, line.get("category")
+            ):
+                raise InvalidRequest(
+                    "browser cart plan cannot retain age-restricted products"
+                )
+            if any(same_line_identity(line, existing) for existing in lines):
+                raise InvalidRequest(f"browser cart plan contains duplicate {label}")
+            lines.append(line)
+        return lines
+
+    @staticmethod
+    def _reviewed_prices_match(
+        actual: Mapping[str, Any], desired: Sequence[Mapping[str, Any]]
+    ) -> bool:
+        actual_lines = [
+            item for item in actual.get("lines", []) if isinstance(item, Mapping)
+        ]
+        unmatched = list(actual_lines)
+        for desired_line in desired:
+            match_index = next(
+                (
+                    index
+                    for index, candidate in enumerate(unmatched)
+                    if same_line_identity(desired_line, candidate)
+                    and as_decimal(candidate.get("unit_price"))
+                    == as_decimal(desired_line.get("unit_price"))
+                ),
+                None,
+            )
+            if match_index is None:
                 return False
-        return True
+            unmatched.pop(match_index)
+        return not unmatched
 
     @staticmethod
     def _public_line(line: Mapping[str, Any]) -> dict[str, Any]:
@@ -85,12 +172,31 @@ class BrowserAccountCartMixin:
         previous_lines = [dict(line) for line in cart.get("lines", []) if isinstance(line, Mapping)]
         desired: list[dict[str, Any]] = [] if mode == "replace" else [dict(line) for line in previous_lines]
 
+        seen_changes: set[tuple[str, str, str]] = set()
         for change in changes:
             product_id = str(change.get("product_id") or "").strip()
             name = str(change.get("name") or "").strip()
             category = str(change.get("category") or "").strip()
             url = sanitize_url(change.get("url"))
-            quantity = as_decimal(change.get("quantity"))
+            identity = (
+                ("id", product_id, "")
+                if product_id
+                else ("url", str(url), "")
+                if url
+                else ("name", name.casefold(), "")
+            )
+            if identity in seen_changes:
+                raise InvalidRequest(
+                    f"duplicate browser cart change for {name or product_id!r}"
+                )
+            seen_changes.add(identity)
+            if "quantity" not in change:
+                raise InvalidRequest(
+                    f"every browser cart change needs quantity for {name or product_id!r}"
+                )
+            quantity = self._validated_quantity(
+                change.get("quantity"), label=name or product_id
+            )
             price = as_decimal(change.get("unit_price") or change.get("price"))
             if not any((product_id, name, url)):
                 raise InvalidRequest("every browser cart change needs product_id, name or product URL")
@@ -104,10 +210,6 @@ class BrowserAccountCartMixin:
                 if existing is not None:
                     desired.remove(existing)  # type: ignore[arg-type]
                 continue
-            if quantity > 1000:
-                raise InvalidRequest(
-                    f"quantity for {name or product_id!r} exceeds the safety limit of 1000"
-                )
             if price <= 0 and existing is not None:
                 price = as_decimal(existing.get("unit_price"))
             if price <= 0:
@@ -124,6 +226,21 @@ class BrowserAccountCartMixin:
                 desired[index] = line
             else:
                 desired.append(line)
+
+        if len(desired) > 100:
+            raise InvalidRequest("resulting browser cart exceeds the 100-line safety limit")
+        restricted = next(
+            (
+                line
+                for line in desired
+                if is_restricted_product(line.get("name"), line.get("category"))
+            ),
+            None,
+        )
+        if restricted is not None:
+            raise InvalidRequest(
+                "automated browser cart changes cannot retain age-restricted products"
+            )
 
         total = sum(
             (as_decimal(line.get("unit_price")) * as_decimal(line.get("quantity")) for line in desired),
@@ -146,16 +263,49 @@ class BrowserAccountCartMixin:
             "lines": [self._public_line(line) for line in desired],
             "desired_lines": desired,
             "previous_lines": previous_lines,
+            "previous_total": float(as_decimal(cart.get("total"))),
             "retailer_cart_modified": False,
             "browser_driven": True,
         }
 
     def commit_cart_update(self, plan: Mapping[str, Any]) -> dict[str, Any]:
         expected = int(plan.get("expected_cart_version") or 0)
-        desired = [dict(item) for item in plan.get("desired_lines", []) if isinstance(item, Mapping)]
-        previous = [dict(item) for item in plan.get("previous_lines", []) if isinstance(item, Mapping)]
+        desired = self._validated_plan_lines(
+            plan.get("desired_lines"),
+            label="desired line",
+            reject_restricted=True,
+        )
+        previous = self._validated_plan_lines(
+            plan.get("previous_lines"),
+            label="previous line",
+            reject_restricted=False,
+        )
         cap = as_decimal(plan.get("max_total"))
+        expected_total = as_decimal(plan.get("estimated_total"))
+        previous_total = as_decimal(plan.get("previous_total"))
+        reviewed_total = sum(
+            (
+                as_decimal(line.get("unit_price"))
+                * as_decimal(line.get("quantity"))
+                for line in desired
+            ),
+            Decimal("0"),
+        )
+        if (
+            cap <= 0
+            or expected_total < 0
+            or previous_total < 0
+            or reviewed_total.quantize(Decimal("0.01"))
+            != expected_total.quantize(Decimal("0.01"))
+        ):
+            raise InvalidRequest("browser cart plan contains invalid reviewed totals")
         current = self.cart()
+        reviewed_cart_id = str(plan.get("cart_id") or "").strip()
+        current_cart_id = str(current.get("cart_id") or "").strip()
+        if reviewed_cart_id and current_cart_id and reviewed_cart_id != current_cart_id:
+            raise ConcurrentCartChange(
+                f"{self.config.label} cart identity changed after review"
+            )
         if int(current.get("version") or 0) != expected:
             raise ConcurrentCartChange(
                 f"{self.config.label} cart changed after review; prepare the update again"
@@ -163,12 +313,16 @@ class BrowserAccountCartMixin:
         driver = self._driver()
         try:
             updated = driver.apply_cart(desired)
-            if not self._cart_matches(updated, desired):
+            if not self._cart_matches(updated, desired) or not self._reviewed_prices_match(
+                updated, desired
+            ):
                 # A second read handles storefronts whose DOM updates lag the click.
                 updated = self.cart()
-            if not self._cart_matches(updated, desired):
+            if not self._cart_matches(updated, desired) or not self._reviewed_prices_match(
+                updated, desired
+            ):
                 raise ProviderError(
-                    f"{self.config.label} cart did not match the reviewed product quantities"
+                    f"{self.config.label} cart did not match the reviewed lines and prices"
                 )
             total = as_decimal(updated.get("total"))
             if desired and total <= 0:
@@ -179,12 +333,55 @@ class BrowserAccountCartMixin:
                 raise BudgetExceeded(
                     f"actual {self.config.label} cart total {money(total)} EUR exceeds cap {money(cap)} EUR"
                 )
-        except Exception:
+            if total.quantize(Decimal("0.01")) != expected_total.quantize(
+                Decimal("0.01")
+            ):
+                raise ProviderError(
+                    f"actual {self.config.label} cart total differs from the reviewed total"
+                )
+        except Exception as original:
             try:
-                driver.apply_cart(previous)
-            except Exception:
-                pass
-            raise
+                observed = self.cart()
+            except Exception as read_error:
+                raise ProviderError(
+                    f"{self.config.label} cart mutation result is ambiguous; inspect the "
+                    "retailer cart before any further write"
+                ) from read_error
+            if self._cart_matches(observed, desired) and self._reviewed_prices_match(
+                observed, desired
+            ):
+                observed_total = as_decimal(observed.get("total"))
+                if (
+                    (not desired or observed_total > 0)
+                    and observed_total <= cap
+                    and observed_total.quantize(Decimal("0.01"))
+                    == expected_total.quantize(Decimal("0.01"))
+                ):
+                    return {
+                        **observed,
+                        "retailer_cart_modified": True,
+                        "verified_against_reviewed_plan": True,
+                        "write_response_ambiguous_but_state_verified": True,
+                        "rollback_available": False,
+                    }
+            if (
+                self._cart_matches(observed, previous)
+                and self._reviewed_prices_match(observed, previous)
+                and as_decimal(observed.get("total")).quantize(Decimal("0.01"))
+                == previous_total.quantize(Decimal("0.01"))
+            ):
+                # The failed write was proven to have left the reviewed cart
+                # untouched. Do not issue a compensating write in this case.
+                raise original
+
+            # A third state is ambiguous: applying ``previous`` here could
+            # overwrite another actor's legitimate change. Fail closed and leave
+            # the retailer cart for inspection instead of attempting rollback.
+            raise ProviderError(
+                f"{self.config.label} cart update failed ({type(original).__name__}); "
+                "the observed cart matches neither the reviewed result nor the "
+                "previous cart; inspect the retailer cart before any further write"
+            ) from original
         return {
             **updated,
             "retailer_cart_modified": True,

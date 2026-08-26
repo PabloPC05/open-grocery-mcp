@@ -1,0 +1,15 @@
+{
+  "version": "2026.08.25",
+  "source": "public retailer catalogue audits",
+  "concepts": {
+    "toothpaste": ["dentifrico", "pasta de dientes", "pasta dental"],
+    "shower_gel": ["gel de ducha", "gel de bano"],
+    "hand_soap": ["jabon de manos", "jabon manos"],
+    "baby_food_jar": ["potito", "tarrito bebe", "tarrito infantil"],
+    "generic_seasoning": ["ajo granulado", "pimienta", "oregano", "pimenton"],
+    "cheese_arzua_ulloa": ["arzua", "ulloa", "queso arzua ulloa", "queixo arzua ulloa", "queso de arzua", "queixo de arzua"],
+    "ham_solid_block": ["jamon taco", "jamon centro", "jamon deshuesado", "jamon bloque"],
+    "ham_serrano_solid_block": ["jamon serrano taco", "jamon serrano centro", "jamon serrano deshuesado", "jamon serrano bloque"],
+    "lasagna": ["lasana", "lasagna", "lasaña"]
+  }
+}

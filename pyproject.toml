@@ -44,6 +44,9 @@ Issues = "https://github.com/PabloPC05/open-grocery-mcp/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/open_grocery_mcp"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"data" = "open_grocery_mcp/data"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

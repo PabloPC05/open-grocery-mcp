@@ -40,6 +40,8 @@ def test_froiz_search_normalizes_empathy_result_and_removes_diacritics() -> None
     assert products[0].price_per_unit == Decimal("5")
     assert products[0].unit == "kg"
     assert products[0].metadata["location_aware"] is False
+    assert products[0].metadata["price_source"] == "empathy.__prices.current.value"
+    assert products[0].metadata["catalogue_current_price"] == 2.5
     assert len(seen) == 1
     client.close()
 

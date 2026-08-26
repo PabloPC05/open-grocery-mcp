@@ -11,6 +11,7 @@ import httpx
 
 from open_grocery_mcp.providers.froiz import FroizProvider
 from open_grocery_mcp.providers.gadis import GadisProvider
+from open_grocery_mcp.providers.mercadona import MercadonaProvider
 
 SENSITIVE = re.compile(
     r"(?i)(pass|secret|token|auth|cookie|csrf|xsrf|session|email|phone|mobile|"
@@ -22,12 +23,13 @@ RELEVANT = re.compile(
     r"carrito|checkout|address|direccion|delivery|entrega|slot|order|pedido|store)"
 )
 DANGEROUS = re.compile(
-    r"(?i)(/checkouts?/.*/orders?/?$|/orders?/?$|place.?order|submit.?order|"
-    r"confirm.?order|payment|redsys|3ds|purchase)"
+    r"(?i)(/checkouts?/.*/(?:orders?|confirm)(?:[/?#]|$)|/orders?(?:[/?#]|$)|place.?order|submit.?order|"
+    r"confirm(?:ation)?(?:[/?#]|$)|confirm.?order|payment|redsys|3ds|purchase)"
 )
 RESTRICTED = re.compile(
     r"(?i)\b(vino|cerveza|whisk(?:y|ey)|vodka|ginebra|ron|licor|cava|sidra|"
-    r"tabaco|cigarr|vape|nicotina)\b"
+    r"tequila|mezcal|vermut|vermouth|bourbon|coñac|cognac|aguardiente|"
+    r"pacharán|sangría|alcohol|tabaco|cigarr|vape|nicotina)\b"
 )
 UUID = re.compile(r"(?i)^[0-9a-f]{8}-[0-9a-f-]{27,}$")
 OPAQUE = re.compile(r"^[A-Za-z0-9_=-]{25,}$")
@@ -147,7 +149,13 @@ STORES = {
         "eroski",
         "Eroski",
         "https://supermercado.eroski.es",
-        ("/cesta", "/basket", "/cart"),
+        (
+            "/es/mycart/?basketType=ALI",
+            "/es/login/anonymousbasket/?basketType=ALI",
+            "/cesta",
+            "/basket",
+            "/cart",
+        ),
         ("iniciar sesión", "acceder", "mi cuenta", "identificarse"),
         ("cesta", "carrito", "mi compra", "mi cesta"),
         ("añadir", "agregar", "comprar"),
@@ -155,6 +163,19 @@ STORES = {
         ("eliminar", "quitar", "borrar"),
         "EROSKI_TEST_USERNAME",
         "EROSKI_TEST_PASSWORD",
+    ),
+    "mercadona": StoreSpec(
+        "mercadona",
+        "Mercadona",
+        "https://tienda.mercadona.es",
+        ("/cart/", "/cart", "/cesta", "/checkout/cart"),
+        ("iniciar sesión", "acceder", "mi cuenta", "identificarse", "entrar"),
+        ("carrito", "cesta", "mi compra", "cart"),
+        ("añadir", "agregar", "sumar", "comprar"),
+        ("tramitar pedido", "finalizar compra", "continuar compra", "hacer pedido"),
+        ("eliminar", "quitar", "borrar"),
+        "MERCADONA_TEST_USERNAME",
+        "MERCADONA_TEST_PASSWORD",
     ),
 }
 
@@ -263,6 +284,10 @@ def safe_message(value: str) -> str:
         "GADIS_TEST_PASSWORD",
         "FROIZ_TEST_USERNAME",
         "FROIZ_TEST_PASSWORD",
+        "EROSKI_TEST_USERNAME",
+        "EROSKI_TEST_PASSWORD",
+        "MERCADONA_TEST_USERNAME",
+        "MERCADONA_TEST_PASSWORD",
     ):
         secret = os.getenv(name, "")
         if secret:
@@ -271,12 +296,25 @@ def safe_message(value: str) -> str:
     text = PHONE.sub("<redacted-phone>", text)
     text = re.sub(r"(?i)Bearer\s+[A-Za-z0-9._=-]+", "Bearer <redacted>", text)
     text = re.sub(
-        r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+        r"[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
         "<redacted-token>",
         text,
     )
     text = re.sub(
         r"(?i)[0-9a-f]{8}-[0-9a-f-]{27,}", "<redacted-id>", text
+    )
+    text = re.sub(
+        r"https?://[^\s<>\"']+",
+        lambda match: safe_url(match.group(0)),
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"(?<!\d)\d{5}(?!\d)", "<redacted-postal-code>", text)
+    text = re.sub(
+        r"(?i)\b(?:calle|avenida|avda\.?|plaza|paseo|r[uú]a|c/)\s+"
+        r"[^,;\n]{1,100}",
+        "<redacted-address>",
+        text,
     )
     return text[:800]
 
@@ -332,19 +370,51 @@ def choose_product(store: str) -> dict[str, Any]:
         provider = GadisProvider()
     elif store == "froiz":
         provider = FroizProvider()
+    elif store == "mercadona":
+        # Mercadona's public index is warehouse-specific.  Do not guess a
+        # location (or silently capture a national/default assortment): the
+        # caller can provide either a resolved warehouse or a five-digit
+        # postal code through local environment only.
+        warehouse = (
+            os.getenv("OPEN_GROCERY_MERCADONA_WAREHOUSE", "").strip()
+            or os.getenv("OPEN_GROCERY_MERCADONA_POSTAL_CODE", "").strip()
+            or os.getenv("OPEN_GROCERY_CAPTURE_POSTAL_CODE", "").strip()
+        )
+        if not warehouse:
+            raise RuntimeError(
+                "Mercadona product discovery needs a local warehouse or postal "
+                "code (OPEN_GROCERY_MERCADONA_WAREHOUSE or "
+                "OPEN_GROCERY_MERCADONA_POSTAL_CODE)"
+            )
+        provider = MercadonaProvider(
+            warehouse=warehouse if not re.fullmatch(r"\d{5}", warehouse) else None
+        )
     else:
         # Eroski has no catalogue provider yet; drive the storefront search
         # page directly so the probe can still exercise cart flows.
         return _eroski_probe_product()
     try:
         for query in ("leche entera 1 l", "arroz 1 kg", "agua mineral"):
-            for product in provider.search(query, limit=10):
+            search_kwargs: dict[str, Any] = {"limit": 10}
+            if store == "mercadona" and re.fullmatch(r"\d{5}", warehouse):
+                search_kwargs["postal_code"] = warehouse
+            for product in provider.search(query, **search_kwargs):
                 if product.url and product.price > 0 and not RESTRICTED.search(product.name):
+                    metadata = getattr(product, "metadata", {})
                     return {
                         "id": product.id,
                         "name": product.name,
                         "url": _browser_product_url(store, product.url),
                         "price": float(product.price),
+                        # Used only to prime the browser context; Probe strips
+                        # this internal value from the sanitized report.
+                        **(
+                            {"_warehouse": str(metadata.get("warehouse", ""))}
+                            if store == "mercadona"
+                            and isinstance(metadata, Mapping)
+                            and metadata.get("warehouse")
+                            else {}
+                        ),
                     }
     finally:
         provider.close()

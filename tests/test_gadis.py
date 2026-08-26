@@ -64,6 +64,72 @@ def test_gadis_search_bootstraps_store_and_normalizes_product() -> None:
     client.close()
 
 
+def test_gadis_search_page_uses_total_only_when_schema_exposes_it() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "site.gadisline.com":
+            return httpx.Response(
+                200,
+                json={"elements": [{"id": "site-1", "default_assortment_store": "store-7"}]},
+            )
+        payload = _product_payload()
+        payload["total_elements"] = 3
+        return httpx.Response(200, json=payload)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = GadisProvider(client=client)
+
+    page = provider.search_page("leche", page_size=1)
+
+    assert page["total"] == 3
+    assert page["has_next"] is True
+    assert page["next_cursor"] == "1"
+    client.close()
+
+
+def test_gadis_promotion_metadata_marks_contract_without_offer() -> None:
+    client = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200)))
+    provider = GadisProvider(client=client)
+    product = provider._product_from_raw(
+        {
+            "id": "p1",
+            "commercial_description": [{"language": "es", "value": "Leche"}],
+            "price": 1.05,
+            "fidelity_offer_price": None,
+            "offers": [],
+        }
+    )
+
+    assert product.metadata["promotion"] == {
+        "available": False,
+        "current_price": 1.05,
+        "previous_price": None,
+        "offer_price": None,
+        "source": "not_observed",
+    }
+    client.close()
+
+
+def test_gadis_promotion_metadata_uses_explicit_fidelity_offer() -> None:
+    client = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200)))
+    provider = GadisProvider(client=client)
+    product = provider._product_from_raw(
+        {
+            "id": "p1",
+            "commercial_description": [{"language": "es", "value": "Leche"}],
+            "price": 1.05,
+            "fidelity_offer_price": 0.85,
+        }
+    )
+
+    promotion = product.metadata["promotion"]
+    assert promotion["available"] is True
+    assert promotion["current_price"] == 1.05
+    assert promotion["offer_price"] == 0.85
+    assert promotion["previous_price"] is None
+    assert promotion["source"] == "fidelity_offer_price"
+    client.close()
+
+
 def test_gadis_resolves_location_store_before_search_and_caches_coverage() -> None:
     requests: list[httpx.Request] = []
 
@@ -184,3 +250,37 @@ def test_gadis_product_extracts_detail_fields() -> None:
     assert product.origin == "Galicia"
     assert product.ingredients == "Tomate\nSal"
     client.close()
+
+
+def test_gadis_exposes_public_leaflet_offer_without_inventing_discount() -> None:
+    provider = GadisProvider(store_id="store-1")
+    product = provider._product_from_raw(
+        {
+            "id": "p1",
+            "commercial_description": "Leche entera 1 l",
+            "price": 1.14,
+            "properties": [],
+            "offers": [
+                {
+                    "type": "DIPTYCH",
+                    "end_date": "2999-08-26",
+                    "is_offer_coupon": False,
+                },
+                {
+                    "type": "COUPON",
+                    "end_date": "2999-08-26",
+                    "is_offer_coupon": True,
+                },
+            ],
+        }
+    )
+
+    assert product.metadata["promotions"] == [
+        {
+            "type": "unknown",
+            "description": "Gadis leaflet offer",
+            "source": "offers.DIPTYCH",
+            "ends_at": "2999-08-26",
+        }
+    ]
+    provider.close()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 import re
 from typing import Any, Iterable, Mapping, Sequence
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 from open_grocery_mcp.errors import ProviderError
 from open_grocery_mcp.models import as_decimal
@@ -61,6 +61,11 @@ class BrowserDriverCartMixin:
     def _row_for_line(self, page: Any, line: Mapping[str, Any]) -> Any | None:
         fragment = self._line_fragment(line)
         candidates: list[Any] = []
+        product_id = str(line.get("product_id") or line.get("id") or "").strip()
+        if product_id and re.fullmatch(r"[A-Za-z0-9_-]+", product_id):
+            candidates.append(
+                page.locator(f'[class*="basket-product-{product_id}"]')
+            )
         if fragment:
             candidates.append(page.locator(f'a[href*="{fragment.replace(chr(34), "")}"]'))
         name = str(line.get("name") or "").strip()
@@ -120,6 +125,7 @@ class BrowserDriverCartMixin:
             "input[type='number']",
             "input[name*='quantity' i]",
             "input[name*='cantidad' i]",
+            "input[class*='quantity' i]",
         ):
             try:
                 field = row.locator(selector)
@@ -187,7 +193,29 @@ class BrowserDriverCartMixin:
             raise ProviderError(
                 f"{self.config.label} browser cart needs the reviewed product URL for {line.get('name') or line.get('product_id')}"
             )
-        page.goto(self._retailer_url(raw_url), wait_until="domcontentloaded")
+        product_url = self._retailer_url(raw_url)
+        product_id = str(line.get("product_id") or "").strip()
+        if self.config.key == "eroski" and re.fullmatch(r"\d+", product_id):
+            # Eroski's detail-page control does not carry the same signed zone
+            # context as a search tile. Searching the public product reference
+            # yields one exact Tapestry tile whose ``toAddProduct`` event does.
+            search_url = urljoin(
+                self.config.base_url,
+                f"/es/search/results/?q={quote(product_id)}",
+            )
+            page.goto(search_url, wait_until="domcontentloaded")
+            self._accept_cookies(page)
+            target = page.locator(
+                f'#item-list-{product_id} a.update.toAddProduct'
+            )
+            if target.count() and target.first.is_visible():
+                target.first.click()
+                page.wait_for_timeout(500)
+                return
+            raise ProviderError(
+                f"could not add {line.get('name') or product_id} on Eroski"
+            )
+        page.goto(product_url, wait_until="domcontentloaded")
         self._accept_cookies(page)
         if self._click_patterns(page, self.config.add_patterns, required=False):
             page.wait_for_timeout(500)

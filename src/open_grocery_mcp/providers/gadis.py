@@ -12,6 +12,7 @@ import os
 import re
 import threading
 from dataclasses import replace
+from decimal import Decimal
 from typing import Any, Iterable, Mapping
 from urllib.parse import quote
 
@@ -276,6 +277,69 @@ class GadisProvider(GroceryProvider):
             for item in properties
         )
 
+    @staticmethod
+    def _promotion_metadata(raw: Mapping[str, Any], current_price: Any) -> dict[str, Any]:
+        """Normalize only prices backed by explicit Gadis promotion fields.
+
+        ``fidelity_offer_price`` is the only promotion price field present in
+        the captured catalogue contract.  ``offers`` is intentionally not
+        interpreted: its item schema is unspecified in that contract.
+        """
+
+        current = as_decimal(current_price)
+        offer = as_decimal(raw.get("fidelity_offer_price"))
+        previous = Decimal("0")
+        for key in ("previous_price", "original_price", "price_before", "regular_price"):
+            candidate = as_decimal(raw.get(key))
+            if candidate > current and candidate > 0:
+                previous = candidate
+                break
+        valid_offer = offer > 0 and current > 0 and offer < current
+        return {
+            "available": bool(valid_offer or previous > 0),
+            "current_price": float(current) if current > 0 else None,
+            "previous_price": float(previous) if previous > 0 else None,
+            "offer_price": float(offer) if valid_offer else None,
+            "source": (
+                "fidelity_offer_price"
+                if valid_offer
+                else "previous_price_field"
+                if previous > 0
+                else "not_observed"
+            ),
+        }
+
+    def _catalogue_promotions(
+        self,
+        raw: Mapping[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Expose bounded public leaflet markers without inventing savings."""
+
+        result: list[dict[str, Any]] = []
+        offers = raw.get("offers")
+        for offer in offers if isinstance(offers, list) else []:
+            if not isinstance(offer, Mapping) or offer.get("is_offer_coupon") is True:
+                continue
+            offer_type = str(offer.get("type") or "").strip()
+            title = self._translated(offer.get("title"), self.language)
+            description = self._translated(
+                offer.get("description"),
+                self.language,
+            )
+            text = title or description or (
+                "Gadis leaflet offer" if offer_type == "DIPTYCH" else "Gadis offer"
+            )
+            promotion: dict[str, Any] = {
+                "type": "unknown",
+                "description": text,
+                "source": f"offers.{offer_type or 'unknown'}",
+            }
+            end_date = str(offer.get("end_date") or "").strip()
+            if end_date:
+                promotion["ends_at"] = end_date
+            result.append(promotion)
+        return result
+
     def _product_from_raw(
         self,
         raw: Mapping[str, Any],
@@ -290,6 +354,15 @@ class GadisProvider(GroceryProvider):
         else:
             url = None
         price_per_unit = as_decimal(raw.get("price_kilo_litre"))
+        catalogue_promotions = self._catalogue_promotions(raw)
+        metadata: dict[str, Any] = {
+            "eco": self._is_eco(raw),
+            "store_id": context_store_id or self._store_id,
+            "product_code": raw.get("product_code"),
+            "promotion": self._promotion_metadata(raw, raw.get("price")),
+        }
+        if catalogue_promotions:
+            metadata["promotions"] = catalogue_promotions
         return Product(
             store=self.info.key,
             id=product_id,
@@ -302,32 +375,35 @@ class GadisProvider(GroceryProvider):
             category=self._deepest_category(raw.get("categories"), self.language),
             available=True,
             url=url,
-            metadata={
-                "eco": self._is_eco(raw),
-                "store_id": context_store_id or self._store_id,
-                "product_code": raw.get("product_code"),
-            },
+            metadata=metadata,
         )
 
-    def search(
+    def search_page(
         self,
         query: str,
         *,
-        limit: int = 10,
+        page_size: int = 100,
+        cursor: str | None = None,
         postal_code: str | None = None,
         eco: bool = False,
-    ) -> list[Product]:
+    ) -> dict[str, Any]:
         query = query.strip()
         if not query:
-            return []
+            return {"products": [], "next_cursor": None, "has_next": False, "total": 0, "pagination": "page_number"}
+        try:
+            page_number = 0 if cursor is None else int(cursor)
+        except ValueError as exc:
+            raise ProviderError("Gadis search cursor must be a page number") from exc
+        if page_number < 0:
+            raise ProviderError("Gadis search cursor cannot be negative")
         context_store_id = self._context_store(postal_code)
-        requested = max(1, min(limit, 100))
+        requested = max(1, min(page_size, 100))
         rows = min(100, requested * 4 if eco else requested)
         payload = self._json(
             "POST",
             f"{_CATALOG_BASE}/catalog/products/search",
             params={
-                "page_number": "0",
+                "page_number": str(page_number),
                 "rows_per_page": str(rows),
                 "keep_request": "true",
             },
@@ -349,7 +425,58 @@ class GadisProvider(GroceryProvider):
                 products.append(product)
             if len(products) >= requested:
                 break
-        return products
+        total_value = next(
+            (
+                payload.get(key)
+                for key in ("total_elements", "totalElements", "total")
+                if payload.get(key) is not None
+            ),
+            None,
+        ) if isinstance(payload, Mapping) else None
+        try:
+            total = int(total_value) if total_value is not None else None
+        except (TypeError, ValueError):
+            total = None
+        has_next = (
+            (page_number + 1) * rows < total
+            if total is not None
+            else None
+        )
+        return {
+            "products": products,
+            "next_cursor": str(page_number + 1) if has_next else None,
+            "has_next": has_next,
+            "total": total,
+            "pagination": "page_number" if total is not None else "bounded_unknown",
+        }
+
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+        postal_code: str | None = None,
+        eco: bool = False,
+    ) -> list[Product]:
+        page = self.search_page(
+            query,
+            page_size=limit,
+            postal_code=postal_code,
+            eco=eco,
+        )
+        return list(page["products"])
+
+    def catalogue_contract(self) -> dict[str, Any]:
+        return {
+            "pagination": "page_number_when_total_present",
+            "maximum_page_size": 100,
+            "exact_total": False,
+            "conditional_total_field": "total_elements/totalElements/total",
+            "conditional_pagination": True,
+            "category_search": True,
+            "geography": "store_context_by_postal_code",
+            "cache_safe": True,
+        }
 
     @staticmethod
     def _clean_html(value: str) -> str:
