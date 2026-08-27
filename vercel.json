@@ -9,6 +9,10 @@
   "functions": {
     "api/**/*.py": {
       "excludeFiles": "{.venv/**,.git/**,.vercel/**,tests/**,tools/**,docs/**,audit-context/**,captures/**,local-captures/**,diagnostics/**,**/__pycache__/**,**/*.pyc,**/*.har}"
+    },
+    "api/usc_mcp_query.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{.venv/**,.git/**,.vercel/**,tests/**,tools/**,docs/**,audit-context/**,captures/**,local-captures/**,diagnostics/**,**/__pycache__/**,**/*.pyc,**/*.har}"
     }
   }
 }
