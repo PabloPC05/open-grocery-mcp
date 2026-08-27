@@ -21,7 +21,8 @@ classifiers = [
 ]
 dependencies = [
   "httpx>=0.27,<1",
-  "mcp>=1.20,<3",
+  "mcp>=1.29,<2",
+  "mcp-usc @ git+https://github.com/PabloPC05/mcp-usc.git@b657c18a0fa449a0d9a381dffde0ca5b2e2517d5",
 ]
 
 [project.optional-dependencies]
