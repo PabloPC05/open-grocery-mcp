@@ -42,6 +42,9 @@ open-grocery-mcp = "open_grocery_mcp.__main__:main"
 Repository = "https://github.com/PabloPC05/open-grocery-mcp"
 Issues = "https://github.com/PabloPC05/open-grocery-mcp/issues"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/open_grocery_mcp"]
 
