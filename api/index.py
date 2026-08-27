@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import os
 import secrets
 from pathlib import Path
@@ -17,12 +15,9 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from api.mcp_usc_probe import _PROBE_KEY_SHA256, _run_probe  # noqa: E402
 from mcp.server.transport_security import TransportSecuritySettings  # noqa: E402
 from open_grocery_mcp import __version__  # noqa: E402
 from open_grocery_mcp.server import mcp  # noqa: E402
-
-_PUBLIC_GET_PATHS = {"/api/health", "/api/mcp-usc-probe"}
 
 
 def _transport_security() -> TransportSecuritySettings:
@@ -52,29 +47,6 @@ async def deployment_health(request: Any) -> Response:
     )
 
 
-@mcp.custom_route("/api/mcp-usc-probe", methods=["GET"])
-async def mcp_usc_probe(request: Any) -> Response:
-    probe_key = str(request.query_params.get("key", ""))
-    bearer = str(request.query_params.get("token", ""))
-    supplied_hash = hashlib.sha256(probe_key.encode("utf-8")).hexdigest()
-
-    if not hmac.compare_digest(supplied_hash, _PROBE_KEY_SHA256):
-        response = JSONResponse({"error": "not_found"}, status_code=404)
-    elif not bearer:
-        response = JSONResponse({"error": "missing_token"}, status_code=400)
-    else:
-        try:
-            response = JSONResponse(_run_probe(bearer), status_code=200)
-        except Exception as error:
-            response = JSONResponse(
-                {"ok": False, "error": type(error).__name__, "message": str(error)},
-                status_code=502,
-            )
-
-    response.headers["Cache-Control"] = "no-store"
-    return response
-
-
 class BearerAuthMiddleware:
     """Require the deployment secret for every HTTP request."""
 
@@ -83,7 +55,7 @@ class BearerAuthMiddleware:
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope.get("type") != "http" or (
-            scope.get("method") == "GET" and scope.get("path") in _PUBLIC_GET_PATHS
+            scope.get("method") == "GET" and scope.get("path") == "/api/health"
         ):
             await self.wrapped_app(scope, receive, send)
             return
