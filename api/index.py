@@ -81,11 +81,11 @@ class BearerAuthMiddleware:
         await self.wrapped_app(scope, receive, send)
 
 
-app = BearerAuthMiddleware(
-    mcp.streamable_http_app(
-        streamable_http_path="/api/index",
-        json_response=True,
-        stateless_http=True,
-        transport_security=_transport_security(),
-    )
-)
+# mcp-usc currently pins the v1 FastMCP API. Configure the existing server
+# through its settings before creating the ASGI app so this preview can import.
+mcp.settings.streamable_http_path = "/api/index"
+mcp.settings.json_response = True
+mcp.settings.stateless_http = True
+mcp.settings.transport_security = _transport_security()
+
+app = BearerAuthMiddleware(mcp.streamable_http_app())
