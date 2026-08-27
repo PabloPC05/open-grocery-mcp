@@ -14,8 +14,6 @@ from starlette.responses import JSONResponse, Response
 # Vercel exposes only /tmp as writable storage. This is public timetable data only.
 os.environ.setdefault("XDG_DATA_HOME", "/tmp")
 
-from mcp_usc.server import mcp  # noqa: E402
-
 _PROBE_KEY_SHA256 = "a383486649f59ec367b6dea36847f5bb866af286829d55889a6cd7390cfcc524"
 _SUBJECT_CODES = [
     "G4012223",
@@ -40,8 +38,10 @@ def _fold(value: str) -> str:
 
 
 async def _call_tool(name: str, arguments: dict[str, Any]) -> Any:
-    # Invoke the registered mcp-usc tool surface, preserving its validation and
-    # official-source-only implementation. This branch is removed after the query.
+    # Import lazily so deployment/import errors are returned by the protected
+    # endpoint instead of crashing the Vercel function before its handler starts.
+    from mcp_usc.server import mcp
+
     return await mcp._tool_manager.call_tool(name, arguments)  # noqa: SLF001
 
 
