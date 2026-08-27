@@ -33,11 +33,23 @@ def _decode_response(raw: bytes, content_type: str) -> dict[str, Any] | None:
     return payloads[-1] if payloads else None
 
 
-def _text_preview(result: dict[str, Any], limit: int = 240) -> str:
+def _text_preview(result: dict[str, Any], limit: int = 500) -> str:
     for item in result.get("content", []):
         if item.get("type") == "text" and isinstance(item.get("text"), str):
             return item["text"][:limit]
     return ""
+
+
+def _tool_summary(response: dict[str, Any] | None) -> dict[str, Any]:
+    if not response or "result" not in response:
+        return {"ok": False, "protocol_response": repr(response)[:500]}
+    result = response["result"]
+    return {
+        "ok": result.get("isError") is not True,
+        "is_error": result.get("isError") is True,
+        "preview": _text_preview(result),
+        "content_types": [item.get("type") for item in result.get("content", [])],
+    }
 
 
 def _run_probe(bearer: str) -> dict[str, Any]:
@@ -108,37 +120,31 @@ def _run_probe(bearer: str) -> dict[str, Any]:
 
     tools = listed["result"].get("tools", [])
     tool_names = [str(tool.get("name", "")) for tool in tools]
-    expected = {"describe_mcp_usc", "list_official_exam_degrees"}
+    expected = {"describe_mcp_usc", "list_exam_sources", "list_official_exam_degrees"}
     missing = sorted(expected.difference(tool_names))
     if missing:
         raise RuntimeError(f"Expected tools are missing: {missing}")
 
-    describe = rpc(
-        {
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "tools/call",
-            "params": {"name": "describe_mcp_usc", "arguments": {}},
-        }
-    )
-    degrees = rpc(
-        {
-            "jsonrpc": "2.0",
-            "id": 4,
-            "method": "tools/call",
-            "params": {"name": "list_official_exam_degrees", "arguments": {}},
-        }
-    )
+    calls: dict[str, dict[str, Any] | None] = {}
+    for request_id, tool_name in enumerate(
+        ("describe_mcp_usc", "list_exam_sources", "list_official_exam_degrees"),
+        start=3,
+    ):
+        calls[tool_name] = rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": {}},
+            }
+        )
 
-    for label, response in (("describe_mcp_usc", describe), ("list_official_exam_degrees", degrees)):
-        if not response or "result" not in response:
-            raise RuntimeError(f"Invalid response from {label}: {response!r}")
-        if response["result"].get("isError") is True:
-            raise RuntimeError(f"{label} returned isError=true")
+    summaries = {name: _tool_summary(response) for name, response in calls.items()}
+    required_successes = ("describe_mcp_usc", "list_exam_sources")
+    if any(not summaries[name]["ok"] for name in required_successes):
+        raise RuntimeError(f"Required tool calls failed: {summaries!r}")
 
     server_info = initialize["result"].get("serverInfo", {})
-    describe_result = describe["result"]
-    degrees_result = degrees["result"]
     return {
         "ok": True,
         "endpoint": _ENDPOINT,
@@ -147,14 +153,7 @@ def _run_probe(bearer: str) -> dict[str, Any]:
         "server_version": server_info.get("version"),
         "tool_count": len(tools),
         "sample_tools": tool_names[:15],
-        "describe_mcp_usc": {
-            "ok": True,
-            "preview": _text_preview(describe_result),
-        },
-        "list_official_exam_degrees": {
-            "ok": True,
-            "preview": _text_preview(degrees_result),
-        },
+        "tool_calls": summaries,
     }
 
 
