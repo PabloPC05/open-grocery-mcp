@@ -15,9 +15,12 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from api.usc_mcp_query import _authorized, _handle  # noqa: E402
 from mcp.server.transport_security import TransportSecuritySettings  # noqa: E402
 from open_grocery_mcp import __version__  # noqa: E402
 from open_grocery_mcp.server import mcp  # noqa: E402
+
+_PUBLIC_GET_PATHS = {"/api/health", "/api/usc_mcp_query"}
 
 
 def _transport_security() -> TransportSecuritySettings:
@@ -47,15 +50,39 @@ async def deployment_health(request: Any) -> Response:
     )
 
 
+@mcp.custom_route("/api/usc_mcp_query", methods=["GET"])
+async def usc_mcp_query(request: Any) -> Response:
+    query = {key: request.query_params.getlist(key) for key in request.query_params}
+    if not _authorized(query):
+        response = JSONResponse({"error": "not_found"}, status_code=404)
+    else:
+        try:
+            response = JSONResponse(
+                {"ok": True, "data": await _handle(query)},
+                status_code=200,
+            )
+        except Exception as error:
+            response = JSONResponse(
+                {
+                    "ok": False,
+                    "error": type(error).__name__,
+                    "message": str(error),
+                },
+                status_code=500,
+            )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 class BearerAuthMiddleware:
-    """Require the deployment secret for every HTTP request."""
+    """Require the deployment secret for every non-public HTTP request."""
 
     def __init__(self, wrapped_app: Any) -> None:
         self.wrapped_app = wrapped_app
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope.get("type") != "http" or (
-            scope.get("method") == "GET" and scope.get("path") == "/api/health"
+            scope.get("method") == "GET" and scope.get("path") in _PUBLIC_GET_PATHS
         ):
             await self.wrapped_app(scope, receive, send)
             return
