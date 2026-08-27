@@ -67,7 +67,10 @@ async def _handle(query: dict[str, list[str]]) -> dict[str, Any]:
         candidates = [
             item
             for item in result.get("degrees", [])
-            if any(marker in _fold(str(item.get("name", ""))) for marker in ("informat", "matemat"))
+            if any(
+                marker in _fold(str(item.get("name", "")))
+                for marker in ("informat", "matemat")
+            )
         ]
         return {"mode": mode, "candidates": candidates, "count": len(candidates)}
 
@@ -77,7 +80,10 @@ async def _handle(query: dict[str, list[str]]) -> dict[str, Any]:
         candidates = [
             item
             for item in degrees.get("degrees", [])
-            if any(marker in _fold(str(item.get("name", ""))) for marker in ("informat", "matemat"))
+            if any(
+                marker in _fold(str(item.get("name", "")))
+                for marker in ("informat", "matemat")
+            )
             and "dobre" not in _fold(str(item.get("name", "")))
             and "doble" not in _fold(str(item.get("name", "")))
         ]
@@ -134,7 +140,6 @@ async def _handle(query: dict[str, list[str]]) -> dict[str, Any]:
 
 
 async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
-    del receive
     if scope.get("type") != "http" or scope.get("method") != "GET":
         response: Response = JSONResponse({"error": "not_found"}, status_code=404)
         await response(scope, receive, send)
@@ -145,7 +150,10 @@ async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
         response = JSONResponse({"error": "not_found"}, status_code=404)
     else:
         try:
-            response = JSONResponse({"ok": True, "data": await _handle(query)}, status_code=200)
+            response = JSONResponse(
+                {"ok": True, "data": await _handle(query)},
+                status_code=200,
+            )
         except Exception as error:
             response = JSONResponse(
                 {
