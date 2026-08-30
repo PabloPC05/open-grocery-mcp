@@ -12,6 +12,7 @@ except ImportError:
     from mcp.server.fastmcp import FastMCP as MCPServer
 
 from open_grocery_mcp import __version__
+from open_grocery_mcp.address_mapping import map_shared_to_retailer_address
 from open_grocery_mcp.authenticated_tools import register_authenticated_tools
 from open_grocery_mcp.basket_optimization import optimize_semantic_basket
 from open_grocery_mcp.catalogue_search import (
@@ -20,11 +21,13 @@ from open_grocery_mcp.catalogue_search import (
 )
 from open_grocery_mcp.comparison import compare_baskets, parse_basket, price_basket
 from open_grocery_mcp.confirmations import ConfirmationStore
+from open_grocery_mcp.delivery_intent import resolve_delivery_slot
 from open_grocery_mcp.drafts import DraftCartStore
 from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.equivalence import analyze_product_text, compare_profiles
 from open_grocery_mcp.models import as_decimal
 from open_grocery_mcp.offer_evaluation import evaluate_offer_value
+from open_grocery_mcp.prepare_purchase import prepare_purchase as _prepare_purchase
 from open_grocery_mcp.quality_audit import audit_corpus, audit_live_catalogues
 from open_grocery_mcp.registry import default_registry
 from open_grocery_mcp.semantic_quality import (
@@ -33,6 +36,9 @@ from open_grocery_mcp.semantic_quality import (
     ontology_info,
     relationship,
 )
+from open_grocery_mcp.shared_addresses import SharedAddressBook
+from open_grocery_mcp.shopping_lists import ShoppingListStore
+from open_grocery_mcp.shopping_profile import ShoppingProfile
 from open_grocery_mcp.value_comparison import (
     compare_alternative_value,
     search_offer_products,
@@ -69,6 +75,9 @@ _registry = default_registry()
 _drafts = DraftCartStore()
 _confirmations = ConfirmationStore(ttl_seconds=300)
 _workflows = RetailerWorkflowService(_registry, _drafts, _confirmations)
+_addresses = SharedAddressBook()
+_lists = ShoppingListStore()
+_profile = ShoppingProfile()
 
 
 def _enabled(name: str) -> bool:
@@ -595,6 +604,322 @@ def delete_cart_draft(draft_id: str) -> dict[str, Any]:
     """Delete a local cart draft. No retailer cart is affected."""
 
     return _drafts.delete(draft_id)
+
+
+# Shopping Lists
+
+
+@mcp.tool()
+def create_shopping_list(name: str, list_id: str | None = None) -> dict[str, Any]:
+    """Create a new named shopping list."""
+
+    return _lists.create_list(name, list_id)
+
+
+@mcp.tool()
+def list_shopping_lists() -> list[dict[str, Any]]:
+    """List all shopping lists with their item counts."""
+
+    return _lists.list_lists()
+
+
+@mcp.tool()
+def get_shopping_list(list_id: str) -> dict[str, Any]:
+    """Get a shopping list with all its items."""
+
+    return _lists.get_list(list_id)
+
+
+@mcp.tool()
+def add_list_item(
+    list_id: str,
+    item: str,
+    quantity: float = 1.0,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Add an item to a shopping list."""
+
+    return _lists.add_item(list_id, item, quantity, notes)
+
+
+@mcp.tool()
+def update_list_item(
+    list_id: str,
+    item_index: int,
+    item: str | None = None,
+    quantity: float | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Update an item in a shopping list."""
+
+    return _lists.update_item(list_id, item_index, item, quantity, notes)
+
+
+@mcp.tool()
+def remove_list_item(list_id: str, item_index: int) -> dict[str, Any]:
+    """Remove an item from a shopping list."""
+
+    return _lists.remove_item(list_id, item_index)
+
+
+@mcp.tool()
+def delete_shopping_list(list_id: str) -> dict[str, Any]:
+    """Delete a shopping list."""
+
+    return _lists.delete_list(list_id)
+
+
+@mcp.tool()
+def store_last_basket(basket_result: dict[str, Any]) -> dict[str, Any]:
+    """Store the last prepared/committed basket for replay."""
+
+    return _lists.store_last_basket(basket_result)
+
+
+@mcp.tool()
+def replay_last_basket() -> dict[str, Any] | None:
+    """Retrieve the last stored basket for replay."""
+
+    last = _lists.get_last_basket()
+    if last is None:
+        return {"status": "no_basket_stored"}
+    return last
+
+
+# Shared Addresses
+
+
+@mcp.tool()
+def add_postal_address(
+    postal_code: str,
+    label: str | None = None,
+    street: str | None = None,
+    city: str | None = None,
+    set_as_default: bool = False,
+) -> dict[str, Any]:
+    """Add a postal address to the shared address book."""
+
+    return _addresses.add_address(postal_code, label, street, city, set_as_default)
+
+
+@mcp.tool()
+def list_shared_addresses() -> dict[str, Any]:
+    """List all shared postal addresses and the default."""
+
+    return _addresses.list_addresses()
+
+
+@mcp.tool()
+def get_default_postal_address() -> dict[str, Any] | None:
+    """Get the default shared postal address."""
+
+    addr = _addresses.get_default_address()
+    if addr is None:
+        return {"status": "no_default_set"}
+    return addr
+
+
+@mcp.tool()
+def set_default_address(address_id: str) -> dict[str, Any]:
+    """Set an address as the default."""
+
+    return _addresses.set_default_address(address_id)
+
+
+@mcp.tool()
+def remove_postal_address(address_id: str) -> dict[str, Any]:
+    """Remove a postal address from the shared book."""
+
+    return _addresses.remove_address(address_id)
+
+
+# Shopping Profile
+
+
+@mcp.tool()
+def get_shopping_profile() -> dict[str, Any]:
+    """Get the current shopping profile."""
+
+    return _profile.get_profile()
+
+
+@mcp.tool()
+def update_shopping_profile(
+    default_max_total: float | None = None,
+    excluded_terms: list[str] | None = None,
+    allergies: list[str] | None = None,
+    private_label_preference: str | None = None,
+    include_loyalty_default: bool | None = None,
+    substitution_policy: str | None = None,
+    preferred_brands: list[str] | None = None,
+) -> dict[str, Any]:
+    """Update the shopping profile.
+
+    private_label_preference: "any", "prefer", "only", "never"
+    substitution_policy: "allow", "prefer_brand", "never"
+    """
+
+    return _profile.update_profile(
+        default_max_total=default_max_total,
+        excluded_terms=excluded_terms,
+        allergies=allergies,
+        private_label_preference=private_label_preference,
+        include_loyalty_default=include_loyalty_default,
+        substitution_policy=substitution_policy,
+        preferred_brands=preferred_brands,
+    )
+
+
+@mcp.tool()
+def reset_shopping_profile() -> dict[str, Any]:
+    """Reset the shopping profile to defaults."""
+
+    return _profile.reset_profile()
+
+
+# Prepare Purchase (main shopping UX tool)
+
+
+@mcp.tool()
+def prepare_purchase(
+    items: list[str | dict[str, Any]] | None = None,
+    list_id: str | None = None,
+    store: str | None = None,
+    postal_code: str | None = None,
+    max_total: float | None = None,
+    search_limit: int = 10,
+    eco: bool = False,
+    include_loyalty: bool = False,
+    multi_store: bool = False,
+) -> dict[str, Any]:
+    """One-shot prepare purchase from items or a shopping list.
+
+    Main user-facing tool that:
+    - Accepts ad-hoc items or a shopping list (via list_id)
+    - Uses default postal_code from shared addresses if not provided
+    - Applies profile defaults (max_total, include_loyalty, excluded_terms)
+    - Compares baskets or optimizes across stores
+    - Returns recommended store(s) with line-item matches
+    - Includes product+delivery+minimum totals
+    - Creates local cart draft(s) ready for prepare_real_cart_update
+    - Does NOT write to any retailer
+
+    If list_id is provided, items is ignored.
+    If no store is provided, compares across all stores.
+    If multi_store is True, uses optimize_basket_combination.
+    """
+
+    # Resolve postal_code from default if not provided
+    if postal_code is None:
+        default_addr = _addresses.get_default_address()
+        if default_addr:
+            postal_code = default_addr.get("postal_code")
+
+    # Load shopping list if list_id provided
+    shopping_list_items = None
+    if list_id:
+        shopping_list = _lists.get_list(list_id)
+        shopping_list_items = shopping_list.get("items", [])
+
+    # Get profile
+    profile = _profile.get_profile()
+
+    result = _prepare_purchase(
+        _registry,
+        _drafts,
+        items=items,
+        list_id=list_id,
+        shopping_list_items=shopping_list_items,
+        store=store,
+        postal_code=postal_code,
+        max_total=max_total,
+        search_limit=search_limit,
+        eco=eco,
+        include_loyalty=include_loyalty,
+        profile=profile,
+        multi_store=multi_store,
+    )
+
+    # Store the basket for replay if successful
+    if result.get("draft_id"):
+        try:
+            draft = _drafts.get(result["draft_id"])
+            _lists.store_last_basket(draft.get("basket", {}))
+        except Exception:
+            pass
+
+    return result
+
+
+# Delivery Slot Resolution
+
+
+@mcp.tool()
+def resolve_delivery_slot_intent(
+    store: str,
+    address_id: str,
+    intent: str,
+) -> dict[str, Any]:
+    """Resolve a delivery slot by intent rather than raw slot_id.
+
+    Supported intents:
+    - "next_available", "próximo", "primero"
+    - "today", "hoy"
+    - "tomorrow", "mañana"
+    - "monday", "lunes", "tuesday", "martes", etc.
+    - "morning", "tarde", "afternoon", "evening", "noche"
+    - Specific date: "2026-08-31", "31/08/2026"
+
+    Returns the best matching slot or nearest options if no exact match.
+    """
+
+    slots = _workflows.delivery_slots(store, address_id)
+    return resolve_delivery_slot(slots, intent)
+
+
+# Address Mapping
+
+
+@mcp.tool()
+def map_shared_address_to_retailer(
+    store: str,
+    address_id: str | None = None,
+) -> dict[str, Any]:
+    """Map a shared postal address to a retailer delivery address.
+
+    If address_id is None, uses the default shared address.
+
+    Workflow:
+    1. List retailer's delivery addresses
+    2. Try to find a match by postal code (and street if present)
+    3. If no match found and provider supports HTTP address creation,
+       prepare a confirmation for address creation
+    4. If provider only supports browser-based address creation,
+       return guidance message
+
+    Returns:
+        - matched_address: The retailer address if found
+        - needs_creation: True if address creation is needed
+        - can_create_http: True if HTTP creation is available
+        - guidance: Instructions if browser-based creation is required
+    """
+
+    if address_id is None:
+        shared_address = _addresses.get_default_address()
+        if shared_address is None:
+            raise InvalidRequest("no default shared address set")
+    else:
+        all_addresses = _addresses.list_addresses()
+        shared_address = None
+        for addr in all_addresses.get("addresses", []):
+            if addr["id"] == address_id:
+                shared_address = addr
+                break
+        if shared_address is None:
+            raise InvalidRequest(f"unknown address_id {address_id!r}")
+
+    provider = _registry.get(store)
+    return map_shared_to_retailer_address(provider, shared_address, _confirmations)
 
 
 register_authenticated_tools(mcp, _workflows)
