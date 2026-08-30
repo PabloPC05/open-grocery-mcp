@@ -1,0 +1,58 @@
+services:
+  open-grocery-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: open-grocery-mcp:latest
+    container_name: open-grocery-mcp
+    restart: unless-stopped
+    
+    # Resource limits for Raspberry Pi
+    # Slim image without Chromium should stay under ~150-200MB RSS
+    mem_limit: 384m
+    cpus: 0.75
+    
+    ports:
+      # Bind to localhost only by default
+      # Access via Tailscale: http://<pi-hostname>:8000/mcp
+      # DO NOT expose to public internet (session cookies in volume)
+      - "127.0.0.1:8000:8000"
+    
+    volumes:
+      # Persistent state: sessions, lists, addresses, profile
+      - open-grocery-data:/home/mcp/.open-grocery-mcp
+    
+    environment:
+      # Safety: all writes disabled by default
+      OPEN_GROCERY_ENABLE_RETAILER_WRITES: "0"
+      OPEN_GROCERY_ENABLE_ORDER_SUBMISSION: "0"
+      OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION: "0"
+      OPEN_GROCERY_BROWSER_HEADLESS: "1"
+      
+      # State directory inside container
+      OPEN_GROCERY_STATE_DIR: "/home/mcp/.open-grocery-mcp"
+    
+    # Health monitoring
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  open-grocery-data:
+    driver: local
+
+# Optional browser profile (NOT recommended on Pi due to RAM)
+# To enable: docker compose --profile browser up -d
+# This requires a separate Dockerfile.browser with Playwright installed
+# profiles:
+#   browser:
+#     services:
+#       open-grocery-mcp-browser:
+#         extends: open-grocery-mcp
+#         mem_limit: 1g
+#         cpus: 1.5
+#         environment:
+#           OPEN_GROCERY_BROWSER_HEADLESS: "1"

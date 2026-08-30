@@ -25,3 +25,24 @@ jobs:
       - run: pytest
       - run: python -m compileall -q src tests tools
       - run: ruff check .
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image (amd64)
+        run: |
+          docker build --platform linux/amd64 -t open-grocery-mcp:ci-test .
+      - name: Verify image starts without playwright
+        run: |
+          docker run --rm open-grocery-mcp:ci-test python -c "
+          import sys
+          from open_grocery_mcp import server
+          playwright_modules = [k for k in sys.modules if 'playwright' in k]
+          if playwright_modules:
+              print(f'ERROR: Playwright loaded: {playwright_modules}')
+              sys.exit(1)
+          print('OK: No playwright modules loaded')
+          "

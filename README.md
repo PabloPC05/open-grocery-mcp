@@ -224,6 +224,20 @@ están bloqueadas por diseño.
 
 Requiere Python 3.11 o posterior. El desarrollo actual está en `feat/initial-mcp`.
 
+### Despliegue Docker (Raspberry Pi / servidor local)
+
+Para un despliegue 24/7 optimizado en Raspberry Pi 4/5 con mínimos recursos (sin Chromium):
+
+```bash
+git clone https://github.com/PabloPC05/open-grocery-mcp.git
+cd open-grocery-mcp
+docker compose up -d
+```
+
+La imagen slim (~150-200MB idle) incluye solo `httpx` + `mcp`, sin Playwright. Carrefour/Eroski funcionan con `storage_state.json` copiado desde un ordenador con navegador. Consulta [`docs/raspberry-pi.md`](docs/raspberry-pi.md) para límites de recursos, acceso vía Tailscale y gestión de sesiones.
+
+### Instalación local Python
+
 ```bash
 git clone https://github.com/PabloPC05/open-grocery-mcp.git
 cd open-grocery-mcp
