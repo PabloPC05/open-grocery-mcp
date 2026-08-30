@@ -35,6 +35,11 @@ services:
       OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION: 0
     
     # Resource limits for Raspberry Pi 4/5
+    # Service-level limits work with plain `docker compose up`
+    mem_limit: 256m
+    cpus: 1.0
+    
+    # Deploy-level limits for swarm mode (optional, kept for compatibility)
     deploy:
       resources:
         limits:
@@ -45,7 +50,7 @@ services:
           memory: 128M
     
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(3); s.connect(('127.0.0.1', 8000)); s.close()"]
       interval: 30s
       timeout: 5s
       retries: 3

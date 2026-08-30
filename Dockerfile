@@ -38,7 +38,8 @@ COPY --from=builder /build/src ./src
 COPY --from=builder /build/data ./data
 
 # Install package without browser extras
-RUN pip install --no-cache-dir --no-index --find-links /tmp/wheels open-grocery-mcp && \
+# Note: Install the wheel WITHOUT --no-index so pip can fetch httpx/mcp from PyPI
+RUN pip install --no-cache-dir /tmp/wheels/open_grocery_mcp-*.whl && \
     rm -rf /tmp/wheels
 
 # Create state directory
@@ -54,9 +55,10 @@ ENV OPEN_GROCERY_STATE_DIR=/data/.open-grocery-mcp \
     OPEN_GROCERY_ENABLE_ORDER_SUBMISSION=0 \
     OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION=0
 
-# Health check for MCP HTTP endpoint
+# Health check: TCP connection to MCP streamable-http port
+# Note: MCP tools are at /mcp, not /health (which exists only on Vercel ASGI)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import socket; s=socket.socket(); s.settimeout(3); s.connect(('127.0.0.1', 8000)); s.close()" || exit 1
 
 EXPOSE 8000
 
