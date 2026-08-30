@@ -20,7 +20,11 @@ from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
 
 
-PostalCodeSource = Literal["argument", "shared_default", "env", "none"]
+# Factory default postal code (A Coruña, Spain)
+# Used as last fallback when no other postal code is configured
+FACTORY_DEFAULT_POSTAL_CODE = "15001"
+
+PostalCodeSource = Literal["argument", "shared_default", "env", "builtin", "none"]
 
 
 def _addresses_file() -> Path:
@@ -235,16 +239,14 @@ def remove_postal_address(address_id: int) -> dict[str, Any]:
     }
 
 
-def get_default_postal_code() -> str | None:
-    """Get the postal code from the default address, or None.
+def get_default_postal_code() -> str:
+    """Get the postal code from the default address or the factory default.
     
     Returns:
-        Postal code string or None
+        Postal code string (never None; falls back to factory default 15001)
     """
-    default = get_default_address()
-    if default:
-        return default.get("postal_code")
-    return None
+    postal_code, _ = resolve_postal_code(None)
+    return postal_code
 
 
 def validate_spanish_postal_code(postal_code: str) -> bool:
@@ -263,21 +265,21 @@ def validate_spanish_postal_code(postal_code: str) -> bool:
 
 def resolve_postal_code(
     explicit: str | None,
-) -> tuple[str | None, PostalCodeSource]:
+) -> tuple[str, PostalCodeSource]:
     """Resolve postal code from multiple sources with priority order.
     
     Resolution order:
     1. Explicit postal_code argument (caller wins)
     2. Default shared address postal_code from get_default_address()
     3. Environment variable OPEN_GROCERY_DEFAULT_POSTAL_CODE
-    4. None if no default exists
+    4. Built-in factory default: 15001 (A Coruña, Spain)
     
     Args:
         explicit: Explicitly provided postal code or None
         
     Returns:
         Tuple of (resolved_postal_code, source)
-        where source is "argument", "shared_default", "env", or "none"
+        where source is "argument", "shared_default", "env", or "builtin"
     """
     # 1. Explicit argument wins
     if explicit is not None and isinstance(explicit, str) and explicit.strip():
@@ -295,8 +297,8 @@ def resolve_postal_code(
     if env_postal_code:
         return env_postal_code, "env"
     
-    # 4. No default available
-    return None, "none"
+    # 4. Built-in factory default
+    return FACTORY_DEFAULT_POSTAL_CODE, "builtin"
 
 
 def set_default_postal_code(
