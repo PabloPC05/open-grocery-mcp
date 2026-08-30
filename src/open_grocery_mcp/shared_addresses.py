@@ -11,11 +11,16 @@ information once instead of per-store. These addresses are used for:
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
+
+
+PostalCodeSource = Literal["argument", "shared_default", "env", "none"]
 
 
 def _addresses_file() -> Path:
@@ -240,3 +245,117 @@ def get_default_postal_code() -> str | None:
     if default:
         return default.get("postal_code")
     return None
+
+
+def validate_spanish_postal_code(postal_code: str) -> bool:
+    """Validate Spanish postal code format (5 digits).
+    
+    Args:
+        postal_code: Postal code to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    if not postal_code or not isinstance(postal_code, str):
+        return False
+    return bool(re.match(r"^\d{5}$", postal_code.strip()))
+
+
+def resolve_postal_code(
+    explicit: str | None,
+) -> tuple[str | None, PostalCodeSource]:
+    """Resolve postal code from multiple sources with priority order.
+    
+    Resolution order:
+    1. Explicit postal_code argument (caller wins)
+    2. Default shared address postal_code from get_default_address()
+    3. Environment variable OPEN_GROCERY_DEFAULT_POSTAL_CODE
+    4. None if no default exists
+    
+    Args:
+        explicit: Explicitly provided postal code or None
+        
+    Returns:
+        Tuple of (resolved_postal_code, source)
+        where source is "argument", "shared_default", "env", or "none"
+    """
+    # 1. Explicit argument wins
+    if explicit is not None and isinstance(explicit, str) and explicit.strip():
+        return explicit.strip(), "argument"
+    
+    # 2. Default shared address
+    default_addr = get_default_address()
+    if default_addr:
+        postal_code = default_addr.get("postal_code")
+        if postal_code and isinstance(postal_code, str) and postal_code.strip():
+            return postal_code.strip(), "shared_default"
+    
+    # 3. Environment variable
+    env_postal_code = os.getenv("OPEN_GROCERY_DEFAULT_POSTAL_CODE", "").strip()
+    if env_postal_code:
+        return env_postal_code, "env"
+    
+    # 4. No default available
+    return None, "none"
+
+
+def set_default_postal_code(
+    postal_code: str,
+    city: str | None = None,
+    label: str | None = None,
+) -> dict[str, Any]:
+    """Set a postal code as the default by upserting a shared address.
+    
+    This function performs an upsert: if a default address already exists,
+    it updates that address in place. Otherwise, it creates a new address.
+    This prevents duplicate addresses from piling up on repeated calls.
+    
+    Args:
+        postal_code: Postal code (required, validated)
+        city: City name (optional)
+        label: Label for the address (defaults to "Default")
+        
+    Returns:
+        Dict with the created/updated address and confirmation
+    """
+    if not postal_code or not isinstance(postal_code, str) or not postal_code.strip():
+        raise InvalidRequest("postal_code is required and must be non-empty")
+    
+    # Validate Spanish postal code format
+    if not validate_spanish_postal_code(postal_code):
+        raise InvalidRequest(
+            f"Invalid Spanish postal code format: {postal_code!r}. "
+            "Expected 5 digits (e.g., '15001', '28001')"
+        )
+    
+    postal_code = postal_code.strip()
+    label = label or "Default"
+    
+    # Load existing addresses
+    data = _load_addresses()
+    existing_default_id = data.get("default_id")
+    
+    # If a default exists, update it in place
+    if existing_default_id is not None:
+        for addr in data["addresses"]:
+            if addr.get("id") == existing_default_id:
+                # Update the existing default address
+                addr["postal_code"] = postal_code
+                addr["city"] = city
+                addr["label"] = label
+                
+                _save_addresses(data)
+                
+                return {
+                    "address": dict(addr),
+                    "is_default": True,
+                    "message": "Default address updated successfully",
+                }
+    
+    # No default exists, create a new one
+    return add_postal_address(
+        postal_code=postal_code,
+        city=city,
+        label=label,
+        set_as_default=True,
+    )

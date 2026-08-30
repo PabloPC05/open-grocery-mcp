@@ -116,12 +116,28 @@ def stores(country: str | None = None) -> list[dict[str, object]]:
 
 
 @mcp.tool()
-def get_delivery_coverage(store: str, postal_code: str) -> dict[str, Any]:
+def get_delivery_coverage(store: str, postal_code: str | None = None) -> dict[str, Any]:
     """Return a store's public delivery fee, minimum and serving assortment.
 
     Only providers with a verified public coverage contract expose this tool.
     Account-specific checkout data is never inferred here.
+    
+    Args:
+        store: Store key
+        postal_code: Postal code (optional, resolves from default if omitted)
+        
+    Returns:
+        Dict with coverage information, postal_code used, and source
     """
+    # Resolve postal code from multiple sources
+    resolved_postal_code, pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
+    if resolved_postal_code is None:
+        raise InvalidRequest(
+            "postal_code is required for delivery coverage checks. "
+            "Either provide it explicitly, set a default with set_default_postal_code(), "
+            "or configure OPEN_GROCERY_DEFAULT_POSTAL_CODE environment variable."
+        )
 
     provider = _registry.get(store)
     coverage = getattr(provider, "delivery_coverage", None)
@@ -129,10 +145,12 @@ def get_delivery_coverage(store: str, postal_code: str) -> dict[str, Any]:
         raise InvalidRequest(
             f"{provider.info.label} does not expose a verified public delivery policy"
         )
-    result = coverage(postal_code)
+    result = coverage(resolved_postal_code)
     return {
         "store": provider.info.key,
         "label": provider.info.label,
+        "postal_code": resolved_postal_code,
+        "postal_code_source": pc_source,
         **dict(result),
     }
 
@@ -151,12 +169,17 @@ def search_products(
         raise InvalidRequest("query cannot be empty")
     if limit < 1 or limit > 100:
         raise InvalidRequest("limit must be between 1 and 100")
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     provider = _registry.get(store)
-    products = provider.search(query, limit=limit, postal_code=postal_code, eco=eco)
+    products = provider.search(query, limit=limit, postal_code=resolved_postal_code, eco=eco)
     return {
         "store": provider.info.key,
         "query": query,
-        "postal_code": postal_code,
+        "postal_code": resolved_postal_code,
+        "postal_code_source": pc_source,
         "count": len(products),
         "products": [product.to_dict() for product in products],
     }
@@ -185,6 +208,8 @@ def search_products_expanded(
     ``required_term_groups`` uses AND between groups and OR within each group;
     for example ``[["queso", "queixo"], ["arzua", "ulloa"]]``.
     """
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
 
     return search_catalogues_expanded(
         _registry,
@@ -193,7 +218,7 @@ def search_products_expanded(
         aliases=aliases,
         required_term_groups=required_term_groups,
         excluded_terms=excluded_terms,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         eco=eco,
         limit_per_query=limit_per_query,
         result_limit=result_limit,
@@ -257,12 +282,15 @@ def audit_catalogue_quality(
     limit_per_query: int = 50,
 ) -> dict[str, Any]:
     """Audit public results, semantic rejections, uncertainty and saturation."""
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
 
     return audit_live_catalogues(
         _registry,
         queries=queries,
         stores=stores,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         limit_per_query=limit_per_query,
     )
 
@@ -343,12 +371,15 @@ def optimize_basket_combination(
     review_penalty_percent: float = 5,
 ) -> dict[str, Any]:
     """Find a semantic multi-store basket including public delivery fees."""
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
 
     return optimize_semantic_basket(
         _registry,
         items=items,
         stores=stores,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         constraints=constraints,
         search_limit=search_limit,
         maximum_stores=maximum_stores,
@@ -415,13 +446,17 @@ def search_offers(
 
     if limit < 1 or limit > 100:
         raise InvalidRequest("limit must be between 1 and 100")
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     provider = _registry.get(store)
     return search_offer_products(
         provider,
         query=query,
         quantity=_positive_number(quantity, "quantity"),
         limit=limit,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         eco=eco,
         include_loyalty=include_loyalty,
     )
@@ -454,12 +489,16 @@ def filter_worthwhile_offers(
         minimum_advantage_percent,
         "minimum_advantage_percent",
     )
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     return evaluate_offer_value(
         _registry.get(store),
         query=query,
         quantity=_positive_number(quantity, "quantity"),
         limit=limit,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         eco=eco,
         include_loyalty=include_loyalty,
         minimum_similarity=minimum_similarity,
@@ -479,8 +518,12 @@ def get_product(
 
     if not product_id.strip():
         raise InvalidRequest("product_id cannot be empty")
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     provider = _registry.get(store)
-    return provider.product(product_id, postal_code=postal_code).to_dict()
+    return provider.product(product_id, postal_code=resolved_postal_code).to_dict()
 
 
 @mcp.tool()
@@ -493,11 +536,15 @@ def list_categories(
 
     if depth < 1 or depth > 5:
         raise InvalidRequest("depth must be between 1 and 5")
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     provider = _registry.get(store)
-    categories = provider.categories(depth=depth, postal_code=postal_code)
+    categories = provider.categories(depth=depth, postal_code=resolved_postal_code)
     return {
         "store": provider.info.key,
-        "postal_code": postal_code,
+        "postal_code": resolved_postal_code,
         "depth": depth,
         "categories": categories,
     }
@@ -516,15 +563,24 @@ def compare_basket(
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
-    return compare_baskets(
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
+    result = compare_baskets(
         _registry,
         items=items,
         stores=stores,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         search_limit=search_limit,
         eco=eco,
         include_loyalty=include_loyalty,
     )
+    
+    # Add postal_code_source to the result
+    result["postal_code_source"] = pc_source
+    
+    return result
 
 
 @mcp.tool()
@@ -547,11 +603,15 @@ def compare_alternatives(
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     return compare_alternative_value(
         _registry,
         alternatives=alternatives,
         stores=stores,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         quantity=_positive_number(quantity, "quantity"),
         nutrient=nutrient,
         target_nutrient_grams=_positive_number(
@@ -576,12 +636,16 @@ def prepare_cart(
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
+    
+    # Resolve postal code from multiple sources
+    resolved_postal_code, _pc_source = shared_addresses.resolve_postal_code(postal_code)
+    
     parsed = parse_basket(items)
     provider = _registry.get(store)
     result = price_basket(
         provider,
         parsed,
-        postal_code=postal_code,
+        postal_code=resolved_postal_code,
         search_limit=search_limit,
         eco=eco,
     )
@@ -741,6 +805,68 @@ def remove_postal_address(address_id: int) -> dict[str, Any]:
     """Remove a postal address from the shared book."""
 
     return shared_addresses.remove_postal_address(address_id)
+
+
+@mcp.tool()
+def set_default_postal_code(
+    postal_code: str,
+    city: str | None = None,
+    label: str | None = None,
+) -> dict[str, Any]:
+    """Set a default postal code for catalogue searches and coverage checks.
+    
+    This is a convenience tool that creates or updates a shared address and
+    sets it as the default. Subsequent calls to catalogue tools (search_products,
+    compare_basket, get_delivery_coverage, etc.) will use this postal code when
+    postal_code is omitted.
+    
+    Args:
+        postal_code: Spanish postal code (5 digits, e.g., '15001', '28001')
+        city: City name (optional)
+        label: Label for the address (defaults to "Default")
+        
+    Returns:
+        Dict with the created/updated address and confirmation
+        
+    Note:
+        On local MCP instances, this persists in ~/.open-grocery-mcp/shared_addresses.json.
+        On hosted/Vercel instances, storage is ephemeral; use the OPEN_GROCERY_DEFAULT_POSTAL_CODE
+        environment variable for a persistent instance-wide default.
+    """
+    return shared_addresses.set_default_postal_code(
+        postal_code=postal_code,
+        city=city,
+        label=label,
+    )
+
+
+@mcp.tool()
+def get_default_postal_code() -> dict[str, Any]:
+    """Get the currently configured default postal code.
+    
+    Returns the default postal code that will be used by catalogue and coverage
+    tools when postal_code is omitted, along with the source where it came from.
+    
+    Resolution order:
+    1. Default shared address (set via set_default_postal_code or add_postal_address)
+    2. Environment variable OPEN_GROCERY_DEFAULT_POSTAL_CODE
+    3. None if no default is configured
+    
+    Returns:
+        Dict with postal_code, source ("shared_default", "env", or "none"),
+        and the full address if available
+    """
+    postal_code, source = shared_addresses.resolve_postal_code(None)
+    
+    result: dict[str, Any] = {
+        "postal_code": postal_code,
+        "source": source,
+    }
+    
+    if source == "shared_default":
+        result["address"] = shared_addresses.get_default_address()
+    
+    return result
 
 
 # Shopping Profile
