@@ -408,6 +408,8 @@ open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 
 ## Despliegue remoto
 
+### Vercel (público, solo lectura)
+
 La instancia oficial de solo lectura se publica en Vercel y es de **acceso público**:
 
 ```text
@@ -430,6 +432,26 @@ Las sesiones de supermercados, Playwright y los flujos autenticados siguen siend
 exclusivamente locales. No subas `storage_state.json`, `.env`, capturas, HAR ni
 perfiles de navegador. Consulta [`docs/vercel-deployment.md`](docs/vercel-deployment.md)
 para despliegue y verificación.
+
+### Raspberry Pi (24/7 local, IP residencial)
+
+Para ejecutar el MCP 24/7 desde una Raspberry Pi 4/5 con recursos limitados e IP residencial
+(evita bloqueos WAF de Carrefour/Eroski):
+
+```bash
+git clone https://github.com/PabloPC05/open-grocery-mcp.git
+cd open-grocery-mcp
+docker compose up -d
+```
+
+El despliegue Docker:
+- **Sin Playwright**: Solo HTTP + cookies de `storage_state.json`
+- **Límites de recursos**: 256MB RAM, 0.5-1 CPU para Raspberry Pi
+- **Acceso local**: `http://127.0.0.1:8000/mcp` (usa Tailscale para acceso remoto seguro)
+- **Persistencia**: Volumen Docker para sesiones, listas y direcciones
+
+Consulta [`docs/raspberry-pi.md`](docs/raspberry-pi.md) para la guía completa de configuración,
+acceso remoto con Tailscale y limitaciones del despliegue Docker.
 
 ## Flujo completo (versión clásica)
 

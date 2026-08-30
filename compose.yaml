@@ -1,0 +1,52 @@
+services:
+  open-grocery-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+        - linux/amd64
+    image: open-grocery-mcp:latest
+    container_name: open-grocery-mcp
+    restart: unless-stopped
+    
+    ports:
+      # Bind only to localhost for safety
+      # Access from other devices via Tailscale or similar
+      - "127.0.0.1:8000:8000"
+    
+    volumes:
+      # Persist state directory (sessions, lists, addresses, profile)
+      - ${OPEN_GROCERY_STATE_DIR:-~/.open-grocery-mcp}:/data/.open-grocery-mcp
+    
+    environment:
+      # State directory (mapped to volume)
+      OPEN_GROCERY_STATE_DIR: /data/.open-grocery-mcp
+      
+      # Transport configuration
+      OPEN_GROCERY_TRANSPORT: streamable-http
+      OPEN_GROCERY_HOST: 0.0.0.0
+      OPEN_GROCERY_PORT: 8000
+      
+      # Safety defaults: writes and orders disabled
+      # Enable writes only if you understand the two-phase confirmation system
+      OPEN_GROCERY_ENABLE_RETAILER_WRITES: 0
+      OPEN_GROCERY_ENABLE_ORDER_SUBMISSION: 0
+      OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION: 0
+    
+    # Resource limits for Raspberry Pi 4/5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
