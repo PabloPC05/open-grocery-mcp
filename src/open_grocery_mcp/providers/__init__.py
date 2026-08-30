@@ -8,6 +8,7 @@ from open_grocery_mcp.providers.base import GroceryProvider
 
 __all__ = [
     "GroceryProvider",
+    "DiaFullProvider",
     "FroizProvider",
     "FroizFullProvider",
     "GadisProvider",
@@ -19,6 +20,10 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
+    if name == "DiaFullProvider":
+        from open_grocery_mcp.providers.dia_full import DiaFullProvider
+
+        return DiaFullProvider
     if name == "FroizProvider":
         from open_grocery_mcp.providers.froiz import FroizProvider
 
