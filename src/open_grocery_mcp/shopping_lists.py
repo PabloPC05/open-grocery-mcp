@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from open_grocery_mcp.errors import InvalidRequest
-from open_grocery_mcp.state_dir import get_state_dir
+from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
 
 
 class ShoppingListStore:
@@ -57,6 +57,16 @@ class ShoppingListStore:
 
     def _save_locked(self, data: dict[str, Any]) -> None:
         """Save lists with lock already held."""
+        # Ensure state directory exists before writing
+        state_dir = ensure_state_dir()
+        if state_dir is None:
+            raise InvalidRequest("Cannot save shopping lists: state directory is not writable")
+        
+        # Update path if state_dir changed (e.g., fallback to /tmp)
+        expected_path = state_dir / "shopping_lists.json"
+        if self._path != expected_path:
+            self._path = expected_path
+        
         with open(self._path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 

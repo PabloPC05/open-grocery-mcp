@@ -195,6 +195,9 @@ def prepare_purchase(
     # Compare across all stores
     stores_list = list(registry.keys())
     
+    # Parse basket_items before using it
+    parsed = parse_basket(basket_items)
+    
     result = compare_baskets(
         registry,
         items=basket_items,
