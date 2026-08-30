@@ -37,6 +37,21 @@ Consequently, Vercel is suitable for catalogue, comparison and local-draft
 tools, not authenticated retailer checkout. Browser profiles and retailer
 sessions remain on the owner's machine.
 
+### Default postal code for hosted instances
+
+Because Vercel's HOME directory is read-only, shared addresses cannot be persisted
+via `set_default_postal_code()`. To configure a default postal code for the hosted
+instance, set the `OPEN_GROCERY_DEFAULT_POSTAL_CODE` environment variable in your
+Vercel project settings:
+
+```text
+OPEN_GROCERY_DEFAULT_POSTAL_CODE=15001
+```
+
+This postal code will be used automatically by all catalogue, comparison, and
+coverage tools when the client omits `postal_code`. Local MCP installations can
+set default codes via `set_default_postal_code()` which persist across sessions.
+
 Clients can connect directly without credentials:
 
 ```powershell
