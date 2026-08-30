@@ -13,6 +13,7 @@ def test_builtin_registry_lists_generic_store_metadata() -> None:
     registry = ProviderRegistry()
     stores = registry.list(country="ES")
     assert {store["key"] for store in stores} == {
+        "dia",
         "eroski",
         "froiz",
         "gadis",

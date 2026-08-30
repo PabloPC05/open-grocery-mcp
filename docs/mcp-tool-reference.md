@@ -427,6 +427,13 @@ Abre un navegador visible para iniciar sesión en Froiz.
 **Parámetros:**
 - `timeout_seconds` (int, default 300): Timeout
 
+### `login_dia`
+
+Abre un navegador visible para iniciar sesión en Día (guarda la sesión para evitar bloqueo anti-bot).
+
+**Parámetros:**
+- `timeout_seconds` (int, default 300): Timeout
+
 ### `login_eroski`
 
 Abre un navegador visible para iniciar sesión en Eroski.
