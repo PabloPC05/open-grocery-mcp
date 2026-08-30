@@ -5,18 +5,10 @@ from __future__ import annotations
 import json
 import threading
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from open_grocery_mcp.errors import InvalidRequest
-
-
-def _state_dir() -> Path:
-    """Return the local state directory, creating it if necessary."""
-    home = Path.home()
-    state = home / ".open-grocery-mcp"
-    state.mkdir(parents=True, exist_ok=True)
-    return state
+from open_grocery_mcp.state_dir import get_state_dir
 
 
 class ShoppingListStore:
@@ -28,7 +20,7 @@ class ShoppingListStore:
     """
 
     def __init__(self) -> None:
-        self._path = _state_dir() / "shopping_lists.json"
+        self._path = get_state_dir() / "shopping_lists.json"
         self._lock = threading.Lock()
 
     def _load_locked(self) -> dict[str, Any]:
