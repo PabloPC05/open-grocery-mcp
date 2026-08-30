@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 import httpx
 import pytest
@@ -283,26 +284,16 @@ def test_recaptcha_challenge_does_not_parse_as_products() -> None:
 
 
 def test_catalogue_uses_chrome_user_agent() -> None:
-    requests: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        return httpx.Response(200, text=SEARCH_HTML)
-
-    # Don't provide a client so the provider creates its own with proper headers
+    # Test that the provider sets Chrome UA without making any network calls
     provider = EroskiCatalogueProvider(timeout=5.0)
-    # Replace the transport after creation to intercept requests
-    provider._client._transport = httpx.MockTransport(handler)
     
-    provider.search("leche", limit=1)
+    assert "Chrome/131" in provider._client.headers.get("User-Agent", "")
+    assert "es-ES" in provider._client.headers.get("Accept-Language", "")
     
-    assert len(requests) == 1
-    assert "Chrome/131" in requests[0].headers.get("User-Agent", "")
-    assert "es-ES" in requests[0].headers.get("Accept-Language", "")
     provider.close()
 
 
-def test_catalogue_retries_with_local_session_on_403(tmp_path: pytest.TempPathFactory) -> None:
+def test_catalogue_retries_with_local_session_on_403(tmp_path: Path) -> None:
     import json
     
     # Create a fake storage_state.json
@@ -331,8 +322,8 @@ def test_catalogue_retries_with_local_session_on_403(tmp_path: pytest.TempPathFa
             return httpx.Response(403, text="Access Denied")
         return httpx.Response(200, text=SEARCH_HTML)
     
-    provider = EroskiCatalogueProvider(timeout=5.0, state_path=str(state_path))
-    provider._client._transport = httpx.MockTransport(handler)
+    http = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    provider = EroskiCatalogueProvider(client=http, state_path=str(state_path))
     
     # Should succeed after retry
     products = provider.search("leche", limit=1)
@@ -342,11 +333,11 @@ def test_catalogue_retries_with_local_session_on_403(tmp_path: pytest.TempPathFa
     # Second request should have the cookie
     assert "JSESSIONID" in requests[1].headers.get("Cookie", "")
     provider.close()
+    http.close()
 
 
-def test_catalogue_does_not_retry_in_vercel_environment(tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_catalogue_does_not_retry_in_vercel_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import json
-    import os
     
     # Set VERCEL environment variable
     monkeypatch.setenv("VERCEL", "1")
@@ -371,8 +362,8 @@ def test_catalogue_does_not_retry_in_vercel_environment(tmp_path: pytest.TempPat
         requests.append(request)
         return httpx.Response(403, text="Access Denied")
     
-    provider = EroskiCatalogueProvider(timeout=5.0, state_path=str(state_path))
-    provider._client._transport = httpx.MockTransport(handler)
+    http = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    provider = EroskiCatalogueProvider(client=http, state_path=str(state_path))
     
     # Should fail immediately without retry
     with pytest.raises(ProviderError, match="anti-bot protection"):
@@ -380,3 +371,4 @@ def test_catalogue_does_not_retry_in_vercel_environment(tmp_path: pytest.TempPat
     
     assert len(requests) == 1  # No retry
     provider.close()
+    http.close()
