@@ -151,7 +151,11 @@ def test_search_http_403_on_vercel(monkeypatch):
     """Test HTTP 403 on Vercel immediately raises without retry."""
     monkeypatch.setenv("VERCEL", "1")
     
+    call_count = 0
+    
     def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
         return httpx.Response(403, text="Forbidden")
     
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -160,9 +164,31 @@ def test_search_http_403_on_vercel(monkeypatch):
     with pytest.raises(ProviderError) as exc_info:
         provider.search("leche")
     
+    assert call_count == 1  # No retry on Vercel
     assert "Cloudflare" in str(exc_info.value)
     assert "403" in str(exc_info.value)
     assert "Hosted MCP" in str(exc_info.value)
+
+
+def test_search_http_429_on_vercel_no_retry(monkeypatch):
+    """Test HTTP 429 on Vercel immediately raises without retry."""
+    monkeypatch.setenv("VERCEL", "1")
+    
+    call_count = 0
+    
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(429, text="Too Many Requests")
+    
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = CarrefourCatalogueProvider(client=client)
+    
+    with pytest.raises(ProviderError) as exc_info:
+        provider.search("leche")
+    
+    assert call_count == 1  # No retry on Vercel for 429
+    assert "429" in str(exc_info.value)
 
 
 def test_search_http_429():
@@ -389,3 +415,89 @@ def test_url_sanitization():
     
     assert "carrefour.es" in products[0].url
     assert products[1].url is None  # Invalid domain filtered out
+
+
+def test_search_catalog_content_structure():
+    """Test parsing Empathy catalog.content structure."""
+    response = {
+        "catalog": {
+            "content": [
+                {
+                    "__id": "111",
+                    "__name": "Product from catalog.content",
+                    "__price": {"value": 2.5},
+                    "__available": True,
+                }
+            ]
+        }
+    }
+    
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=response)
+    
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = CarrefourCatalogueProvider(client=client)
+    
+    products = provider.search("test")
+    
+    assert len(products) == 1
+    assert products[0].id == "111"
+    assert products[0].name == "Product from catalog.content"
+
+
+def test_search_catalog_content_docs_structure():
+    """Test parsing Empathy catalog.content.docs structure."""
+    response = {
+        "catalog": {
+            "content": {
+                "docs": [
+                    {
+                        "__id": "222",
+                        "__name": "Product from catalog.content.docs",
+                        "__price": {"value": 3.5},
+                        "__available": True,
+                    }
+                ]
+            }
+        }
+    }
+    
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=response)
+    
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = CarrefourCatalogueProvider(client=client)
+    
+    products = provider.search("test")
+    
+    assert len(products) == 1
+    assert products[0].id == "222"
+    assert products[0].name == "Product from catalog.content.docs"
+
+
+def test_search_content_docs_structure():
+    """Test parsing Empathy content.docs structure."""
+    response = {
+        "content": {
+            "docs": [
+                {
+                    "__id": "333",
+                    "__name": "Product from content.docs",
+                    "__price": {"value": 4.5},
+                    "__available": True,
+                }
+            ]
+        }
+    }
+    
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=response)
+    
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = CarrefourCatalogueProvider(client=client)
+    
+    products = provider.search("test")
+    
+    assert len(products) == 1
+    assert products[0].id == "333"
+    assert products[0].name == "Product from content.docs"

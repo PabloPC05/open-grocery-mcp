@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
+import time
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urljoin, urlsplit
@@ -12,6 +14,7 @@ import httpx
 
 from open_grocery_mcp.errors import LocationRequired, ProviderError
 from open_grocery_mcp.models import Product
+from open_grocery_mcp.state_dir import get_state_dir
 
 _BASE = "https://www.carrefour.es"
 _POSTAL_RE = re.compile(r"\d{5}")
@@ -45,15 +48,13 @@ class CarrefourCatalogueProvider:
             timeout=timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 "Accept": "application/json",
                 "Accept-Language": "es-ES,es;q=0.9",
                 "Referer": f"{_BASE}/supermercado",
             },
         )
-        self._storage_state_path = os.path.expanduser(
-            "~/.open-grocery-mcp/carrefour/storage_state.json"
-        )
+        self._storage_state_path = get_state_dir() / "carrefour" / "storage_state.json"
 
     @staticmethod
     def _postal_code(value: str | None) -> str:
@@ -70,25 +71,50 @@ class CarrefourCatalogueProvider:
             _CAPTCHA_RE.search(text) or _CLOUDFLARE_CHALLENGE_RE.search(text)
         )
 
-    def _load_browser_cookies(self) -> dict[str, str]:
-        """Load cookies from Playwright storage_state.json if available."""
-        if not os.path.exists(self._storage_state_path):
-            return {}
+    def _load_browser_cookies(self) -> None:
+        """Load non-expired cookies from Playwright storage_state.json into client."""
+        if not self._storage_state_path.exists():
+            return
         
         try:
-            import json
             with open(self._storage_state_path, encoding="utf-8") as f:
                 state = json.load(f)
+        except (OSError, ValueError):
+            return
+        
+        if not isinstance(state, dict):
+            return
+        
+        cookies_data = state.get("cookies", [])
+        if not isinstance(cookies_data, list):
+            return
+        
+        now = time.time()
+        
+        for cookie in cookies_data:
+            if not isinstance(cookie, dict):
+                continue
             
-            cookies = {}
-            for cookie in state.get("cookies", []):
-                domain = cookie.get("domain", "")
-                if "carrefour.es" in domain:
-                    cookies[cookie["name"]] = cookie["value"]
+            domain = str(cookie.get("domain", "")).lstrip(".").casefold()
+            if not domain or "carrefour.es" not in domain:
+                continue
             
-            return cookies
-        except Exception:
-            return {}
+            # Skip expired cookies
+            expires = cookie.get("expires", -1)
+            if expires != -1 and expires < now:
+                continue
+            
+            name = cookie.get("name")
+            value = cookie.get("value")
+            if not name or not value:
+                continue
+            
+            # Set cookie in httpx client
+            self._client.cookies.set(
+                name=name,
+                value=value,
+                domain=domain if domain.startswith(".") else f".{domain}",
+            )
 
     def _search_empathy(
         self,
@@ -96,7 +122,7 @@ class CarrefourCatalogueProvider:
         *,
         limit: int = 10,
         start: int = 0,
-        use_cookies: bool = False,
+        load_session_cookies: bool = False,
     ) -> dict[str, Any]:
         """Call Empathy search API with Carrefour-specific parameters."""
         url = f"{_BASE}/search-api/query/v1/search"
@@ -115,17 +141,11 @@ class CarrefourCatalogueProvider:
         # Remove empty params
         params = {k: v for k, v in params.items() if v or v == 0}
         
-        headers = dict(self._client.headers)
-        
-        if use_cookies:
-            cookies_dict = self._load_browser_cookies()
-            if cookies_dict:
-                headers["Cookie"] = "; ".join(
-                    f"{k}={v}" for k, v in cookies_dict.items()
-                )
+        if load_session_cookies:
+            self._load_browser_cookies()
         
         try:
-            response = self._client.get(url, params=params, headers=headers)
+            response = self._client.get(url, params=params)
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
@@ -133,7 +153,8 @@ class CarrefourCatalogueProvider:
                 # Cloudflare anti-bot
                 raise ProviderError(
                     f"Carrefour search blocked by Cloudflare (HTTP {status}). "
-                    "For local MCP, use login_carrefour or maintain a browser session. "
+                    "For local MCP, use import_browser_session(store='carrefour') "
+                    "or login_with_browser(store='carrefour') to save a browser session. "
                     "Hosted MCP cannot access Carrefour catalogue."
                 ) from exc
             raise ProviderError(
@@ -148,7 +169,8 @@ class CarrefourCatalogueProvider:
             if self._is_challenge_html(response.text):
                 raise ProviderError(
                     "Carrefour returned anti-bot challenge HTML. "
-                    "For local MCP, use login_carrefour or maintain a browser session. "
+                    "For local MCP, use import_browser_session(store='carrefour') "
+                    "or login_with_browser(store='carrefour') to save a browser session. "
                     "Hosted MCP cannot access Carrefour catalogue."
                 )
         
@@ -290,18 +312,41 @@ class CarrefourCatalogueProvider:
             data = self._search_empathy(term, limit=limit)
         except ProviderError as exc:
             # Retry with browser cookies if local and not Vercel
-            if not is_vercel and "403" in str(exc) or "429" in str(exc) or "challenge" in str(exc).lower():
+            msg = str(exc).lower()
+            if not is_vercel and ("403" in msg or "429" in msg or "503" in msg or "challenge" in msg):
                 try:
-                    data = self._search_empathy(term, limit=limit, use_cookies=True)
+                    data = self._search_empathy(term, limit=limit, load_session_cookies=True)
                 except ProviderError:
                     # If retry also fails, raise original error
                     raise exc from None
             else:
                 raise
         
-        # Parse Empathy response
-        results = data.get("results", [])
-        if not isinstance(results, list):
+        # Parse Empathy response - try multiple possible structures
+        results = None
+        
+        # Try direct results array
+        if "results" in data and isinstance(data["results"], list):
+            results = data["results"]
+        # Try catalog.content
+        elif "catalog" in data:
+            catalog = data["catalog"]
+            if isinstance(catalog, dict):
+                if isinstance(catalog.get("content"), list):
+                    results = catalog["content"]
+                elif isinstance(catalog.get("content"), dict):
+                    docs = catalog["content"].get("docs")
+                    if isinstance(docs, list):
+                        results = docs
+        # Try content.docs
+        elif "content" in data:
+            content = data["content"]
+            if isinstance(content, dict):
+                docs = content.get("docs")
+                if isinstance(docs, list):
+                    results = docs
+        
+        if results is None or not isinstance(results, list):
             return []
         
         products: list[Product] = []

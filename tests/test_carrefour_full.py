@@ -37,8 +37,14 @@ def test_search_delegates_to_catalogue():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=response)
     
+    # Inject mock client via constructor
+    from open_grocery_mcp.providers.carrefour_catalogue import CarrefourCatalogueProvider
+    
+    mock_client = httpx.Client(transport=httpx.MockTransport(handler))
+    catalogue = CarrefourCatalogueProvider(client=mock_client)
+    
     provider = CarrefourFullProvider()
-    provider._catalogue._client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider._catalogue = catalogue
     
     products = provider.search("test", limit=10)
     
@@ -63,8 +69,14 @@ def test_product_delegates_to_catalogue():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=response)
     
+    # Inject mock client via constructor
+    from open_grocery_mcp.providers.carrefour_catalogue import CarrefourCatalogueProvider
+    
+    mock_client = httpx.Client(transport=httpx.MockTransport(handler))
+    catalogue = CarrefourCatalogueProvider(client=mock_client)
+    
     provider = CarrefourFullProvider()
-    provider._catalogue._client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider._catalogue = catalogue
     
     product = provider.product("123")
     
