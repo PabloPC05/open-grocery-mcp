@@ -8,23 +8,16 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar 
 
 | Supermercado | Catálogo | Comparación | Carrito autenticado | Entrega (direcciones/franjas) | Checkout | Pedido final |
 |---|---:|---:|---:|---:|---:|---:|
+| Carrefour | Empathy API con anti-bot; hosteado bloqueado, local con sesión de navegador | Sí | No disponible por diseño | No disponible por diseño | No disponible por diseño | No disponible por diseño |
 | Día | HTML público | Sí | No disponible | No disponible | No disponible | No disponible |
-| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras | HTTP con fallback a navegador | HTTP con confirmación; navegador como fallback | Experimental y apagado |
-| Froiz | HTTP autenticado localizado; fallback público no localizado | Sí | Cliente HTTP con relectura, huella y fallback | HTTP (dirección seleccionada + calendario) | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
 | Eroski | HTTP/HTML público, no localizado | Sí | Lectura HTTP; escrituras con navegador y doble validación | GET-only para la dirección ya seleccionada | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
+| Froiz | HTTP autenticado localizado; fallback público no localizado | Sí | Cliente HTTP con relectura, huella y fallback | HTTP (dirección seleccionada + calendario) | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
+| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras | HTTP con fallback a navegador | HTTP con confirmación; navegador como fallback | Experimental y apagado |
 | Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | HTTP | Experimental y apagado |
-| **Carrefour** | **No disponible** | **—** | **—** | **—** | **—** | **—** |
 
 ### Nota sobre Carrefour España
 
-Carrefour España no está disponible actualmente en Open Grocery MCP. La investigación técnica (documentada en `docs/carrefour-investigation.md`) concluyó que:
-
-- Carrefour no proporciona una API pública documentada para su catálogo de productos
-- El sitio web está protegido por Cloudflare WAF que bloquea todo acceso automatizado (HTTP 403/503)
-- La única API disponible es la de Mirakl, exclusiva para vendedores del marketplace
-- El acceso requiere resolución de CAPTCHAs y desafíos JavaScript, lo cual está explícitamente prohibido por las reglas de seguridad del proyecto
-
-Si Carrefour publica una API pública oficial en el futuro, se podrá reconsiderar su integración. Ver `docs/carrefour-investigation.md` para detalles completos de la investigación y evidencia de bloqueo.
+Carrefour usa la plataforma Empathy para búsqueda (`/search-api/query/v1/search`). Cloudflare WAF protege el endpoint: peticiones HTTP directas devuelven 403/503. **El catálogo funciona en MCP local con sesión de navegador** (cookies de `storage_state.json`), pero **hosted Vercel/Lambda está bloqueado** (misma limitación que Eroski para operaciones autenticadas). Carrito, direcciones, franjas, checkout y pedidos están fuera de alcance según requisitos del proyecto.
 
 > **Nota sobre catálogos HTML**: Día y Eroski usan scraping de HTML server-rendered para el 
 > catálogo público. Ambos pueden bloquearse por protección anti-bot desde IPs de datacenter/serverless.

@@ -8,6 +8,7 @@ from collections.abc import Callable
 from open_grocery_mcp.errors import StoreNotFound
 from open_grocery_mcp.models import StoreInfo
 from open_grocery_mcp.providers import (
+    CarrefourFullProvider,
     DiaFullProvider,
     EroskiFullProvider,
     FroizFullProvider,
@@ -24,6 +25,7 @@ class ProviderRegistry:
 
     def __init__(self, factories: dict[str, ProviderFactory] | None = None) -> None:
         self._factories = factories if factories is not None else {
+            "carrefour": CarrefourFullProvider,
             "dia": DiaFullProvider,
             "eroski": EroskiFullProvider,
             "froiz": FroizFullProvider,

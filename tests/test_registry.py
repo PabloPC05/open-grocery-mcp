@@ -13,6 +13,7 @@ def test_builtin_registry_lists_generic_store_metadata() -> None:
     registry = ProviderRegistry()
     stores = registry.list(country="ES")
     assert {store["key"] for store in stores} == {
+        "carrefour",
         "dia",
         "eroski",
         "froiz",
@@ -42,8 +43,8 @@ def test_builtin_registry_lists_generic_store_metadata() -> None:
 
 def test_unknown_store_error_lists_valid_keys() -> None:
     registry = ProviderRegistry()
-    with pytest.raises(StoreNotFound, match="gadis"):
-        registry.get("carrefour")
+    with pytest.raises(StoreNotFound, match="carrefour"):
+        registry.get("unknown_store_xyz")
 
 
 def test_empty_registry_stays_empty() -> None:
