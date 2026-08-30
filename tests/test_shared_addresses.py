@@ -222,3 +222,159 @@ def test_addresses_file_permissions(temp_state_dir):
     addresses_file = temp_state_dir / "shared_addresses.json"
     # Check file permissions are user-only (0o600)
     assert addresses_file.stat().st_mode & 0o777 == 0o600
+
+
+# New tests for postal code resolution
+
+
+def test_validate_spanish_postal_code():
+    """Test Spanish postal code validation."""
+    # Valid codes
+    assert shared_addresses.validate_spanish_postal_code("15001") is True
+    assert shared_addresses.validate_spanish_postal_code("28001") is True
+    assert shared_addresses.validate_spanish_postal_code("00000") is True
+    assert shared_addresses.validate_spanish_postal_code("99999") is True
+    assert shared_addresses.validate_spanish_postal_code("  15001  ") is True
+    
+    # Invalid codes
+    assert shared_addresses.validate_spanish_postal_code("") is False
+    assert shared_addresses.validate_spanish_postal_code("1500") is False
+    assert shared_addresses.validate_spanish_postal_code("150011") is False
+    assert shared_addresses.validate_spanish_postal_code("15O01") is False
+    assert shared_addresses.validate_spanish_postal_code("abcde") is False
+    assert shared_addresses.validate_spanish_postal_code(None) is False
+
+
+def test_resolve_postal_code_explicit_wins(temp_state_dir):
+    """Explicit postal_code argument takes priority."""
+    # Set a default
+    shared_addresses.add_postal_address(
+        postal_code="15001",
+        label="Default",
+    )
+    
+    # Explicit argument should win
+    resolved, source = shared_addresses.resolve_postal_code("28001")
+    assert resolved == "28001"
+    assert source == "argument"
+
+
+def test_resolve_postal_code_from_shared_default(temp_state_dir):
+    """Resolve from shared default address when explicit is None."""
+    shared_addresses.add_postal_address(
+        postal_code="15001",
+        label="Home",
+    )
+    
+    resolved, source = shared_addresses.resolve_postal_code(None)
+    assert resolved == "15001"
+    assert source == "shared_default"
+
+
+def test_resolve_postal_code_from_env(temp_state_dir, monkeypatch):
+    """Resolve from environment variable when no shared default."""
+    monkeypatch.setenv("OPEN_GROCERY_DEFAULT_POSTAL_CODE", "28001")
+    
+    resolved, source = shared_addresses.resolve_postal_code(None)
+    assert resolved == "28001"
+    assert source == "env"
+
+
+def test_resolve_postal_code_priority_order(temp_state_dir, monkeypatch):
+    """Test full priority order: argument > shared > env > none."""
+    # Set both shared and env
+    shared_addresses.add_postal_address(
+        postal_code="15001",
+        label="Shared",
+    )
+    monkeypatch.setenv("OPEN_GROCERY_DEFAULT_POSTAL_CODE", "08001")
+    
+    # Explicit wins
+    resolved, source = shared_addresses.resolve_postal_code("28001")
+    assert resolved == "28001"
+    assert source == "argument"
+    
+    # Shared wins over env
+    resolved, source = shared_addresses.resolve_postal_code(None)
+    assert resolved == "15001"
+    assert source == "shared_default"
+
+
+def test_resolve_postal_code_none_when_no_default(temp_state_dir):
+    """Return None when no default is available."""
+    resolved, source = shared_addresses.resolve_postal_code(None)
+    assert resolved is None
+    assert source == "none"
+
+
+def test_resolve_postal_code_strips_whitespace(temp_state_dir):
+    """Postal code is stripped of whitespace."""
+    resolved, source = shared_addresses.resolve_postal_code("  28001  ")
+    assert resolved == "28001"
+    assert source == "argument"
+
+
+def test_set_default_postal_code_creates_address(temp_state_dir):
+    """set_default_postal_code creates and sets default address."""
+    result = shared_addresses.set_default_postal_code(
+        postal_code="15001",
+        city="A Coruña",
+    )
+    
+    assert result["address"]["postal_code"] == "15001"
+    assert result["address"]["city"] == "A Coruña"
+    assert result["address"]["label"] == "Default"
+    assert result["is_default"] is True
+    
+    # Verify it's actually set as default
+    default = shared_addresses.get_default_address()
+    assert default is not None
+    assert default["postal_code"] == "15001"
+
+
+def test_set_default_postal_code_validates_format(temp_state_dir):
+    """set_default_postal_code validates Spanish postal code format."""
+    with pytest.raises(InvalidRequest, match="Invalid Spanish postal code format"):
+        shared_addresses.set_default_postal_code("1500")
+    
+    with pytest.raises(InvalidRequest, match="Invalid Spanish postal code format"):
+        shared_addresses.set_default_postal_code("abcde")
+    
+    with pytest.raises(InvalidRequest, match="Invalid Spanish postal code format"):
+        shared_addresses.set_default_postal_code("150011")
+
+
+def test_set_default_postal_code_requires_postal_code(temp_state_dir):
+    """set_default_postal_code requires a non-empty postal code."""
+    with pytest.raises(InvalidRequest, match="postal_code is required"):
+        shared_addresses.set_default_postal_code("")
+    
+    with pytest.raises(InvalidRequest, match="postal_code is required"):
+        shared_addresses.set_default_postal_code("   ")
+
+
+def test_set_default_postal_code_updates_existing(temp_state_dir):
+    """set_default_postal_code can update the default."""
+    # Set first default
+    shared_addresses.set_default_postal_code("15001", city="A Coruña")
+    
+    # Set new default
+    result = shared_addresses.set_default_postal_code("28001", city="Madrid", label="Madrid Home")
+    
+    assert result["address"]["postal_code"] == "28001"
+    assert result["address"]["city"] == "Madrid"
+    assert result["address"]["label"] == "Madrid Home"
+    
+    # New one should be default
+    default = shared_addresses.get_default_address()
+    assert default["postal_code"] == "28001"
+
+
+def test_set_default_postal_code_with_custom_label(temp_state_dir):
+    """set_default_postal_code accepts custom label."""
+    result = shared_addresses.set_default_postal_code(
+        postal_code="15001",
+        label="My Custom Label",
+    )
+    
+    assert result["address"]["label"] == "My Custom Label"

@@ -45,7 +45,7 @@ Ver [`docs/mcp-tool-reference.md`](docs/mcp-tool-reference.md) para la referenci
 Herramientas de experiencia de compra que hacen el shopping cómodo:
 
 - **Listas de compra recurrentes**: `create_shopping_list`, `list_shopping_lists`, `get_shopping_list`, `add_list_item`, `update_list_item`, `remove_list_item`, `delete_shopping_list`, `store_last_basket`, `replay_last_basket`
-- **Direcciones compartidas**: `add_postal_address`, `list_shared_addresses`, `get_default_postal_address`, `set_default_address`, `remove_postal_address`, `map_shared_address_to_retailer`
+- **Direcciones compartidas**: `set_default_postal_code`, `get_default_postal_code`, `add_postal_address`, `list_shared_addresses`, `get_default_postal_address`, `set_default_address`, `remove_postal_address`, `map_shared_address_to_retailer`
 - **Perfil de compra**: `get_shopping_profile`, `update_shopping_profile`, `reset_shopping_profile` (presupuesto, alergias, términos excluidos, preferencia de marca blanca, política de sustitución)
 - **Prepare purchase (herramienta principal)**: `prepare_purchase` — compara tiendas, optimiza cestas, aplica perfil y crea borradores listos para `prepare_real_cart_update`. No escribe en ningún retailer.
 - **Resolución de franjas por intención**: `resolve_delivery_slot_intent` — acepta "próximo", "mañana", "sábado", "tarde", etc. en lugar de slot_id críptico.
@@ -54,12 +54,40 @@ Herramientas de experiencia de compra que hacen el shopping cómodo:
 
 El MCP permite guardar direcciones postales que se usan automáticamente en todos los supermercados:
 
-- `add_postal_address`: Añadir una dirección compartida (código postal, calle, número, ciudad, provincia)
+- `set_default_postal_code`: **Nueva herramienta simplificada** — establece un código postal predeterminado sin necesidad de calle/número
+- `get_default_postal_code`: Consulta el código postal predeterminado actual y su origen (shared_default, env o none)
+- `add_postal_address`: Añadir una dirección compartida completa (código postal, calle, número, ciudad, provincia)
 - `list_shared_addresses`: Listar direcciones guardadas con indicación de la predeterminada
-- `set_default_address`: Establecer una dirección como predeterminada
+- `set_default_address`: Establecer una dirección existente como predeterminada
 - `remove_postal_address`: Eliminar una dirección
 
-La dirección predeterminada se usa automáticamente en `search_products`, `compare_basket`, `get_delivery_coverage`, `prepare_purchase` y otras herramientas cuando no se proporciona `postal_code` explícitamente. Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` y funcionan tanto en modo público como local.
+#### Resolución automática de código postal
+
+Todas las herramientas de catálogo, búsqueda y cobertura (`search_products`, `compare_basket`, `get_delivery_coverage`, `prepare_purchase`, etc.) resuelven automáticamente el código postal cuando se omite el parámetro `postal_code`, siguiendo este orden de prioridad:
+
+1. **Argumento explícito** — el `postal_code` pasado a la herramienta (máxima prioridad)
+2. **Dirección compartida predeterminada** — establecida vía `set_default_postal_code()` o `add_postal_address()`
+3. **Variable de entorno** — `OPEN_GROCERY_DEFAULT_POSTAL_CODE` (útil para instancias Vercel/hosted)
+4. **None** — si no hay ningún valor predeterminado
+
+Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` (persistente en instalaciones locales; efímero en Vercel). En instancias hosted, configure `OPEN_GROCERY_DEFAULT_POSTAL_CODE` como el código postal predeterminado de la instancia.
+
+Ejemplo:
+
+```python
+# Establecer código postal predeterminado (una vez)
+set_default_postal_code(postal_code="15001", city="A Coruña")
+
+# Todas las búsquedas posteriores usan 15001 automáticamente
+search_products(store="mercadona", query="leche")
+compare_basket(items=["pan", "leche", "huevos"])
+get_delivery_coverage(store="gadis")  # postal_code ahora es opcional
+
+# El argumento explícito siempre gana
+search_products(store="mercadona", query="leche", postal_code="28001")
+```
+
+Las herramientas que resuelven el código postal incluyen `postal_code_source` en su respuesta (`"argument"`, `"shared_default"`, `"env"` o `"none"`) para que sepas qué valor se usó.
 
 ### Catálogo y comparación (público y local)
 

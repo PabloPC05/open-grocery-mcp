@@ -215,6 +215,47 @@ Elimina una dirección del libro compartido.
 **Retorna:**
 - `address_id`, `removed`: true/false
 
+#### `set_default_postal_code`
+
+**Nueva herramienta simplificada** para establecer un código postal predeterminado sin necesidad de proporcionar una dirección completa.
+
+**Parámetros:**
+- `postal_code` (requerido): Código postal español (5 dígitos, ej: "15001", "28001")
+- `city` (opcional): Nombre de la ciudad
+- `label` (opcional): Etiqueta descriptiva (por defecto: "Default")
+
+**Retorna:**
+- `address`: Objeto de dirección creada/actualizada con `id`
+- `is_default`: true
+- `message`: Confirmación
+
+**Validación:**
+- El código postal debe ser exactamente 5 dígitos numéricos
+- Se valida el formato español automáticamente
+
+**Nota:**
+En instalaciones locales, la dirección persiste en `~/.open-grocery-mcp/shared_addresses.json`. En instancias hosted/Vercel, el almacenamiento es efímero; configure `OPEN_GROCERY_DEFAULT_POSTAL_CODE` como variable de entorno para un valor predeterminado de instancia persistente.
+
+#### `get_default_postal_code`
+
+Obtiene el código postal predeterminado actual y su origen.
+
+**Parámetros:**
+Ninguno
+
+**Retorna:**
+- `postal_code`: Código postal predeterminado o null
+- `source`: Origen del código postal:
+  - `"shared_default"`: Desde dirección compartida predeterminada
+  - `"env"`: Desde variable de entorno `OPEN_GROCERY_DEFAULT_POSTAL_CODE`
+  - `"none"`: No hay código postal predeterminado configurado
+- `address` (opcional): Objeto de dirección completa si `source` es `"shared_default"`
+
+**Orden de resolución:**
+1. Dirección compartida predeterminada (establecida vía `set_default_postal_code()` o `add_postal_address()`)
+2. Variable de entorno `OPEN_GROCERY_DEFAULT_POSTAL_CODE`
+3. None si no hay ningún valor configurado
+
 #### `map_shared_address_to_retailer`
 
 Mapea una dirección compartida a una dirección de retailer.
@@ -313,6 +354,26 @@ resolve_delivery_slot_intent(
 ---
 
 ## Catálogo y búsqueda
+
+### Resolución automática de códigos postales
+
+Todas las herramientas de catálogo, búsqueda, comparación y cobertura resuelven automáticamente el código postal cuando se omite el parámetro `postal_code`. El orden de prioridad es:
+
+1. **Argumento explícito** — el `postal_code` pasado a la herramienta (siempre gana)
+2. **Dirección compartida predeterminada** — establecida vía `set_default_postal_code()` o `add_postal_address()`
+3. **Variable de entorno** — `OPEN_GROCERY_DEFAULT_POSTAL_CODE`
+4. **None** — si no hay ningún valor predeterminado
+
+Las herramientas que resuelven el código postal incluyen `postal_code_source` en su respuesta (`"argument"`, `"shared_default"`, `"env"` o `"none"`) para que el cliente sepa qué valor se usó.
+
+**Herramientas afectadas:**
+- `search_products`, `search_products_expanded`
+- `get_delivery_coverage` (ahora postal_code es opcional)
+- `search_offers`, `filter_worthwhile_offers`
+- `get_product`, `list_categories`
+- `compare_basket`, `compare_alternatives`, `optimize_basket_combination`
+- `audit_catalogue_quality`
+- `prepare_cart`, `prepare_purchase`
 
 ### `health`
 
