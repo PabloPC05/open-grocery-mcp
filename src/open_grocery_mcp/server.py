@@ -11,7 +11,7 @@ try:
 except ImportError:
     from mcp.server.fastmcp import FastMCP as MCPServer
 
-from open_grocery_mcp import __version__
+from open_grocery_mcp import __version__, shared_addresses
 from open_grocery_mcp.address_mapping import map_shared_to_retailer_address
 from open_grocery_mcp.authenticated_tools import register_authenticated_tools
 from open_grocery_mcp.basket_optimization import optimize_semantic_basket
@@ -36,7 +36,6 @@ from open_grocery_mcp.semantic_quality import (
     ontology_info,
     relationship,
 )
-from open_grocery_mcp.shared_addresses import SharedAddressBook
 from open_grocery_mcp.shopping_lists import ShoppingListStore
 from open_grocery_mcp.shopping_profile import ShoppingProfile
 from open_grocery_mcp.value_comparison import (
@@ -75,7 +74,6 @@ _registry = default_registry()
 _drafts = DraftCartStore()
 _confirmations = ConfirmationStore(ttl_seconds=300)
 _workflows = RetailerWorkflowService(_registry, _drafts, _confirmations)
-_addresses = SharedAddressBook()
 _lists = ShoppingListStore()
 _profile = ShoppingProfile()
 
@@ -694,43 +692,55 @@ def add_postal_address(
     postal_code: str,
     label: str | None = None,
     street: str | None = None,
+    number: str | None = None,
     city: str | None = None,
-    set_as_default: bool = False,
+    province: str | None = None,
+    country: str = "ES",
+    set_as_default: bool = True,
 ) -> dict[str, Any]:
     """Add a postal address to the shared address book."""
 
-    return _addresses.add_address(postal_code, label, street, city, set_as_default)
+    return shared_addresses.add_postal_address(
+        postal_code=postal_code,
+        label=label,
+        street=street,
+        number=number,
+        city=city,
+        province=province,
+        country=country,
+        set_as_default=set_as_default,
+    )
 
 
 @mcp.tool()
 def list_shared_addresses() -> dict[str, Any]:
     """List all shared postal addresses and the default."""
 
-    return _addresses.list_addresses()
+    return shared_addresses.list_shared_addresses()
 
 
 @mcp.tool()
 def get_default_postal_address() -> dict[str, Any] | None:
     """Get the default shared postal address."""
 
-    addr = _addresses.get_default_address()
+    addr = shared_addresses.get_default_address()
     if addr is None:
         return {"status": "no_default_set"}
     return addr
 
 
 @mcp.tool()
-def set_default_address(address_id: str) -> dict[str, Any]:
+def set_default_address(address_id: int) -> dict[str, Any]:
     """Set an address as the default."""
 
-    return _addresses.set_default_address(address_id)
+    return shared_addresses.set_default_address(address_id)
 
 
 @mcp.tool()
-def remove_postal_address(address_id: str) -> dict[str, Any]:
+def remove_postal_address(address_id: int) -> dict[str, Any]:
     """Remove a postal address from the shared book."""
 
-    return _addresses.remove_address(address_id)
+    return shared_addresses.remove_postal_address(address_id)
 
 
 # Shopping Profile
@@ -811,7 +821,7 @@ def prepare_purchase(
 
     # Resolve postal_code from default if not provided
     if postal_code is None:
-        default_addr = _addresses.get_default_address()
+        default_addr = shared_addresses.get_default_address()
         if default_addr:
             postal_code = default_addr.get("postal_code")
 
@@ -883,7 +893,7 @@ def resolve_delivery_slot_intent(
 @mcp.tool()
 def map_shared_address_to_retailer(
     store: str,
-    address_id: str | None = None,
+    address_id: int | None = None,
 ) -> dict[str, Any]:
     """Map a shared postal address to a retailer delivery address.
 
@@ -905,11 +915,11 @@ def map_shared_address_to_retailer(
     """
 
     if address_id is None:
-        shared_address = _addresses.get_default_address()
+        shared_address = shared_addresses.get_default_address()
         if shared_address is None:
             raise InvalidRequest("no default shared address set")
     else:
-        all_addresses = _addresses.list_addresses()
+        all_addresses = shared_addresses.list_shared_addresses()
         shared_address = None
         for addr in all_addresses.get("addresses", []):
             if addr["id"] == address_id:

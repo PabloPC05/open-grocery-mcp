@@ -18,6 +18,10 @@ from tools.http_capture.common import (
     shape,
 )
 from tools.http_capture.manifest import add_manifest
+
+# Skip all tests in this module if playwright is not available
+pytest.importorskip("playwright")
+
 from tools.http_capture.probe import Probe
 
 

@@ -186,5 +186,26 @@ class WorkflowBase:
     def login_with_browser(self, store: str, timeout_seconds: int = 300) -> dict[str, Any]:
         return self._cart_provider(store).login_with_browser(timeout_seconds=timeout_seconds)
 
+    def clear_session(self, store: str) -> dict[str, Any]:
+        provider = self._cart_provider(store)
+        if hasattr(provider, 'clear_session'):
+            return provider.clear_session()
+        # Si el provider no tiene clear_session, intentar borrar el storage_state
+        import pathlib
+        state_dir = pathlib.Path.home() / ".open-grocery-mcp" / store
+        state_file = state_dir / "storage_state.json"
+        if state_file.exists():
+            state_file.unlink()
+            return {
+                "store": store,
+                "session_cleared": True,
+                "message": "Local session cleared successfully"
+            }
+        return {
+            "store": store,
+            "session_cleared": False,
+            "message": "No session found to clear"
+        }
+
     def real_cart(self, store: str) -> dict[str, Any]:
         return self._cart_provider(store).real_cart()
