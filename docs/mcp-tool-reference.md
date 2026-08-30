@@ -1,6 +1,5 @@
 # MCP Tool Reference
 
-<<<<<<< HEAD
 Referencia completa de las herramientas Model Context Protocol disponibles en Open Grocery MCP.
 
 ## Índice
@@ -234,7 +233,7 @@ Elimina una dirección del libro compartido.
 - Se valida el formato español automáticamente
 
 **Nota:**
-En instalaciones locales, la dirección persiste en `~/.open-grocery-mcp/shared_addresses.json`. En instancias hosted/Vercel, el almacenamiento es efímero; configure `OPEN_GROCERY_DEFAULT_POSTAL_CODE` como variable de entorno para un valor predeterminado de instancia persistente.
+En instalaciones locales, la dirección persiste en `~/.open-grocery-mcp/shared_addresses.json`. En instancias hosted/Vercel, el almacenamiento es efímero; configure `OPEN_GROCERY_DEFAULT_POSTAL_CODE` como variable de entorno para un valor predeterminado de instancia persistente. Si no se configura ningún valor, se usa el código postal de fábrica `15702` (Santiago de Compostela, España).
 
 #### `get_default_postal_code`
 
@@ -244,17 +243,17 @@ Obtiene el código postal predeterminado actual y su origen.
 Ninguno
 
 **Retorna:**
-- `postal_code`: Código postal predeterminado o null
+- `postal_code`: Código postal predeterminado (nunca null; siempre devuelve al menos el código de fábrica `15702`)
 - `source`: Origen del código postal:
   - `"shared_default"`: Desde dirección compartida predeterminada
   - `"env"`: Desde variable de entorno `OPEN_GROCERY_DEFAULT_POSTAL_CODE`
-  - `"none"`: No hay código postal predeterminado configurado
+  - `"builtin"`: Código postal de fábrica `15702` (Santiago de Compostela, España)
 - `address` (opcional): Objeto de dirección completa si `source` es `"shared_default"`
 
 **Orden de resolución:**
 1. Dirección compartida predeterminada (establecida vía `set_default_postal_code()` o `add_postal_address()`)
 2. Variable de entorno `OPEN_GROCERY_DEFAULT_POSTAL_CODE`
-3. None si no hay ningún valor configurado
+3. Código postal de fábrica: `15702` (Santiago de Compostela, España)
 
 #### `map_shared_address_to_retailer`
 
@@ -362,9 +361,9 @@ Todas las herramientas de catálogo, búsqueda, comparación y cobertura resuelv
 1. **Argumento explícito** — el `postal_code` pasado a la herramienta (siempre gana)
 2. **Dirección compartida predeterminada** — establecida vía `set_default_postal_code()` o `add_postal_address()`
 3. **Variable de entorno** — `OPEN_GROCERY_DEFAULT_POSTAL_CODE`
-4. **None** — si no hay ningún valor predeterminado
+4. **Código postal de fábrica** — `15702` (Santiago de Compostela, España) como última opción de respaldo
 
-Las herramientas que resuelven el código postal incluyen `postal_code_source` en su respuesta (`"argument"`, `"shared_default"`, `"env"` o `"none"`) para que el cliente sepa qué valor se usó.
+Las herramientas que resuelven el código postal incluyen `postal_code_source` en su respuesta (`"argument"`, `"shared_default"`, `"env"` o `"builtin"`) para que el cliente sepa qué valor se usó. La fuente `"builtin"` indica que se está usando el código postal de fábrica.
 
 **Herramientas afectadas:**
 - `search_products`, `search_products_expanded`
@@ -602,7 +601,6 @@ Abre navegador en la pantalla más avanzada segura para revisión humana.
 3. **Datos locales persistentes**: Listas, direcciones y perfil se guardan en `~/.open-grocery-mcp/`.
 4. **Sesiones autenticadas**: `storage_state.json` nunca debe compartirse o subirse a Git.
 5. **Order submission deshabilitado por defecto**: Requiere múltiples flags de entorno.
-=======
 ## Overview
 
 Open Grocery MCP provides two deployment modes with different tool sets:
@@ -830,4 +828,3 @@ Never infer confirmation. Always show the complete summary and exact phrase to t
 - Repository: https://github.com/PabloPC05/open-grocery-mcp
 - Issues: Use GitHub issues for bugs and feature requests
 - Security: See SECURITY.md for vulnerability reporting
->>>>>>> origin/main

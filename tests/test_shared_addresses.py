@@ -9,6 +9,7 @@ import pytest
 
 from open_grocery_mcp import shared_addresses
 from open_grocery_mcp.errors import InvalidRequest
+from open_grocery_mcp.shared_addresses import FACTORY_DEFAULT_POSTAL_CODE
 
 
 @pytest.fixture
@@ -207,9 +208,9 @@ def test_get_default_postal_code(temp_state_dir):
 
 
 def test_get_default_postal_code_when_none(temp_state_dir):
-    """get_default_postal_code returns None when no default."""
+    """get_default_postal_code returns factory default when no default."""
     postal_code = shared_addresses.get_default_postal_code()
-    assert postal_code is None
+    assert postal_code == "15702"  # Factory default
 
 
 def test_addresses_file_permissions(temp_state_dir):
@@ -225,6 +226,11 @@ def test_addresses_file_permissions(temp_state_dir):
 
 
 # New tests for postal code resolution
+
+
+def test_factory_default_postal_code():
+    """Factory default postal code is 15702 (Santiago de Compostela)."""
+    assert FACTORY_DEFAULT_POSTAL_CODE == "15702"
 
 
 def test_validate_spanish_postal_code():
@@ -281,7 +287,7 @@ def test_resolve_postal_code_from_env(temp_state_dir, monkeypatch):
 
 
 def test_resolve_postal_code_priority_order(temp_state_dir, monkeypatch):
-    """Test full priority order: argument > shared > env > none."""
+    """Test full priority order: argument > shared > env > builtin."""
     # Set both shared and env
     shared_addresses.add_postal_address(
         postal_code="15001",
@@ -300,11 +306,46 @@ def test_resolve_postal_code_priority_order(temp_state_dir, monkeypatch):
     assert source == "shared_default"
 
 
-def test_resolve_postal_code_none_when_no_default(temp_state_dir):
-    """Return None when no default is available."""
+def test_resolve_postal_code_builtin_when_no_default(temp_state_dir):
+    """Return builtin factory default when no other default is available."""
     resolved, source = shared_addresses.resolve_postal_code(None)
-    assert resolved is None
-    assert source == "none"
+    assert resolved == "15702"
+    assert source == "builtin"
+
+
+def test_resolve_postal_code_env_beats_builtin(temp_state_dir, monkeypatch):
+    """Environment variable takes priority over builtin factory default."""
+    monkeypatch.setenv("OPEN_GROCERY_DEFAULT_POSTAL_CODE", "28001")
+    
+    resolved, source = shared_addresses.resolve_postal_code(None)
+    assert resolved == "28001"
+    assert source == "env"
+
+
+def test_resolve_postal_code_shared_beats_env_and_builtin(temp_state_dir, monkeypatch):
+    """Shared default beats both env and builtin."""
+    monkeypatch.setenv("OPEN_GROCERY_DEFAULT_POSTAL_CODE", "08001")
+    shared_addresses.add_postal_address(
+        postal_code="36001",
+        label="Shared",
+    )
+    
+    resolved, source = shared_addresses.resolve_postal_code(None)
+    assert resolved == "36001"
+    assert source == "shared_default"
+
+
+def test_resolve_postal_code_explicit_beats_all(temp_state_dir, monkeypatch):
+    """Explicit argument beats shared, env and builtin."""
+    monkeypatch.setenv("OPEN_GROCERY_DEFAULT_POSTAL_CODE", "08001")
+    shared_addresses.add_postal_address(
+        postal_code="36001",
+        label="Shared",
+    )
+    
+    resolved, source = shared_addresses.resolve_postal_code("41001")
+    assert resolved == "41001"
+    assert source == "argument"
 
 
 def test_resolve_postal_code_strips_whitespace(temp_state_dir):

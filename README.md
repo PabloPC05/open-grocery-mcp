@@ -68,9 +68,9 @@ Todas las herramientas de catálogo, búsqueda y cobertura (`search_products`, `
 1. **Argumento explícito** — el `postal_code` pasado a la herramienta (máxima prioridad)
 2. **Dirección compartida predeterminada** — establecida vía `set_default_postal_code()` o `add_postal_address()`
 3. **Variable de entorno** — `OPEN_GROCERY_DEFAULT_POSTAL_CODE` (útil para instancias Vercel/hosted)
-4. **None** — si no hay ningún valor predeterminado
+4. **Código postal de fábrica** — `15702` (Santiago de Compostela, España) como última opción de respaldo
 
-Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` (persistente en instalaciones locales; efímero en Vercel). En instancias hosted, configure `OPEN_GROCERY_DEFAULT_POSTAL_CODE` como el código postal predeterminado de la instancia.
+Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` (persistente en instalaciones locales; efímero en Vercel). En instancias hosted públicas, el código postal de fábrica `15702` se usa por defecto a menos que se configure `OPEN_GROCERY_DEFAULT_POSTAL_CODE` como variable de entorno. Los usuarios locales pueden cambiar el predeterminado con `set_default_postal_code()`.
 
 Ejemplo:
 
@@ -87,7 +87,7 @@ get_delivery_coverage(store="gadis")  # postal_code ahora es opcional
 search_products(store="mercadona", query="leche", postal_code="28001")
 ```
 
-Las herramientas que resuelven el código postal incluyen `postal_code_source` en su respuesta (`"argument"`, `"shared_default"`, `"env"` o `"none"`) para que sepas qué valor se usó.
+Las herramientas que resuelven el código postal incluyen `postal_code_source` en su respuesta (`"argument"`, `"shared_default"`, `"env"` o `"builtin"`) para que sepas qué valor se usó. La fuente `"builtin"` indica que se está usando el código postal de fábrica `15702`.
 
 ### Catálogo y comparación (público y local)
 
