@@ -20,9 +20,9 @@ from open_grocery_mcp.errors import InvalidRequest
 from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
 
 
-# Factory default postal code (A Coruña, Spain)
+# Factory default postal code (Santiago de Compostela, Spain)
 # Used as last fallback when no other postal code is configured
-FACTORY_DEFAULT_POSTAL_CODE = "15001"
+FACTORY_DEFAULT_POSTAL_CODE = "15702"
 
 PostalCodeSource = Literal["argument", "shared_default", "env", "builtin"]
 
@@ -243,7 +243,7 @@ def get_default_postal_code() -> str:
     """Get the postal code from the default address or the factory default.
     
     Returns:
-        Postal code string (never None; falls back to factory default 15001)
+        Postal code string (never None; falls back to factory default 15702)
     """
     postal_code, _ = resolve_postal_code(None)
     return postal_code
@@ -272,7 +272,7 @@ def resolve_postal_code(
     1. Explicit postal_code argument (caller wins)
     2. Default shared address postal_code from get_default_address()
     3. Environment variable OPEN_GROCERY_DEFAULT_POSTAL_CODE
-    4. Built-in factory default: 15001 (A Coruña, Spain)
+    4. Built-in factory default: 15702 (Santiago de Compostela, Spain)
     
     Args:
         explicit: Explicitly provided postal code or None

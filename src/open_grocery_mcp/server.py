@@ -130,7 +130,7 @@ def get_delivery_coverage(store: str, postal_code: str | None = None) -> dict[st
         Dict with coverage information, postal_code used, and source
     """
     # Resolve postal code from multiple sources
-    # (always returns a value; falls back to factory default 15001 if needed)
+    # (always returns a value; falls back to factory default 15702 if needed)
     resolved_postal_code, pc_source = shared_addresses.resolve_postal_code(postal_code)
 
     provider = _registry.get(store)
@@ -844,7 +844,7 @@ def get_default_postal_code() -> dict[str, Any]:
     Resolution order:
     1. Default shared address (set via set_default_postal_code or add_postal_address)
     2. Environment variable OPEN_GROCERY_DEFAULT_POSTAL_CODE
-    3. Built-in factory default: 15001 (A Coruña, Spain)
+    3. Built-in factory default: 15702 (Santiago de Compostela, Spain)
     
     Returns:
         Dict with postal_code, source ("shared_default", "env", or "builtin"),

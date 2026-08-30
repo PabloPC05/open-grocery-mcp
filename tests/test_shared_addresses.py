@@ -210,7 +210,7 @@ def test_get_default_postal_code(temp_state_dir):
 def test_get_default_postal_code_when_none(temp_state_dir):
     """get_default_postal_code returns factory default when no default."""
     postal_code = shared_addresses.get_default_postal_code()
-    assert postal_code == "15001"  # Factory default
+    assert postal_code == "15702"  # Factory default
 
 
 def test_addresses_file_permissions(temp_state_dir):
@@ -229,8 +229,8 @@ def test_addresses_file_permissions(temp_state_dir):
 
 
 def test_factory_default_postal_code():
-    """Factory default postal code is 15001 (A Coruña)."""
-    assert FACTORY_DEFAULT_POSTAL_CODE == "15001"
+    """Factory default postal code is 15702 (Santiago de Compostela)."""
+    assert FACTORY_DEFAULT_POSTAL_CODE == "15702"
 
 
 def test_validate_spanish_postal_code():
@@ -309,7 +309,7 @@ def test_resolve_postal_code_priority_order(temp_state_dir, monkeypatch):
 def test_resolve_postal_code_builtin_when_no_default(temp_state_dir):
     """Return builtin factory default when no other default is available."""
     resolved, source = shared_addresses.resolve_postal_code(None)
-    assert resolved == "15001"
+    assert resolved == "15702"
     assert source == "builtin"
 
 
