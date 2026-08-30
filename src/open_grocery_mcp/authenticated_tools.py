@@ -21,9 +21,38 @@ def register_authenticated_tools(mcp, workflows):
         return workflows.import_browser_session(store, storage_state_path)
 
     @mcp.tool()
+    def login_mercadona(timeout_seconds: int = 300) -> dict[str, Any]:
+        """Open a visible local browser to sign in to Mercadona and complete 2FA."""
+        return workflows.login_with_browser("mercadona", timeout_seconds)
+
+    @mcp.tool()
+    def login_gadis(timeout_seconds: int = 300) -> dict[str, Any]:
+        """Open a visible local browser to sign in to Gadis and complete 2FA."""
+        return workflows.login_with_browser("gadis", timeout_seconds)
+
+    @mcp.tool()
+    def login_froiz(timeout_seconds: int = 300) -> dict[str, Any]:
+        """Open a visible local browser to sign in to Froiz and complete 2FA."""
+        return workflows.login_with_browser("froiz", timeout_seconds)
+
+    @mcp.tool()
+    def login_eroski(timeout_seconds: int = 300) -> dict[str, Any]:
+        """Open a visible local browser to sign in to Eroski and complete 2FA."""
+        return workflows.login_with_browser("eroski", timeout_seconds)
+
+    @mcp.tool()
     def login_with_browser(store: str, timeout_seconds: int = 300) -> dict[str, Any]:
-        """Open a visible local browser so the user can sign in and complete 2FA."""
+        """Open a visible local browser so the user can sign in and complete 2FA.
+
+        Compatibility wrapper. Prefer the store-specific login tools (login_mercadona,
+        login_gadis, login_froiz, login_eroski) for better discoverability.
+        """
         return workflows.login_with_browser(store, timeout_seconds)
+
+    @mcp.tool()
+    def clear_session(store: str) -> dict[str, Any]:
+        """Clear the local browser session for a store, effectively logging out."""
+        return workflows.clear_session(store)
 
     @mcp.tool()
     def get_real_cart(store: str) -> dict[str, Any]:

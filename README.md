@@ -20,9 +20,27 @@ están resumidas en `docs/connection-audit.md`.
 
 Ninguna integración se presenta como compra real validada. El endpoint irreversible permanece separado, exige varias autorizaciones locales y no se ejecuta durante pruebas o capturas.
 
-## Qué puede hacer el MCP
+## Herramientas MCP disponibles
 
-Catálogo y comparación:
+El servidor MCP proporciona dos conjuntos de herramientas según el modo de despliegue:
+
+- **Público hosteado** (`https://open-grocery-mcp.vercel.app/mcp`): Catálogo, comparación, cobertura, ofertas y borradores locales (sin autenticación)
+- **Local autenticado** (`stdio` o HTTP local): Todas las herramientas públicas más login, sesión, carrito real, direcciones, franjas, checkout y revisión humana
+
+Ver [`docs/mcp-tool-reference.md`](docs/mcp-tool-reference.md) para la referencia completa de herramientas y su disponibilidad.
+
+### Direcciones postales compartidas (público y local)
+
+El MCP permite guardar una dirección postal que se usa automáticamente en todos los supermercados:
+
+- `add_postal_address`: Añadir una dirección compartida (código postal, calle, número, ciudad, provincia)
+- `list_shared_addresses`: Listar direcciones guardadas con indicación de la predeterminada
+- `set_default_address`: Establecer una dirección como predeterminada
+- `remove_postal_address`: Eliminar una dirección
+
+La dirección predeterminada se usa automáticamente en `search_products`, `compare_basket`, `get_delivery_coverage` y otras herramientas cuando no se proporciona `postal_code` explícitamente. Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` y funcionan tanto en modo público como local.
+
+### Catálogo y comparación (público y local)
 
 - `health`, `stores`
 - `get_delivery_coverage`
@@ -96,9 +114,9 @@ público sin intentar abrir Chromium. En Froiz, la tienda resuelta se conserva
 El navegador queda reservado para un login solicitado expresamente y para los
 flujos autenticados que no dispongan de una frontera HTTP segura.
 
-Cuenta y compra:
+### Cuenta y compra (solo local autenticado)
 
-- `account_status`, `login_with_browser`, `import_browser_session`
+- `account_status`, `login_with_browser`, `import_browser_session`, `clear_session`
 - `get_real_cart`
 - `prepare_real_cart_update`, `prepare_clear_real_cart`, `commit_real_cart_update`
 - `list_delivery_addresses`, `get_delivery_slots`
@@ -293,19 +311,17 @@ open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 
 ## Despliegue remoto
 
-La instancia oficial de solo lectura se publica en Vercel:
+La instancia oficial de solo lectura se publica en Vercel y es de **acceso público**:
 
 ```text
 MCP:    https://open-grocery-mcp.vercel.app/mcp
 Salud:  https://open-grocery-mcp.vercel.app/health
 ```
 
-`/mcp` exige `Authorization: Bearer ...`; el valor vive como secreto sensible de
-Vercel y nunca se guarda en Git. El adaptador ASGI es stateless y falla cerrado
-si falta el secreto. En este entorno permanecen apagadas
-`OPEN_GROCERY_ENABLE_RETAILER_WRITES`,
-`OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y
-`OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
+El endpoint `/mcp` es accesible sin autenticación. El adaptador ASGI es stateless
+y proporciona acceso público a catálogo, comparación de cestas, cobertura de entrega
+y ofertas. En este entorno permanecen apagadas `OPEN_GROCERY_ENABLE_RETAILER_WRITES`,
+`OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y `OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
 
 El proyecto de Vercel está conectado a este repositorio. Cada push a `main`
 construye producción y actualiza el dominio estable; otras ramas crean previews.
@@ -315,7 +331,7 @@ propietario permanezca encendido.
 Las sesiones de supermercados, Playwright y los flujos autenticados siguen siendo
 exclusivamente locales. No subas `storage_state.json`, `.env`, capturas, HAR ni
 perfiles de navegador. Consulta [`docs/vercel-deployment.md`](docs/vercel-deployment.md)
-para despliegue, recuperación, rotación del acceso y verificación.
+para despliegue y verificación.
 
 ## Flujo recomendado
 

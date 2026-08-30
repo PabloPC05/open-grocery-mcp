@@ -38,6 +38,7 @@ from open_grocery_mcp.value_comparison import (
     search_offer_products,
 )
 from open_grocery_mcp.workflows import RetailerWorkflowService
+from open_grocery_mcp import shared_addresses
 
 _INSTRUCTIONS = """
 Open Grocery provides supermarket catalogue search, normalized price comparison,
@@ -109,12 +110,23 @@ def stores(country: str | None = None) -> list[dict[str, object]]:
 
 
 @mcp.tool()
-def get_delivery_coverage(store: str, postal_code: str) -> dict[str, Any]:
+def get_delivery_coverage(store: str, postal_code: str | None = None) -> dict[str, Any]:
     """Return a store's public delivery fee, minimum and serving assortment.
+    
+    If postal_code is not provided, uses the default shared address if one exists.
 
     Only providers with a verified public coverage contract expose this tool.
     Account-specific checkout data is never inferred here.
     """
+    
+    # Use shared default address if no postal_code provided
+    if postal_code is None:
+        postal_code = shared_addresses.get_default_postal_code()
+    
+    if postal_code is None:
+        raise InvalidRequest(
+            "postal_code is required (no default shared address set)"
+        )
 
     provider = _registry.get(store)
     coverage = getattr(provider, "delivery_coverage", None)
@@ -138,12 +150,20 @@ def search_products(
     postal_code: str | None = None,
     eco: bool = False,
 ) -> dict[str, Any]:
-    """Search one supermarket catalogue without changing a cart."""
+    """Search one supermarket catalogue without changing a cart.
+    
+    If postal_code is not provided, uses the default shared address if one exists.
+    """
 
     if not query.strip():
         raise InvalidRequest("query cannot be empty")
     if limit < 1 or limit > 100:
         raise InvalidRequest("limit must be between 1 and 100")
+    
+    # Use shared default address if no postal_code provided
+    if postal_code is None:
+        postal_code = shared_addresses.get_default_postal_code()
+    
     provider = _registry.get(store)
     products = provider.search(query, limit=limit, postal_code=postal_code, eco=eco)
     return {
@@ -172,12 +192,18 @@ def search_products_expanded(
     category_search: bool = False,
 ) -> dict[str, Any]:
     """Search several query variants and stores with coverage diagnostics.
+    
+    If postal_code is not provided, uses the default shared address if one exists.
 
     Use this instead of a single ``search_products`` call before claiming that
     a result is the cheapest or that every relevant product was considered.
     ``required_term_groups`` uses AND between groups and OR within each group;
     for example ``[["queso", "queixo"], ["arzua", "ulloa"]]``.
     """
+    
+    # Use shared default address if no postal_code provided
+    if postal_code is None:
+        postal_code = shared_addresses.get_default_postal_code()
 
     return search_catalogues_expanded(
         _registry,
@@ -505,10 +531,18 @@ def compare_basket(
     eco: bool = False,
     include_loyalty: bool = False,
 ) -> dict[str, Any]:
-    """Compare a list using quantity-aware offers and normalized matches."""
+    """Compare a list using quantity-aware offers and normalized matches.
+    
+    If postal_code is not provided, uses the default shared address if one exists.
+    """
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
+    
+    # Use shared default address if no postal_code provided
+    if postal_code is None:
+        postal_code = shared_addresses.get_default_postal_code()
+    
     return compare_baskets(
         _registry,
         items=items,
@@ -565,10 +599,18 @@ def prepare_cart(
     search_limit: int = 10,
     eco: bool = False,
 ) -> dict[str, Any]:
-    """Create a local cart draft; this does not touch the retailer."""
+    """Create a local cart draft; this does not touch the retailer.
+    
+    If postal_code is not provided, uses the default shared address if one exists.
+    """
 
     if search_limit < 1 or search_limit > 50:
         raise InvalidRequest("search_limit must be between 1 and 50")
+    
+    # Use shared default address if no postal_code provided
+    if postal_code is None:
+        postal_code = shared_addresses.get_default_postal_code()
+    
     parsed = parse_basket(items)
     provider = _registry.get(store)
     result = price_basket(
@@ -595,6 +637,57 @@ def delete_cart_draft(draft_id: str) -> dict[str, Any]:
     """Delete a local cart draft. No retailer cart is affected."""
 
     return _drafts.delete(draft_id)
+
+
+@mcp.tool()
+def add_postal_address(
+    postal_code: str,
+    label: str | None = None,
+    street: str | None = None,
+    number: str | None = None,
+    city: str | None = None,
+    province: str | None = None,
+    country: str = "ES",
+    set_as_default: bool = True,
+) -> dict[str, Any]:
+    """Add a shared postal address used across all supermarkets.
+    
+    This address is saved locally and used as the default for catalogue
+    localization, delivery coverage, basket comparison, and (when a local
+    session exists) delivery selection.
+    
+    The same address works for Mercadona, Gadis, Froiz, and Eroski without
+    re-entering it per store.
+    """
+    return shared_addresses.add_postal_address(
+        label=label,
+        street=street,
+        number=number,
+        postal_code=postal_code,
+        city=city,
+        province=province,
+        country=country,
+        set_as_default=set_as_default,
+    )
+
+
+@mcp.tool()
+def list_shared_addresses() -> dict[str, Any]:
+    """List all shared postal addresses with default marked."""
+    return shared_addresses.list_shared_addresses()
+
+
+@mcp.tool()
+def set_default_address(address_id: int) -> dict[str, Any]:
+    """Set an existing shared address as the default for all stores."""
+    return shared_addresses.set_default_address(address_id)
+
+
+@mcp.tool()
+def remove_postal_address(address_id: int) -> dict[str, Any]:
+    """Remove a shared postal address. If it was default, the first remaining
+    address becomes default (or none if the list is empty)."""
+    return shared_addresses.remove_postal_address(address_id)
 
 
 register_authenticated_tools(mcp, _workflows)

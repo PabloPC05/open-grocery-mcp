@@ -5,7 +5,7 @@
 The Vercel project `open-grocery-mcp` hosts the Python ASGI adapter in
 `api/index.py` using stateless Streamable HTTP:
 
-- production MCP: `https://open-grocery-mcp.vercel.app/mcp`;
+- production MCP: `https://open-grocery-mcp.vercel.app/mcp` (public, no authentication required);
 - public, non-sensitive health check: `/health`;
 - production branch: `main`;
 - feature branches: isolated preview deployments.
@@ -19,12 +19,11 @@ The native GitHub integration was verified on 2026-08-27: the Vercel project is
 linked to this repository with `main` as its production branch. The binding
 lives in Vercel and GitHub, so removing a local clone does not disconnect it.
 
-## Authentication and safety
+## Public access and safety
 
-`OPEN_GROCERY_MCP_ACCESS_TOKEN` is configured as a sensitive Preview and
-Production environment variable. MCP clients send it as a Bearer token. The
-server fails closed if it is missing or wrong. Do not write the value to a config
-file, commit, issue, log or chat.
+The hosted MCP endpoint is **publicly accessible without authentication**. This is
+an intentional product decision: the service provides read-only access to catalogue,
+comparison, coverage, and offers for anyone to use.
 
 The hosted service deliberately keeps these flags unset:
 
@@ -38,12 +37,23 @@ Consequently, Vercel is suitable for catalogue, comparison and local-draft
 tools, not authenticated retailer checkout. Browser profiles and retailer
 sessions remain on the owner's machine.
 
-Codex can reference the secret without storing its value in configuration:
+Clients can connect directly without credentials:
 
 ```powershell
 codex mcp add open-grocery `
-  --url https://open-grocery-mcp.vercel.app/mcp `
-  --bearer-token-env-var OPEN_GROCERY_MCP_ACCESS_TOKEN
+  --url https://open-grocery-mcp.vercel.app/mcp
+```
+
+For Cursor IDE configuration:
+
+```json
+{
+  "mcpServers": {
+    "open-grocery-mcp": {
+      "url": "https://open-grocery-mcp.vercel.app/mcp"
+    }
+  }
+}
 ```
 
 ## Git deployment workflow
@@ -54,8 +64,8 @@ codex mcp add open-grocery `
 3. Merge or fast-forward the reviewed commit to `main`.
 4. Vercel builds production and moves `open-grocery-mcp.vercel.app` only after a
    successful build.
-5. Check `/health`, verify unauthenticated `/mcp` returns `401`, then initialize
-   an authenticated MCP client and list its tools.
+5. Check `/health`, then initialize an MCP client and list its tools to verify
+   public access works.
 
 Use `vercel inspect <deployment-url>` and `vercel logs <deployment-url>` for
 diagnosis. Use `vercel rollback` if a production regression escapes verification.
@@ -72,5 +82,4 @@ vercel link --yes --project open-grocery-mcp --team pablopc05s-projects
 ```
 
 `.vercel/`, `.env.local`, retailer sessions and captures are intentionally absent
-from Git. Deleting a clone does not delete the Windows user-level Bearer token,
-but moving to another machine requires securely transferring or rotating it.
+from Git.
