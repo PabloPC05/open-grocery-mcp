@@ -2,7 +2,7 @@
 
 Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar productos, comparar una cesta entre supermercados y preparar, con confirmaciones explícitas, cambios en el carrito y el checkout de la cuenta del usuario.
 
-> **Alpha `0.5.0`.** Mercadona usa HTTP para catálogo, carrito, entrega y checkout. Gadis usa HTTP autenticado para sesión, carrito, direcciones, franjas y creación de checkout, con Playwright para login y casos no compatibles. Froiz usa su API Nuxt para carrito, direcciones y calendario; checkout y pedido están deshabilitados porque `orders/create` coloca el pedido real. Eroski combina catálogo público y lectura HTTP con escrituras de carrito verificadas en navegador; su entrega GET-only se limita al contexto ya seleccionado y nunca cambia dirección o tienda de forma implícita.
+> **Alpha `0.6.0`.** Mercadona usa HTTP para catálogo, carrito, entrega y checkout. Gadis usa HTTP autenticado para sesión, carrito, direcciones, franjas y creación de checkout, con Playwright para login y casos no compatibles. Froiz usa su API Nuxt para carrito, direcciones y calendario; checkout y pedido están deshabilitados porque `orders/create` coloca el pedido real. Eroski combina catálogo público y lectura HTTP con escrituras de carrito verificadas en navegador; su entrega GET-only se limita al contexto ya seleccionado y nunca cambia dirección o tienda de forma implícita.
 
 ## Estado actual
 
@@ -24,21 +24,31 @@ Ninguna integración se presenta como compra real validada. El endpoint irrevers
 
 El servidor MCP proporciona dos conjuntos de herramientas según el modo de despliegue:
 
-- **Público hosteado** (`https://open-grocery-mcp.vercel.app/mcp`): Catálogo, comparación, cobertura, ofertas y borradores locales (sin autenticación)
+- **Público hosteado** (`https://open-grocery-mcp.vercel.app/mcp`): Catálogo, comparación, cobertura, ofertas, borradores locales y direcciones compartidas (sin autenticación)
 - **Local autenticado** (`stdio` o HTTP local): Todas las herramientas públicas más login, sesión, carrito real, direcciones, franjas, checkout y revisión humana
 
 Ver [`docs/mcp-tool-reference.md`](docs/mcp-tool-reference.md) para la referencia completa de herramientas y su disponibilidad.
 
+### Shopping UX (nuevo en 0.6.0)
+
+Herramientas de experiencia de compra que hacen el shopping cómodo:
+
+- **Listas de compra recurrentes**: `create_shopping_list`, `list_shopping_lists`, `get_shopping_list`, `add_list_item`, `update_list_item`, `remove_list_item`, `delete_shopping_list`, `store_last_basket`, `replay_last_basket`
+- **Direcciones compartidas**: `add_postal_address`, `list_shared_addresses`, `get_default_postal_address`, `set_default_address`, `remove_postal_address`, `map_shared_address_to_retailer`
+- **Perfil de compra**: `get_shopping_profile`, `update_shopping_profile`, `reset_shopping_profile` (presupuesto, alergias, términos excluidos, preferencia de marca blanca, política de sustitución)
+- **Prepare purchase (herramienta principal)**: `prepare_purchase` — compara tiendas, optimiza cestas, aplica perfil y crea borradores listos para `prepare_real_cart_update`. No escribe en ningún retailer.
+- **Resolución de franjas por intención**: `resolve_delivery_slot_intent` — acepta "próximo", "mañana", "sábado", "tarde", etc. en lugar de slot_id críptico.
+
 ### Direcciones postales compartidas (público y local)
 
-El MCP permite guardar una dirección postal que se usa automáticamente en todos los supermercados:
+El MCP permite guardar direcciones postales que se usan automáticamente en todos los supermercados:
 
 - `add_postal_address`: Añadir una dirección compartida (código postal, calle, número, ciudad, provincia)
 - `list_shared_addresses`: Listar direcciones guardadas con indicación de la predeterminada
 - `set_default_address`: Establecer una dirección como predeterminada
 - `remove_postal_address`: Eliminar una dirección
 
-La dirección predeterminada se usa automáticamente en `search_products`, `compare_basket`, `get_delivery_coverage` y otras herramientas cuando no se proporciona `postal_code` explícitamente. Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` y funcionan tanto en modo público como local.
+La dirección predeterminada se usa automáticamente en `search_products`, `compare_basket`, `get_delivery_coverage`, `prepare_purchase` y otras herramientas cuando no se proporciona `postal_code` explícitamente. Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` y funcionan tanto en modo público como local.
 
 ### Catálogo y comparación (público y local)
 
@@ -116,7 +126,7 @@ flujos autenticados que no dispongan de una frontera HTTP segura.
 
 ### Cuenta y compra (solo local autenticado)
 
-- `account_status`, `login_with_browser`, `import_browser_session`, `clear_session`
+- `account_status`, `login_mercadona`, `login_gadis`, `login_froiz`, `login_eroski`, `login_with_browser`, `import_browser_session`, `clear_session`
 - `get_real_cart`
 - `prepare_real_cart_update`, `prepare_clear_real_cart`, `commit_real_cart_update`
 - `list_delivery_addresses`, `get_delivery_slots`
@@ -134,6 +144,62 @@ primer write de checkout porque ese límite no está separado de crear el pedido
 `open_human_review` repite esa validación y abre una ventana autenticada en la
 pantalla más avanzada segura. El MCP solo navega mediante GET y no pulsa ningún
 control; la acción final pertenece siempre a la persona.
+
+## Flujo de compra recomendado (0.6.0)
+
+### Configuración inicial
+
+1. `add_postal_address` — guardar dirección(es) con código postal
+2. `set_default_address` — marcar una dirección por defecto
+3. `update_shopping_profile` — configurar presupuesto máximo, alergias, preferencias de marca blanca
+4. `create_shopping_list` — crear lista "habitual" o nombrada
+5. `add_list_item` — añadir productos recurrentes con cantidades
+
+### Compra one-shot
+
+```python
+# Desde una lista o ítems ad-hoc
+prepare_purchase(
+    list_id="habitual",           # O items=["leche", "pan"]
+    postal_code="28001",          # Opcional: usa dirección por defecto
+    max_total=50.0,               # Opcional: usa perfil
+    multi_store=False,            # True para dividir entre tiendas
+)
+# ⇒ Devuelve tienda recomendada, totales con entrega, y draft_id(s)
+
+# Aplicar al carrito real
+prepare_real_cart_update(
+    store="mercadona",
+    draft_id="...",
+    max_total=50.0,
+)
+# ⇒ Devuelve frase de confirmación
+
+commit_real_cart_update(
+    confirmation_id="...",
+    confirmation_phrase="CONFIRMAR ACTUALIZACIÓN CARRITO",
+)
+```
+
+### Entrega con intención
+
+```python
+# Resolver franja por intención en lugar de slot_id
+resolve_delivery_slot_intent(
+    store="gadis",
+    address_id="addr_1",
+    intent="sábado mañana",  # O "próximo", "tarde", "2026-09-05"
+)
+# ⇒ Devuelve slot exacto o las opciones más cercanas
+```
+
+### Repetir última compra
+
+```python
+replay_last_basket()
+# ⇒ Devuelve el último borrador preparado/comprometido
+# Usar ese borrador en prepare_purchase
+```
 
 ## Arquitectura autenticada de Gadis
 
@@ -238,14 +304,35 @@ Estas opciones no deben activarse durante desarrollo o captura.
 No habilitan checkout ni pedido en Froiz o Eroski, donde esas operaciones
 están bloqueadas por diseño.
 
+## Datos locales
+
+Las listas de compra, direcciones compartidas y el perfil se almacenan en:
+
+```text
+~/.open-grocery-mcp/shopping_lists.json
+~/.open-grocery-mcp/shared_addresses.json
+~/.open-grocery-mcp/shopping_profile.json
+```
+
+Las sesiones autenticadas se guardan en:
+
+```text
+~/.open-grocery-mcp/gadis/storage_state.json
+~/.open-grocery-mcp/froiz/storage_state.json
+~/.open-grocery-mcp/eroski/storage_state.json
+~/.open-grocery-mcp/mercadona/storage_state.json
+```
+
+En Windows pueden almacenarse bajo `%LOCALAPPDATA%\open-grocery-mcp`. Estos archivos equivalen a una sesión iniciada: no deben compartirse, abrirse en un chat ni subirse a Git.
+
 ## Instalación
 
-Requiere Python 3.11 o posterior. El desarrollo actual está en `feat/initial-mcp`.
+Requiere Python 3.11 o posterior. El desarrollo actual está en `cursor/shopping-ux-30a9`.
 
 ```bash
 git clone https://github.com/PabloPC05/open-grocery-mcp.git
 cd open-grocery-mcp
-git switch feat/initial-mcp
+git switch main  # O cursor/shopping-ux-30a9 para la última versión en desarrollo
 python -m venv .venv
 ```
 
@@ -278,17 +365,6 @@ OPEN_GROCERY_CAPTURE_BROWSER_CHANNEL=chrome
 
 `login_with_browser(store="gadis")`, `login_with_browser(store="froiz")`, `login_with_browser(store="eroski")` o `login_with_browser(store="mercadona")` abre un navegador visible. El usuario inicia sesión directamente y completa cualquier verificación. Froiz y Eroski guardan la sesión automáticamente solo cuando aparece un control de cuenta exclusivo de una sesión autenticada.
 
-Las sesiones se guardan en:
-
-```text
-~/.open-grocery-mcp/gadis/storage_state.json
-~/.open-grocery-mcp/froiz/storage_state.json
-~/.open-grocery-mcp/eroski/storage_state.json
-~/.open-grocery-mcp/mercadona/storage_state.json
-```
-
-En Windows pueden almacenarse bajo `%LOCALAPPDATA%\open-grocery-mcp`. Estos archivos equivalen a una sesión iniciada: no deben compartirse, abrirse en un chat ni subirse a Git.
-
 ## Ejecución
 
 Solo catálogo, comparación y borradores:
@@ -319,9 +395,10 @@ Salud:  https://open-grocery-mcp.vercel.app/health
 ```
 
 El endpoint `/mcp` es accesible sin autenticación. El adaptador ASGI es stateless
-y proporciona acceso público a catálogo, comparación de cestas, cobertura de entrega
-y ofertas. En este entorno permanecen apagadas `OPEN_GROCERY_ENABLE_RETAILER_WRITES`,
-`OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y `OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
+y proporciona acceso público a catálogo, comparación de cestas, cobertura de entrega,
+ofertas, direcciones compartidas y borradores locales. En este entorno permanecen apagadas
+`OPEN_GROCERY_ENABLE_RETAILER_WRITES`, `OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y
+`OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
 
 El proyecto de Vercel está conectado a este repositorio. Cada push a `main`
 construye producción y actualiza el dominio estable; otras ramas crean previews.
@@ -333,7 +410,7 @@ exclusivamente locales. No subas `storage_state.json`, `.env`, capturas, HAR ni
 perfiles de navegador. Consulta [`docs/vercel-deployment.md`](docs/vercel-deployment.md)
 para despliegue y verificación.
 
-## Flujo recomendado
+## Flujo completo (versión clásica)
 
 1. `compare_basket` compara la lista.
 2. `prepare_cart` crea un borrador local.
