@@ -13,6 +13,18 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar 
 | Froiz | HTTP autenticado localizado; fallback público no localizado | Sí | Cliente HTTP con relectura, huella y fallback | HTTP (dirección seleccionada + calendario) | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
 | Eroski | HTTP/HTML público, no localizado | Sí | Lectura HTTP; escrituras con navegador y doble validación | GET-only para la dirección ya seleccionada | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
 | Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | HTTP | Experimental y apagado |
+| **Carrefour** | **No disponible** | **—** | **—** | **—** | **—** | **—** |
+
+### Nota sobre Carrefour España
+
+Carrefour España no está disponible actualmente en Open Grocery MCP. La investigación técnica (documentada en `docs/carrefour-investigation.md`) concluyó que:
+
+- Carrefour no proporciona una API pública documentada para su catálogo de productos
+- El sitio web está protegido por Cloudflare WAF que bloquea todo acceso automatizado (HTTP 403/503)
+- La única API disponible es la de Mirakl, exclusiva para vendedores del marketplace
+- El acceso requiere resolución de CAPTCHAs y desafíos JavaScript, lo cual está explícitamente prohibido por las reglas de seguridad del proyecto
+
+Si Carrefour publica una API pública oficial en el futuro, se podrá reconsiderar su integración. Ver `docs/carrefour-investigation.md` para detalles completos de la investigación y evidencia de bloqueo.
 
 > **Nota sobre catálogos HTML**: Día y Eroski usan scraping de HTML server-rendered para el 
 > catálogo público. Ambos pueden bloquearse por protección anti-bot desde IPs de datacenter/serverless.
