@@ -293,19 +293,17 @@ open-grocery-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 
 ## Despliegue remoto
 
-La instancia oficial de solo lectura se publica en Vercel:
+La instancia oficial de solo lectura se publica en Vercel y es de **acceso público**:
 
 ```text
 MCP:    https://open-grocery-mcp.vercel.app/mcp
 Salud:  https://open-grocery-mcp.vercel.app/health
 ```
 
-`/mcp` exige `Authorization: Bearer ...`; el valor vive como secreto sensible de
-Vercel y nunca se guarda en Git. El adaptador ASGI es stateless y falla cerrado
-si falta el secreto. En este entorno permanecen apagadas
-`OPEN_GROCERY_ENABLE_RETAILER_WRITES`,
-`OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y
-`OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
+El endpoint `/mcp` es accesible sin autenticación. El adaptador ASGI es stateless
+y proporciona acceso público a catálogo, comparación de cestas, cobertura de entrega
+y ofertas. En este entorno permanecen apagadas `OPEN_GROCERY_ENABLE_RETAILER_WRITES`,
+`OPEN_GROCERY_ENABLE_ORDER_SUBMISSION` y `OPEN_GROCERY_ENABLE_BROWSER_ORDER_SUBMISSION`.
 
 El proyecto de Vercel está conectado a este repositorio. Cada push a `main`
 construye producción y actualiza el dominio estable; otras ramas crean previews.
@@ -315,7 +313,7 @@ propietario permanezca encendido.
 Las sesiones de supermercados, Playwright y los flujos autenticados siguen siendo
 exclusivamente locales. No subas `storage_state.json`, `.env`, capturas, HAR ni
 perfiles de navegador. Consulta [`docs/vercel-deployment.md`](docs/vercel-deployment.md)
-para despliegue, recuperación, rotación del acceso y verificación.
+para despliegue y verificación.
 
 ## Flujo recomendado
 

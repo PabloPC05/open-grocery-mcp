@@ -1,13 +1,12 @@
-"""Authenticated ASGI entrypoint for Vercel's Python runtime."""
+"""Public ASGI entrypoint for Vercel's Python runtime."""
 
 from __future__ import annotations
 
 import os
-import secrets
 from pathlib import Path
 from typing import Any
 
-from starlette.responses import JSONResponse, PlainTextResponse, Response
+from starlette.responses import JSONResponse, Response
 
 # Vercel executes this file from the repository root without installing the
 # editable package, so make the src layout importable explicitly.
@@ -47,45 +46,9 @@ async def deployment_health(request: Any) -> Response:
     )
 
 
-class BearerAuthMiddleware:
-    """Require the deployment secret for every HTTP request."""
-
-    def __init__(self, wrapped_app: Any) -> None:
-        self.wrapped_app = wrapped_app
-
-    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if scope.get("type") != "http" or (
-            scope.get("method") == "GET" and scope.get("path") == "/api/health"
-        ):
-            await self.wrapped_app(scope, receive, send)
-            return
-
-        expected = os.getenv("OPEN_GROCERY_MCP_ACCESS_TOKEN", "")
-        if not expected:
-            response = PlainTextResponse("MCP access is not configured", status_code=503)
-            await response(scope, receive, send)
-            return
-
-        headers = {key.lower(): value for key, value in scope.get("headers", [])}
-        authorization = headers.get(b"authorization", b"").decode("latin-1")
-        scheme, _, supplied = authorization.partition(" ")
-        if scheme.casefold() != "bearer" or not secrets.compare_digest(supplied, expected):
-            response = PlainTextResponse(
-                "Unauthorized",
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-            await response(scope, receive, send)
-            return
-
-        await self.wrapped_app(scope, receive, send)
-
-
-app = BearerAuthMiddleware(
-    mcp.streamable_http_app(
-        streamable_http_path="/api/index",
-        json_response=True,
-        stateless_http=True,
-        transport_security=_transport_security(),
-    )
+app = mcp.streamable_http_app(
+    streamable_http_path="/api/index",
+    json_response=True,
+    stateless_http=True,
+    transport_security=_transport_security(),
 )
