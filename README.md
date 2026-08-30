@@ -29,6 +29,17 @@ El servidor MCP proporciona dos conjuntos de herramientas según el modo de desp
 
 Ver [`docs/mcp-tool-reference.md`](docs/mcp-tool-reference.md) para la referencia completa de herramientas y su disponibilidad.
 
+### Direcciones postales compartidas (público y local)
+
+El MCP permite guardar una dirección postal que se usa automáticamente en todos los supermercados:
+
+- `add_postal_address`: Añadir una dirección compartida (código postal, calle, número, ciudad, provincia)
+- `list_shared_addresses`: Listar direcciones guardadas con indicación de la predeterminada
+- `set_default_address`: Establecer una dirección como predeterminada
+- `remove_postal_address`: Eliminar una dirección
+
+La dirección predeterminada se usa automáticamente en `search_products`, `compare_basket`, `get_delivery_coverage` y otras herramientas cuando no se proporciona `postal_code` explícitamente. Las direcciones se guardan localmente en `~/.open-grocery-mcp/shared_addresses.json` y funcionan tanto en modo público como local.
+
 ### Catálogo y comparación (público y local)
 
 - `health`, `stores`
