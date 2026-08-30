@@ -8,11 +8,16 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar 
 
 | Supermercado | Catálogo | Comparación | Carrito autenticado | Entrega (direcciones/franjas) | Checkout | Pedido final |
 |---|---:|---:|---:|---:|---:|---:|
+| Carrefour | Empathy API con anti-bot; hosteado bloqueado, local con sesión de navegador | Sí | No disponible por diseño | No disponible por diseño | No disponible por diseño | No disponible por diseño |
 | Día | HTML público | Sí | No disponible | No disponible | No disponible | No disponible |
-| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras | HTTP con fallback a navegador | HTTP con confirmación; navegador como fallback | Experimental y apagado |
-| Froiz | HTTP autenticado localizado; fallback público no localizado | Sí | Cliente HTTP con relectura, huella y fallback | HTTP (dirección seleccionada + calendario) | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
 | Eroski | HTTP/HTML público, no localizado | Sí | Lectura HTTP; escrituras con navegador y doble validación | GET-only para la dirección ya seleccionada | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
+| Froiz | HTTP autenticado localizado; fallback público no localizado | Sí | Cliente HTTP con relectura, huella y fallback | HTTP (dirección seleccionada + calendario) | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
+| Gadis | HTTP, por código postal | Sí, con portes y mínimos | HTTP para unidades enteras | HTTP con fallback a navegador | HTTP con confirmación; navegador como fallback | Experimental y apagado |
 | Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | HTTP | Experimental y apagado |
+
+### Nota sobre Carrefour España
+
+Carrefour usa la plataforma Empathy para búsqueda (`/search-api/query/v1/search`). Cloudflare WAF protege el endpoint: peticiones HTTP directas devuelven 403/503. **El catálogo funciona en MCP local con sesión de navegador** (cookies de `storage_state.json`), pero **hosted Vercel/Lambda está bloqueado** (misma limitación que Eroski para operaciones autenticadas). Carrito, direcciones, franjas, checkout y pedidos están fuera de alcance según requisitos del proyecto.
 
 > **Nota sobre catálogos HTML**: Día y Eroski usan scraping de HTML server-rendered para el 
 > catálogo público. Ambos pueden bloquearse por protección anti-bot desde IPs de datacenter/serverless.
