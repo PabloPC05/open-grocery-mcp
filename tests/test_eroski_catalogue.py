@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 import httpx
 import pytest
@@ -225,5 +226,149 @@ def test_eco_filter_is_not_silently_ignored() -> None:
     http = httpx.Client(transport=httpx.MockTransport(handler))
     provider = EroskiCatalogueProvider(client=http)
     assert provider.search("leche", postal_code="48001", eco=True) == []
+    provider.close()
+    http.close()
+
+
+RECAPTCHA_CHALLENGE_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprobando tu navegador - reCAPTCHA</title>
+    <base href="https://www.google.com/recaptcha/api2/anchor?ar=1&amp;k=...&amp;co=...&amp;hl=es&amp;v=...&amp;size=invisible&amp;cb=...">
+</head>
+<body>
+    <div id="recaptcha-anchor"></div>
+</body>
+</html>
+"""
+
+
+def test_catalogue_detects_http_403_as_antibot_challenge() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text="Access Denied")
+
+    http = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = EroskiCatalogueProvider(client=http)
+    with pytest.raises(ProviderError, match="anti-bot protection"):
+        provider.search("leche")
+    provider.close()
+    http.close()
+
+
+def test_catalogue_detects_http_429_as_antibot_challenge() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, text="Too Many Requests")
+
+    http = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = EroskiCatalogueProvider(client=http)
+    with pytest.raises(ProviderError, match="anti-bot protection"):
+        provider.search("leche")
+    provider.close()
+    http.close()
+
+
+def test_catalogue_detects_recaptcha_interstitial_on_200() -> None:
+    http = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, text=RECAPTCHA_CHALLENGE_HTML)))
+    provider = EroskiCatalogueProvider(client=http)
+    with pytest.raises(ProviderError, match="anti-bot challenge.*reCAPTCHA"):
+        provider.search("leche")
+    provider.close()
+    http.close()
+
+
+def test_recaptcha_challenge_does_not_parse_as_products() -> None:
+    from open_grocery_mcp.providers.eroski_catalogue import parse_products
+    products = parse_products(RECAPTCHA_CHALLENGE_HTML)
+    assert products == []
+
+
+def test_catalogue_uses_chrome_user_agent() -> None:
+    # Test that the provider sets Chrome UA without making any network calls
+    provider = EroskiCatalogueProvider(timeout=5.0)
+    
+    assert "Chrome/131" in provider._client.headers.get("User-Agent", "")
+    assert "es-ES" in provider._client.headers.get("Accept-Language", "")
+    
+    provider.close()
+
+
+def test_catalogue_retries_with_local_session_on_403(tmp_path: Path) -> None:
+    import json
+    
+    # Create a fake storage_state.json
+    state_path = tmp_path / "storage_state.json"
+    state_path.write_text(json.dumps({
+        "cookies": [
+            {
+                "name": "JSESSIONID",
+                "value": "test-session-id",
+                "domain": "supermercado.eroski.es",
+                "path": "/",
+                "expires": 9999999999.0
+            }
+        ]
+    }))
+    
+    attempt = 0
+    requests: list[httpx.Request] = []
+    
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempt
+        requests.append(request)
+        attempt += 1
+        # First attempt returns 403, second succeeds
+        if attempt == 1:
+            return httpx.Response(403, text="Access Denied")
+        return httpx.Response(200, text=SEARCH_HTML)
+    
+    http = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    provider = EroskiCatalogueProvider(client=http, state_path=str(state_path))
+    
+    # Should succeed after retry
+    products = provider.search("leche", limit=1)
+    
+    assert len(products) == 1
+    assert len(requests) == 2  # First fails, second succeeds
+    # Second request should have the cookie
+    assert "JSESSIONID" in requests[1].headers.get("Cookie", "")
+    provider.close()
+    http.close()
+
+
+def test_catalogue_does_not_retry_in_vercel_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    
+    # Set VERCEL environment variable
+    monkeypatch.setenv("VERCEL", "1")
+    
+    # Create a fake storage_state.json (should be ignored)
+    state_path = tmp_path / "storage_state.json"
+    state_path.write_text(json.dumps({
+        "cookies": [
+            {
+                "name": "JSESSIONID",
+                "value": "test-session-id",
+                "domain": "supermercado.eroski.es",
+                "path": "/",
+                "expires": 9999999999.0
+            }
+        ]
+    }))
+    
+    requests: list[httpx.Request] = []
+    
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(403, text="Access Denied")
+    
+    http = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    provider = EroskiCatalogueProvider(client=http, state_path=str(state_path))
+    
+    # Should fail immediately without retry
+    with pytest.raises(ProviderError, match="anti-bot protection"):
+        provider.search("leche", limit=1)
+    
+    assert len(requests) == 1  # No retry
     provider.close()
     http.close()
