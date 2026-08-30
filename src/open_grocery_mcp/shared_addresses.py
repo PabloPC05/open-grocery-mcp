@@ -306,9 +306,9 @@ def set_default_postal_code(
 ) -> dict[str, Any]:
     """Set a postal code as the default by upserting a shared address.
     
-    This is a convenience wrapper around add_postal_address that provides
-    a simpler interface for users who only care about setting the default
-    postal code for catalogue searches and coverage checks.
+    This function performs an upsert: if a default address already exists,
+    it updates that address in place. Otherwise, it creates a new address.
+    This prevents duplicate addresses from piling up on repeated calls.
     
     Args:
         postal_code: Postal code (required, validated)
@@ -328,10 +328,34 @@ def set_default_postal_code(
             "Expected 5 digits (e.g., '15001', '28001')"
         )
     
-    # Use add_postal_address with set_as_default=True
+    postal_code = postal_code.strip()
+    label = label or "Default"
+    
+    # Load existing addresses
+    data = _load_addresses()
+    existing_default_id = data.get("default_id")
+    
+    # If a default exists, update it in place
+    if existing_default_id is not None:
+        for addr in data["addresses"]:
+            if addr.get("id") == existing_default_id:
+                # Update the existing default address
+                addr["postal_code"] = postal_code
+                addr["city"] = city
+                addr["label"] = label
+                
+                _save_addresses(data)
+                
+                return {
+                    "address": dict(addr),
+                    "is_default": True,
+                    "message": "Default address updated successfully",
+                }
+    
+    # No default exists, create a new one
     return add_postal_address(
-        postal_code=postal_code.strip(),
+        postal_code=postal_code,
         city=city,
-        label=label or "Default",
+        label=label,
         set_as_default=True,
     )

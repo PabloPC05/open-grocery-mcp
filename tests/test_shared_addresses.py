@@ -378,3 +378,60 @@ def test_set_default_postal_code_with_custom_label(temp_state_dir):
     )
     
     assert result["address"]["label"] == "My Custom Label"
+
+
+def test_set_default_postal_code_upserts_not_duplicates(temp_state_dir):
+    """Calling set_default_postal_code twice updates in place, does not duplicate."""
+    # First call creates address
+    result1 = shared_addresses.set_default_postal_code(
+        postal_code="15001",
+        city="A Coruña",
+        label="First",
+    )
+    first_id = result1["address"]["id"]
+    
+    # Verify one address exists
+    addresses = shared_addresses.list_shared_addresses()
+    assert addresses["count"] == 1
+    assert addresses["addresses"][0]["postal_code"] == "15001"
+    assert addresses["addresses"][0]["city"] == "A Coruña"
+    assert addresses["addresses"][0]["label"] == "First"
+    
+    # Second call should update the existing default, not create a new one
+    result2 = shared_addresses.set_default_postal_code(
+        postal_code="28001",
+        city="Madrid",
+        label="Second",
+    )
+    second_id = result2["address"]["id"]
+    
+    # Should still have exactly one address (not two)
+    addresses = shared_addresses.list_shared_addresses()
+    assert addresses["count"] == 1, "Should have exactly 1 address, not duplicate"
+    
+    # The address should have been updated in place (same ID)
+    assert second_id == first_id, "Should update existing address, not create new one"
+    
+    # The address should have the new values
+    assert addresses["addresses"][0]["postal_code"] == "28001"
+    assert addresses["addresses"][0]["city"] == "Madrid"
+    assert addresses["addresses"][0]["label"] == "Second"
+    assert addresses["addresses"][0]["is_default"] is True
+    
+    # Default should still point to the same (updated) address
+    default = shared_addresses.get_default_address()
+    assert default["id"] == first_id
+    assert default["postal_code"] == "28001"
+
+
+def test_set_default_postal_code_third_call_still_upserts(temp_state_dir):
+    """Even a third call continues to upsert, never duplicating."""
+    shared_addresses.set_default_postal_code("15001", city="A Coruña")
+    shared_addresses.set_default_postal_code("28001", city="Madrid")
+    shared_addresses.set_default_postal_code("08001", city="Barcelona")
+    
+    # Should still have exactly one address
+    addresses = shared_addresses.list_shared_addresses()
+    assert addresses["count"] == 1
+    assert addresses["addresses"][0]["postal_code"] == "08001"
+    assert addresses["addresses"][0]["city"] == "Barcelona"
