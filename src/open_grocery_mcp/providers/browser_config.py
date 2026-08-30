@@ -177,3 +177,13 @@ MERCADONA_BROWSER_CONFIG = BrowserStoreConfig(
     account_paths=("/profile/", "/account/"),
     checkout_paths=("/checkout/", "/checkout", "/cart/"),
 )
+
+
+CARREFOUR_BROWSER_CONFIG = BrowserStoreConfig(
+    key="carrefour",
+    label="Carrefour",
+    base_url="https://www.carrefour.es",
+    cart_paths=("/supermercado/MiCarrito", "/MiCarrito", "/carrito", "/cesta"),
+    account_paths=("/supermercado", "/myaccount", "/mi-cuenta"),
+    checkout_paths=("/supermercado/ConfirmarPedido", "/checkout"),
+)

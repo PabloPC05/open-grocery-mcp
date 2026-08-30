@@ -41,11 +41,21 @@ def register_authenticated_tools(mcp, workflows):
         return workflows.login_with_browser("eroski", timeout_seconds)
 
     @mcp.tool()
+    def login_carrefour(timeout_seconds: int = 300) -> dict[str, Any]:
+        """Open a visible local browser to sign in to Carrefour and save session cookies.
+        
+        Carrefour catalogue search is protected by Cloudflare. This login saves
+        browser cookies that allow the catalogue provider to retry blocked searches.
+        Cart, checkout, and orders are not supported for Carrefour.
+        """
+        return workflows.login_with_browser("carrefour", timeout_seconds)
+
+    @mcp.tool()
     def login_with_browser(store: str, timeout_seconds: int = 300) -> dict[str, Any]:
         """Open a visible local browser so the user can sign in and complete 2FA.
 
         Compatibility wrapper. Prefer the store-specific login tools (login_mercadona,
-        login_gadis, login_froiz, login_eroski) for better discoverability.
+        login_gadis, login_froiz, login_eroski, login_carrefour) for better discoverability.
         """
         return workflows.login_with_browser(store, timeout_seconds)
 
