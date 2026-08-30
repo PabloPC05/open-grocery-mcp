@@ -124,6 +124,16 @@ público sin intentar abrir Chromium. En Froiz, la tienda resuelta se conserva
 El navegador queda reservado para un login solicitado expresamente y para los
 flujos autenticados que no dispongan de una frontera HTTP segura.
 
+> **Nota sobre el catálogo público de Eroski**: El catálogo público de Eroski 
+> suele estar bloqueado por protección anti-bot (reCAPTCHA) desde IPs de 
+> datacenter o serverless. En el MCP hosteado en Vercel, `search_products` 
+> con `store="eroski"` puede devolver un error explícito de desafío anti-bot. 
+> El MCP local con una sesión de navegador guardada (`~/.open-grocery-mcp/eroski/storage_state.json`) 
+> puede reintentarlo con las cookies oficiales de esa sesión, lo que suele 
+> evitar el desafío. Si no existe sesión local o el desafío persiste, se 
+> devuelve un error claro que indica la causa y no se parsea HTML de reCAPTCHA 
+> como resultado de búsqueda vacío.
+
 ### Cuenta y compra (solo local autenticado)
 
 - `account_status`, `login_mercadona`, `login_gadis`, `login_froiz`, `login_eroski`, `login_with_browser`, `import_browser_session`, `clear_session`

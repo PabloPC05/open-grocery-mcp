@@ -661,9 +661,10 @@ Each store advertises its capabilities. Use `stores()` to see what each retailer
 - Checkout and order submission unavailable by design
 
 ### Eroski
-- **Public**: Public HTML/HTTP catalogue
+- **Public**: Public HTML/HTTP catalogue (often blocked by anti-bot protection from datacenter/serverless IPs)
 - **Local**: HTTP cart reads, browser-verified writes; delivery GET-only for selected context
 - Checkout and order submission unavailable by design
+- **Note**: Public catalogue search may return explicit anti-bot error from hosted MCP. Local MCP with saved browser session (`~/.open-grocery-mcp/eroski/storage_state.json`) can retry with official cookies, often bypassing the challenge
 
 ## Configuration
 

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import time
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
-from typing import Any
+from pathlib import Path
+from typing import Any, Mapping
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -26,7 +30,11 @@ _LOGIN_PAGE_RE = re.compile(
     re.I,
 )
 _CHALLENGE_TITLE_RE = re.compile(
-    r"<title\b[^>]*>[^<]*(?:captcha|access denied|robot|verificaci[oó]n)[^<]*</title>",
+    r"<title\b[^>]*>[^<]*(?:captcha|access denied|robot|verificaci[oó]n|comprobando tu navegador)[^<]*</title>",
+    re.I,
+)
+_RECAPTCHA_INTERSTITIAL_RE = re.compile(
+    r"<base\b[^>]*\bhref\s*=\s*[\"'][^\"']*recaptcha[^\"']*challenge[^\"']*[\"']",
     re.I,
 )
 _ECO_RE = re.compile(r"\b(?:eco|ecologico|ecológica|ecológico|bio|organico|orgánica|orgánico)\b", re.I)
@@ -320,13 +328,23 @@ class EroskiCatalogueProvider:
         *,
         timeout: float = 30.0,
         client: httpx.Client | None = None,
+        state_path: str | None = None,
     ) -> None:
         self._owns_client = client is None
         self._client = client or httpx.Client(
             timeout=timeout,
             follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; open-grocery-mcp/0.5)"},
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "es-ES,es;q=0.9",
+            },
         )
+        self._state_path = state_path
+        self._session_loaded = False
 
     @staticmethod
     def _postal_code(value: str | None) -> str:
@@ -334,6 +352,76 @@ class EroskiCatalogueProvider:
         if not _POSTAL_RE.fullmatch(postal_code):
             raise LocationRequired("Eroski requires a five-digit Spanish postal code")
         return postal_code
+
+    def _try_load_local_session(self) -> bool:
+        """Try to load cookies from a local Playwright storage_state.json.
+        
+        Returns True if session cookies were loaded, False otherwise.
+        This only works in local MCP environments where a browser session exists.
+        """
+        if self._session_loaded:
+            return False
+        
+        # Check if we're in a hosted/serverless environment
+        if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+            return False
+        
+        # Determine state path
+        if self._state_path:
+            state_path = Path(self._state_path).expanduser()
+        else:
+            state_dir = Path(
+                os.getenv("OPEN_GROCERY_STATE_DIR", "~/.open-grocery-mcp")
+            ).expanduser()
+            state_path = state_dir / "eroski" / "storage_state.json"
+        
+        if not state_path.is_file():
+            return False
+        
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        
+        if not isinstance(state, Mapping):
+            return False
+        
+        # Load official-domain cookies
+        now = time.time()
+        loaded = False
+        for row in state.get("cookies", []) or []:
+            if not isinstance(row, Mapping):
+                continue
+            name = str(row.get("name", ""))
+            value = str(row.get("value", ""))
+            domain = str(row.get("domain", "")).strip()
+            normalized_domain = domain.lstrip(".").casefold()
+            
+            if normalized_domain not in {"eroski.es", "supermercado.eroski.es"}:
+                continue
+            
+            path = str(row.get("path", "/")) or "/"
+            try:
+                expires = float(row.get("expires", -1))
+            except (TypeError, ValueError):
+                continue
+            
+            if expires > 0 and expires <= now:
+                continue
+            
+            if name and value:
+                self._client.cookies.set(
+                    name,
+                    value,
+                    domain=domain or "supermercado.eroski.es",
+                    path=path,
+                )
+                loaded = True
+        
+        if loaded:
+            self._session_loaded = True
+        
+        return loaded
 
     @staticmethod
     def _is_trusted_response(response: httpx.Response) -> bool:
@@ -350,28 +438,47 @@ class EroskiCatalogueProvider:
             _PASSWORD_INPUT_RE.search(text)
             or _LOGIN_PAGE_RE.search(text) and not _PRODUCT_ID_RE.search(text)
             or _CHALLENGE_TITLE_RE.search(text)
+            or _RECAPTCHA_INTERSTITIAL_RE.search(text)
         )
 
-    def _get_search_html(self, term: str) -> str:
+    def _get_search_html(self, term: str, *, _retry_with_session: bool = True) -> str:
         try:
             response = self._client.get(
                 _BASE + "/es/search/results/",
                 params={"q": term},
                 follow_redirects=True,
             )
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"Could not search Eroski: {exc}") from exc
+        
+        # Treat HTTP 403/429 as anti-bot challenge before raise_for_status
+        if response.status_code in (403, 429):
+            if _retry_with_session and self._try_load_local_session():
+                return self._get_search_html(term, _retry_with_session=False)
+            raise ProviderError(
+                "Eroski catalogue is blocked by anti-bot protection (datacenter IPs often trigger reCAPTCHA); "
+                "use local MCP with a saved browser session"
+            )
+        
+        # Check for recaptcha interstitial even on HTTP 200
+        if response.status_code == 200 and self._is_auth_challenge(response):
+            if _retry_with_session and self._try_load_local_session():
+                return self._get_search_html(term, _retry_with_session=False)
+            raise ProviderError(
+                "Eroski catalogue returned anti-bot challenge (reCAPTCHA interstitial); "
+                "use local MCP with a saved browser session"
+            )
+        
+        try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise ProviderError(
                 f"Eroski catalogue returned HTTP {exc.response.status_code}"
             ) from exc
-        except httpx.HTTPError as exc:
-            raise ProviderError(f"Could not search Eroski: {exc}") from exc
+        
         if not self._is_trusted_response(response):
             raise ProviderError("Eroski catalogue redirected to an untrusted host")
-        if self._is_auth_challenge(response):
-            raise ProviderError(
-                "Eroski catalogue returned a login or anti-bot challenge"
-            )
+        
         return response.text
 
     def search(
