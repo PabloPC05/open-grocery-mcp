@@ -4,18 +4,10 @@ from __future__ import annotations
 
 import json
 import threading
-from pathlib import Path
 from typing import Any
 
 from open_grocery_mcp.errors import InvalidRequest
-
-
-def _state_dir() -> Path:
-    """Return the local state directory, creating it if necessary."""
-    home = Path.home()
-    state = home / ".open-grocery-mcp"
-    state.mkdir(parents=True, exist_ok=True)
-    return state
+from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
 
 
 class ShoppingProfile:
@@ -26,7 +18,7 @@ class ShoppingProfile:
     """
 
     def __init__(self) -> None:
-        self._path = _state_dir() / "shopping_profile.json"
+        self._path = get_state_dir() / "shopping_profile.json"
         self._lock = threading.Lock()
 
     def _load_locked(self) -> dict[str, Any]:
@@ -57,6 +49,16 @@ class ShoppingProfile:
 
     def _save_locked(self, data: dict[str, Any]) -> None:
         """Save profile with lock already held."""
+        # Ensure state directory exists before writing
+        state_dir = ensure_state_dir()
+        if state_dir is None:
+            raise InvalidRequest("Cannot save shopping profile: state directory is not writable")
+        
+        # Update path if state_dir changed (e.g., fallback to /tmp)
+        expected_path = state_dir / "shopping_profile.json"
+        if self._path != expected_path:
+            self._path = expected_path
+        
         with open(self._path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 

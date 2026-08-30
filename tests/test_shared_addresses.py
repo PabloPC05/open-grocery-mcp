@@ -14,7 +14,12 @@ from open_grocery_mcp.errors import InvalidRequest
 @pytest.fixture
 def temp_state_dir(tmp_path):
     """Provide a temporary state directory for testing."""
-    with patch.object(shared_addresses, "_state_dir", return_value=tmp_path):
+    # Ensure the temp directory exists
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    
+    # Patch the functions where they are used, not where they are defined
+    with patch("open_grocery_mcp.shared_addresses.get_state_dir", return_value=tmp_path), \
+         patch("open_grocery_mcp.shared_addresses.ensure_state_dir", return_value=tmp_path):
         yield tmp_path
 
 

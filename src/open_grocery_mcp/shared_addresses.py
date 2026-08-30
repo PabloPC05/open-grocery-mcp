@@ -15,18 +15,12 @@ from pathlib import Path
 from typing import Any
 
 from open_grocery_mcp.errors import InvalidRequest
-
-
-def _state_dir() -> Path:
-    """Return the shared MCP state directory."""
-    base = Path.home() / ".open-grocery-mcp"
-    base.mkdir(parents=True, exist_ok=True, mode=0o700)
-    return base
+from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
 
 
 def _addresses_file() -> Path:
     """Return the path to the shared addresses JSON file."""
-    return _state_dir() / "shared_addresses.json"
+    return get_state_dir() / "shared_addresses.json"
 
 
 def _load_addresses() -> dict[str, Any]:
@@ -52,10 +46,18 @@ def _load_addresses() -> dict[str, Any]:
 
 def _save_addresses(data: dict[str, Any]) -> None:
     """Save the shared addresses to disk."""
+    state_dir = ensure_state_dir()
+    if state_dir is None:
+        raise InvalidRequest("Cannot save addresses: state directory is not writable")
+    
     addresses_file = _addresses_file()
     with addresses_file.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    addresses_file.chmod(0o600)
+    
+    try:
+        addresses_file.chmod(0o600)
+    except (OSError, PermissionError):
+        pass
 
 
 def add_postal_address(

@@ -14,18 +14,22 @@ from urllib.parse import urlsplit
 from open_grocery_mcp.errors import AuthenticationRequired, InvalidRequest
 from open_grocery_mcp.providers.browser_config import BrowserStoreConfig
 from open_grocery_mcp.providers.browser_driver import PlaywrightBrowserDriver
+from open_grocery_mcp.state_dir import get_state_dir
 
 DriverFactory = Callable[..., PlaywrightBrowserDriver]
 
 
 def default_state_root() -> Path:
+    """Return the root directory for browser session state.
+    
+    Uses the centralized state directory logic which handles Vercel
+    and read-only environments gracefully.
+    """
     configured = os.getenv("OPEN_GROCERY_STATE_DIR")
     if configured:
         return Path(configured).expanduser()
-    # Every session owner (capture tools, GadisSessionClient and the browser
-    # driver) reads and writes the same directory, so the HTTP and browser
-    # backends must not disagree about where a session lives.
-    return Path.home() / ".open-grocery-mcp"
+    # Use the centralized helper that handles Vercel, read-only HOME, etc.
+    return get_state_dir()
 
 
 class BrowserAccountStateMixin:
