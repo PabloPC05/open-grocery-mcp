@@ -13,6 +13,12 @@ Servidor [Model Context Protocol](https://modelcontextprotocol.io/) para buscar 
 | Eroski | HTTP/HTML público, no localizado | Sí | Lectura HTTP; escrituras con navegador y doble validación | GET-only para la dirección ya seleccionada | No disponible por diseño: no existe frontera separada del pedido | No disponible por diseño |
 | Mercadona | HTTP, por código postal | Sí | HTTP | HTTP | HTTP | Experimental y apagado |
 
+> **Nota sobre Día**: Día España (dia.es) fue investigado exhaustivamente pero no proporciona
+> un catálogo público accesible sin establecer sesión con código postal a través del navegador.
+> A diferencia de Mercadona/Eroski que exponen catálogos HTTP/HTML públicos, Día requiere 
+> interacción previa con la UI y no puede integrarse como proveedor de solo lectura. 
+> Ver `docs/dia-catalogue-investigation.md` para el análisis técnico completo.
+
 El método para replicar la migración a HTTP con otro supermercado está
 documentado en `docs/http-backend-playbook.md`.
 La comparación técnica y la evidencia de la auditoría de las cuatro conexiones
