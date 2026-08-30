@@ -24,7 +24,7 @@ from open_grocery_mcp.state_dir import get_state_dir, ensure_state_dir
 # Used as last fallback when no other postal code is configured
 FACTORY_DEFAULT_POSTAL_CODE = "15001"
 
-PostalCodeSource = Literal["argument", "shared_default", "env", "builtin", "none"]
+PostalCodeSource = Literal["argument", "shared_default", "env", "builtin"]
 
 
 def _addresses_file() -> Path:
