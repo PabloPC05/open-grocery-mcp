@@ -20,9 +20,16 @@ están resumidas en `docs/connection-audit.md`.
 
 Ninguna integración se presenta como compra real validada. El endpoint irreversible permanece separado, exige varias autorizaciones locales y no se ejecuta durante pruebas o capturas.
 
-## Qué puede hacer el MCP
+## Herramientas MCP disponibles
 
-Catálogo y comparación:
+El servidor MCP proporciona dos conjuntos de herramientas según el modo de despliegue:
+
+- **Público hosteado** (`https://open-grocery-mcp.vercel.app/mcp`): Catálogo, comparación, cobertura, ofertas y borradores locales (sin autenticación)
+- **Local autenticado** (`stdio` o HTTP local): Todas las herramientas públicas más login, sesión, carrito real, direcciones, franjas, checkout y revisión humana
+
+Ver [`docs/mcp-tool-reference.md`](docs/mcp-tool-reference.md) para la referencia completa de herramientas y su disponibilidad.
+
+### Catálogo y comparación (público y local)
 
 - `health`, `stores`
 - `get_delivery_coverage`
@@ -96,9 +103,9 @@ público sin intentar abrir Chromium. En Froiz, la tienda resuelta se conserva
 El navegador queda reservado para un login solicitado expresamente y para los
 flujos autenticados que no dispongan de una frontera HTTP segura.
 
-Cuenta y compra:
+### Cuenta y compra (solo local autenticado)
 
-- `account_status`, `login_with_browser`, `import_browser_session`
+- `account_status`, `login_with_browser`, `import_browser_session`, `clear_session`
 - `get_real_cart`
 - `prepare_real_cart_update`, `prepare_clear_real_cart`, `commit_real_cart_update`
 - `list_delivery_addresses`, `get_delivery_slots`

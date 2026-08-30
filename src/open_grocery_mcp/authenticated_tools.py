@@ -26,6 +26,11 @@ def register_authenticated_tools(mcp, workflows):
         return workflows.login_with_browser(store, timeout_seconds)
 
     @mcp.tool()
+    def clear_session(store: str) -> dict[str, Any]:
+        """Clear the local browser session for a store, effectively logging out."""
+        return workflows.clear_session(store)
+
+    @mcp.tool()
     def get_real_cart(store: str) -> dict[str, Any]:
         """Read the authenticated retailer cart without changing it."""
         return workflows.real_cart(store)
